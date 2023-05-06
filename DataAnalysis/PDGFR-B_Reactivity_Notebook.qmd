@@ -1,0 +1,5477 @@
+---
+title: "Dissecting glial scar formation by spatial point pattern and topological data analysis"
+subtitle: "Quarto notebook"
+format:
+   html:
+    code-fold: true
+editor: visual
+csl: science.csl
+bibliography: references.bib
+---
+
+This notebook contains the analysis pipeline employed for the article "Dissecting glial scar formation by spatial point pattern and topological data analysis" published in XXX. With this code readers should be able to replicate the experimental results and apply the same type of analysis in other contexts related to glial cell distribution in animal tissue. If the analysis approach is useful for your own experimental purposes, please cite us:
+
+(L) 
+
+# I. Install and load required packages
+
+Install and load required libraries. Please uncomment (erase #) in the 'install.packages' line if installation is required.
+
+## Install required Packages
+
+```{r}
+#| label: Install required packages
+#| include: true
+#| warning: false
+#| message: false
+
+# To install packcages uncomment the following line
+
+#install.packages(c("ggplot2","dpylr", "ggridges", "raincloudplots", "cowplot", "data.table", "ggrepel", "sjPlot", "bayesplot", "reshape2", "purrr", "tidyr", "brms", "emmeans", "modelr", "plyr", "pacthwork", "spatstat", "ggdist", "ggpubr", "bayesplot", "RandomFieldsUtils", "RandomFields", "faintr", "easystats", "equatiomatic"))
+
+#library(devtools)
+#install_github ("cran/RandomFields")
+devtools::install_github('michael-franke/bayes_mixed_regression_tutorial/faintr', build_vignettes = TRUE)
+install.packages("remotes")
+remotes::install_github("easystats/report") 
+easystats::install_suggested()
+
+remotes::install_github("datalorax/equatiomatic")
+```
+
+## Load required packages
+
+Load the libraries required for script execution every time a new R-session is started. We also load `R_rainclouds` and `summarySE.R` functions available on the working directory (Github website).
+
+```{r}
+#| label: Load required packages
+#| include: true
+#| warning: false
+#| message: false
+
+library(ggplot2)
+library(ggridges)
+library(dplyr)
+library(sjPlot)
+library(ggrepel)
+library(reshape2)
+library(purrr)
+library(tidyr)
+library(tibble)
+library(brms)
+library(viridis)
+library(emmeans)
+library(modelr)
+library(tidybayes)
+library(plyr)
+library(patchwork)
+library(spatstat)
+library(data.table)
+library(cowplot)
+library(geosphere)
+library(ggdist)
+library(readr)
+library(ggpubr)
+library(faintr)
+library(raster)
+library(bayesplot)
+library(easystats)
+library(RandomFieldsUtils)
+library(RandomFields)
+library(equatiomatic)
+```
+
+# 1. Process data and generate point patterns
+
+## 1.1 Process annotations files
+
+Automated cell detection using QuPath generates `_annotations.tsv` files containing the summary of detected cells per project (brain). These files are located in subfolders of the `QupathProjects_5x` folder in the GitHub repository. Here we merge all these files to create a clean .csv data table with summaries for all brains. Different scripts are generated for GFAP and IBA1/NeuN detection, as the latter contain additional cell classifiers.
+
+### 1.1.1 Annotations for Pdgfr
+
+```{r}
+#| label: Process anotations files for Gfap
+#| include: true
+#| warning: false
+#| message: false
+
+append_annotations <- function(base_path, results_path) {
+  
+  Gfap_csv_path <- paste0(results_path, "/Gfap_Summary.csv")
+  Annotations_Path <- paste0(base_path, "/Gfap/")
+  process_annotation(results_path = Gfap_csv_path, Annotations_Path)
+  
+}
+
+process_annotation <- function(results_path, path) {
+  
+  print (path)
+  
+  Annotations <- list.files(path = path, pattern = "annotations.tsv", full.names = TRUE) %>% 
+    lapply(read_tsv) %>%                              
+    bind_rows
+ 
+   print(Annotations)
+  
+  Annotations <- as.data.frame(Annotations)
+  names(Annotations) <- NULL
+  
+  write.table(Annotations, results_path, append = TRUE, sep=",")
+}
+
+basePath <- "QuPathProject"
+resultsPath <- "DataTables"
+
+Gfap_csv_path <- paste0(resultsPath, "/Gfap_Summary.csv")
+
+Annotations_Header <- c("Image",	"Object", "Name",	"Class",	"Parent",	"ROI",	"Centroid X ?m",	"Centroid Y ?m",	"Tissue_Area","Num Detections",	"Area ?m^2",	"Perimeter ?m")
+
+df_header <- data.frame(matrix(ncol = 12, nrow = 0))
+names(df_header) <- Annotations_Header
+
+write.csv(df_header, Gfap_csv_path)
+
+brains <- list.dirs(basePath, full.names = FALSE, recursive = FALSE)
+
+for (brain in brains){
+  append_annotations(basePath, resultsPath)
+}
+```
+
+### 1.1.1 Anotations for Pdgfr
+
+We perform the same procedure for Pdgfr
+
+```{r}
+#| label: Process anotations files for Iba1/NeuN
+#| include: true
+#| warning: false
+#| message: false
+
+
+append_annotations <- function(base_path, results_path) {
+  
+  Iba1_csv_path <- paste0(results_path, "/Pdgfr_Summary.csv")
+  Annotations_Path <- paste0(base_path, "/Pdgfr/")
+  process_annotation(results_path = Iba1_csv_path, Annotations_Path)
+}
+  
+process_annotation <- function(results_path, path) {
+  
+  print (path)
+  
+  Annotations <- list.files(path = path, pattern = "annotations.tsv", full.names = TRUE) %>% 
+    lapply(read_tsv) %>%                              
+    bind_rows
+ 
+   print(Annotations)
+  
+  Annotations <- as.data.frame(Annotations)
+  names(Annotations) <- NULL
+  
+  write.table(Annotations, results_path, append = TRUE, sep=",")
+}
+
+
+basePath <- "QuPathProject"
+resultsPath <- "DataTables"
+
+Pdgfr_csv_path <- paste0(resultsPath, "/Pdgfr_Summary.csv")
+
+Annotations_Header <- c("Image",	"Object",	"Name", "Class",	"Parent",	"ROI",	"Centroid X ?m",	"Centroid Y ?m",	"Tisue_Area",	"Num Detections",	"Num Negatie", "Num Positive", "Positive %", "Num Positive per mm^2",  "Area ?m^2",	"Perimeter ?m")
+
+df_header <- data.frame(matrix(ncol = 16, nrow = 0))
+names(df_header) <- Annotations_Header
+
+write.csv(df_header, Pdgfr_csv_path)
+
+brains <- list.dirs(basePath, full.names = FALSE, recursive = FALSE)
+
+for (brain in brains){
+  append_annotations(basePath, resultsPath)
+  
+}
+```
+
+After executing the previous two chunks, three files are located in the `DataTables` folder corresponding to each marker.
+
+## 1.2 Process cell detection files
+
+Automated cell detection with QuPath also generated `_detections.tsv` files containing the coordinates of individual cells per brain. In the following chunk, we manipulate the coordinates, clean and subset the data to obtain .csv tables tables per brain containing relevant information, including cell coordinates. This result in several files stored in the `ResultsTables/CellCoordinates_5x` folder.
+
+### 1.2.1 For Gfap and Dapi
+
+```{r}
+#| label: Process cell detections files 5x
+#| include: true
+#| warning: false
+#| message: false
+
+process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
+  
+  Cells_Raw <- read_tsv(paste0(basePath, "/", Cells_Path))
+  
+  # Convert to data frame
+  Cells <- as.data.frame(Cells_Raw) 
+  
+  # Subset the date set to keep only relevant columns
+  Cells <- subset(Cells, select = c(Image, Name, Parent, `Centroid X µm`, `Centroid Y µm`))
+  Cells <- subset(Cells, Parent=="Positive", select = 1:5)
+  
+  # Extract metadata information from image name
+  Cells <- cbind(Cells, do.call(rbind , strsplit(Cells$Image , "[_\\.]"))[,1:3])
+  colnames(Cells) <- c("Image", "ID", "Class", "X", "Y", "MouseID", "DPI", "Region")
+  Cells <- subset(Cells, select = c(MouseID, DPI, ID, X, Y))
+  
+  # Write a .csv file 
+  write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
+}
+basePath <- "QuPathProject"
+resultsPath <- "DataTables/CellCoordinates2"
+
+process_folder <- function(folderPath, filename_suffix) {
+  files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
+  for (file in files) {
+    process_initial_data(folderPath, file, filename_suffix, resultsPath)
+  }
+}
+
+process_folder(paste0(basePath, "/Gfap"), "_Coordinates.csv")
+process_folder(paste0(basePath, "/Dapi"), "_Coordinates.csv")
+
+
+```
+
+### 1.2.1 For Pdgfr
+
+```{r}
+#| label: Process cell detections files 5x
+#| include: true
+#| warning: false
+#| message: false
+
+process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
+  
+  Cells_Raw <- read_tsv(paste0(basePath, "/", Cells_Path))
+  
+  # Convert to data frame
+  Cells <- as.data.frame(Cells_Raw) 
+  
+  # Subset the date set to keep only relevant columns
+  Cells <- subset(Cells, select = c(Image, Name, Class, Parent, `Centroid X µm`, `Centroid Y µm`))
+  Cells <- subset(Cells, Parent=="Positive")
+  
+  # Extract metadata information from image name
+  Cells <- cbind(Cells, do.call(rbind , strsplit(Cells$Image , "[_\\.]"))[,1:3])
+  colnames(Cells) <- c("Image", "ID", "Class","Parent", "X", "Y", "MouseID", "DPI", "Condition")
+  Cells <- subset(Cells, select = c(MouseID, DPI, Condition, Class, X, Y))
+  
+  # Write a .csv file 
+  write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
+}
+basePath <- "QuPathProject"
+resultsPath <- "DataTables/CellCoordinates2"
+
+process_folder <- function(folderPath, filename_suffix) {
+  files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
+  for (file in files) {
+    process_initial_data(folderPath, file, filename_suffix, resultsPath)
+  }
+}
+
+process_folder(paste0(basePath, "/Pdgfr"), "_Coordinates.csv")
+
+```
+
+## 1.3 Generate hyperframes
+
+In this step, we retrieve the files located in the `ResultsTables/CellCoordinates_5x` folder to generate point patterns, density kernels and tessellations, which are stored in a hyperframe. We also generate files containing intensity summaries and cell locations in tessellated images. This features will be explained later in the work flow.
+
+```{r}
+#| label: Generate hyperframes and additional data tables
+#| include: true
+#| warning: false
+#| message: false
+
+coordinatesPath <- "DataTables/CellCoordinates2"
+
+IntensityPath <- "DataTables"
+
+Cells_Intensity_CSV_Path <- paste0(IntensityPath, "/Cells_Intensity.csv")
+Cells_Intensity_Header <- c("Brain", "Pdgfr_Positive_Intensity", "Pdgfr_Negative_Intensity", "Gfap_Intensity")
+
+
+# Results to generate
+Result_Hyperframe <- NULL
+
+# Functions
+
+add_to_hyperframe <- function (...) {
+    if (is.null(Result_Hyperframe)){
+      Result_Hyperframe <<- hyperframe(...)
+    } else {
+      Result_Hyperframe <<- rbind(Result_Hyperframe, hyperframe(...))
+    }
+}
+
+create_empty_table(Cells_Intensity_CSV_Path, Cells_Intensity_Header)
+
+coordinates_manipulation <- function (Raw_Table) {
+  Cell_Coor_X <- Raw_Table$Y
+  Cell_Coor_Y <- Raw_Table$X
+
+  ## Bind the vectors, rotate and bind to original table
+  Coords <- cbind(Cell_Coor_X, Cell_Coor_Y)
+  Coords <- secr::rotate(Coords, 180)
+  Coords <- as.data.frame(Coords)
+  return(cbind(Raw_Table, Coords))
+}
+
+# Create a point pattern (PPP) object
+
+create_point_pattern <- function(Subset, ReferenceSubset) {
+  # We define the limits of the window according to Dapi coordinates
+  xlim <- range(ReferenceSubset$X)
+  ylim <- range(ReferenceSubset$Y)
+
+  # Create point pattern for neurons
+  Cells_PPP <- with(Subset, spatstat.geom::ppp(x = Subset$X, y = Subset$Y, xrange = xlim, yrange = ylim))
+  unitname(Cells_PPP)  <- list("mm", "mm", 3.407/3753)
+  Cells_PPP <- spatstat.geom::rescale (Cells_PPP)
+  
+  ## We rescale the unit to obtain measurements in mm2
+  return(Cells_PPP)
+  
+}
+
+process_file <- function (basePath, path) {
+
+  Dapi_Raw <- read.csv(file = paste0(basePath, '/', path, '_Str_Dapi_detections.tsv_Coordinates.csv'), header = TRUE)
+  Dapi_Raw  <- Dapi_Raw  %>% sample_frac(.5)
+  Gfap_Raw <- read.csv(file = paste0(basePath, '/', path, '_Str_Gfap_detections.tsv_Coordinates.csv'), header = TRUE)
+  Gfap_Raw  <- Gfap_Raw  %>% sample_frac(.5)
+  Pdgfr_Raw <- read.csv(file = paste0(basePath, '/', path, '_Str_Pdgfr_detections.tsv_Coordinates.csv'), header = TRUE)
+  Pdgfr_Raw  <- Pdgfr_Raw  %>% sample_frac(.5)
+  
+  Dapi_Raw <- coordinates_manipulation(Dapi_Raw)
+  Gfap_Raw <- coordinates_manipulation(Gfap_Raw)
+  Pdgfr_Raw <- coordinates_manipulation(Pdgfr_Raw)
+  
+  # Subset neurons
+  Pdgfr_Positive <- Pdgfr_Raw[(Pdgfr_Raw$Class=="Positive"),]
+  Pdgfr_Negative <- Pdgfr_Raw[(Pdgfr_Raw$Class=="Negative"),]
+ 
+  
+  Dapi_PPP <- create_point_pattern(Dapi_Raw, Dapi_Raw)
+  Window(Dapi_PPP) <- convexhull(Dapi_PPP)
+  Pdgfr_Positive_PPP <- create_point_pattern(Pdgfr_Positive, Dapi_Raw)
+  Window(Pdgfr_Positive_PPP) <- convexhull(Dapi_PPP)
+  Pdgfr_Negative_PPP <- create_point_pattern(Pdgfr_Negative, Dapi_Raw)
+  Window(Pdgfr_Negative_PPP) <- convexhull(Dapi_PPP)
+  Gfap_PPP <- create_point_pattern(Gfap_Raw, Dapi_Raw)
+  Window(Gfap_PPP) <- convexhull(Dapi_PPP)
+
+  Pdgfr_Positive_Intensity <- summary(Pdgfr_Positive_PPP)$intensity
+  Pdgfr_Negative_Intensity <- summary(Pdgfr_Negative_PPP)$intensity
+  Gfap_Intensity <- summary(Gfap_PPP)$intensity
+  
+  Intensity_Row <- t(c(path, Pdgfr_Positive_Intensity, Pdgfr_Negative_Intensity, Gfap_Intensity))
+    write.table(Intensity_Row, Cells_Intensity_CSV_Path, append = TRUE, sep=",", col.names = FALSE)
+
+
+  
+  fragments <- strsplit(path, "_")[[1]]
+  len <- length(fragments)
+  mouse <- fragments[1]
+  dpi <- fragments[2]
+  condition <- fragments[3]
+
+add_to_hyperframe(Pdgfr_Positive = Pdgfr_Positive_PPP, Pdgfr_Negative = Pdgfr_Negative_PPP, Gfap = Gfap_PPP, ID = mouse, DPI=dpi, Condition = condition, stringsAsFactors=TRUE)
+}
+
+csv_files <- list.files(coordinatesPath, full.names = FALSE, recursive = FALSE)
+
+brains <- c()
+
+for (csv in csv_files) {
+  fragments <- strsplit(csv, "_")[[1]]
+  brain_name <- paste(fragments[1:3], collapse="_")
+  brains <- append(brains, brain_name)
+}
+
+brains <- unique(brains)
+
+for (brain in brains) {
+  process_file(coordinatesPath, brain)
+}
+
+saveRDS(Result_Hyperframe, "Hyperframes/Gfap_Pdgfr_PPP.rds")
+
+```
+
+## 1.4 Load the point pattern
+
+```{r}
+PointPatterns <- readRDS("Hyperframes/Gfap_Pdgfr_PPP.rds")
+```
+
+## 1.5 Cells intensity Data set
+
+We start we the cells intensity data set generated in previus chunks.
+
+```{r}
+#| label: Subset data set for cell intensity
+#| include: true
+#| warning: false
+#| message: false
+
+# Load raw data table
+Cells_Intensity_Raw <- read.csv(file = 'DataTables/Cells_Intensity.csv', 
+                                header = TRUE)
+
+# We subset the relevant columns
+Cells_Intensity <- subset(Cells_Intensity_Raw, select = -c(X))
+
+# Extract metadata from the image name and rename columns
+Cells_Intensity  <- cbind(Cells_Intensity, do.call(rbind , strsplit(Cells_Intensity$Brain, "[_\\.]"))[,1:3])
+colnames(Cells_Intensity) <- c("Brain", "Pdgfr_Positive_Intensity", "Pdgfr_Negative_Intensity", "Gfap_Intensity", "MouseID", "DPI", "Condition")
+
+# We subset the relevant columns
+Cells_Intensity <- subset(Cells_Intensity, select = c(MouseID, DPI, Condition, Pdgfr_Positive_Intensity, Pdgfr_Negative_Intensity, Gfap_Intensity))
+
+# We will set the Sham condition as 0 DPI
+
+Cells_Intensity$DPI[Cells_Intensity$Condition == "SHAM"] <- "0D"   
+
+# We will generate DPI as a Numeric Variable 
+Cells_Intensity$DPI[Cells_Intensity$DPI == '0D'] <- '0'
+Cells_Intensity$DPI[Cells_Intensity$DPI == '3D'] <- '3'
+Cells_Intensity$DPI[Cells_Intensity$DPI == '7D'] <- '7'
+Cells_Intensity$DPI[Cells_Intensity$DPI == '14D'] <- '14'
+Cells_Intensity$DPI[Cells_Intensity$DPI == '30D'] <- '30'
+Cells_Intensity$DPI <- as.numeric(Cells_Intensity$DPI)
+
+# We set explicitly the factor level for DPI 
+Cells_Intensity$Condition <- factor(Cells_Intensity$Condition, levels = c("SHAM", "MCAO"))
+
+# We plot the head of the data table to verify the transformation
+head(Cells_Intensity)
+
+```
+
+## 1.6 Cells Annotations files
+
+Now we manage the annotations files generated by QuPath, with information regarding the hemispheric area and number of detections per brain
+
+```{r}
+Gfap_Summary_Raw <- read.csv(file = 'DataTables/Gfap_Summary2.csv', 
+                                header = TRUE)
+
+Pdgfr_Summary_Raw <- read.csv(file = 'DataTables/Pdgfr_Summary2.csv', 
+                                header = TRUE)
+
+# We select the rows containing "Positive" tissue
+Gfap_Summary_Raw  <- Gfap_Summary_Raw [(Gfap_Summary_Raw$Class=="Positive"),]
+Pdgfr_Summary_Raw  <- Pdgfr_Summary_Raw [(Pdgfr_Summary_Raw$Class=="Positive"),]
+
+# We add the columns of interest to the Cells_Intensity Table
+
+Cells_Summary <- cbind(Cells_Intensity, Gfap_Summary_Raw[,10:11])
+names(Cells_Summary)[names(Cells_Summary) == 'Num.Detections'] <- 'Gfap_Num'
+
+Cells_Summary <- cbind(Cells_Summary , Pdgfr_Summary_Raw[,11:14])
+names(Cells_Summary)[names(Cells_Summary) == 'Num.Detections'] <- 'Pdgfr_Total'
+names(Cells_Summary)[names(Cells_Summary) == 'Num.Negatie'] <- 'Pdgfr_NonReact'
+names(Cells_Summary)[names(Cells_Summary) == 'Num.Positive'] <- 'Pdgfr_React'
+names(Cells_Summary)[names(Cells_Summary) == 'Positive..'] <- 'Pdgfr_PercPositive'
+
+Cells_Summary$Tissue_Area <- Cells_Summary$Tissue_Area /1000000 
+
+
+```
+
+## 1.7 Fiji measurements
+
+Finally, we include the Area and intensity measurement performed in Fiji
+
+```{r}
+
+Area_Summary_Raw <- read.csv(file = 'DataTables/Gfap_Pdgfr_AreaIntensity.csv', 
+                                header = TRUE)
+
+Gfap_Area_Raw  <- Area_Summary_Raw [(Area_Summary_Raw$Label=="Gfap"),]
+Cells_Summary <- cbind(Cells_Summary , Gfap_Area_Raw[,3:6])
+names(Cells_Summary)[names(Cells_Summary) == 'Area'] <- 'Gfap_Area'
+names(Cells_Summary)[names(Cells_Summary) == 'Mean'] <- 'Gfap_MeanInt'
+names(Cells_Summary)[names(Cells_Summary) == 'StdDev'] <- 'Gfap_sdInt'
+names(Cells_Summary)[names(Cells_Summary) == 'IntDen'] <- 'Gfap_IntDen'
+
+
+Pdgfr_Area_Raw  <- Area_Summary_Raw [(Area_Summary_Raw$Label=="Pdgfr"),]
+
+Cells_Summary <- cbind(Cells_Summary , Pdgfr_Area_Raw[,3:6])
+names(Cells_Summary)[names(Cells_Summary) == 'Area'] <- 'Pdgfr_Area'
+names(Cells_Summary)[names(Cells_Summary) == 'Mean'] <- 'Pdgfr_MeanInt'
+names(Cells_Summary)[names(Cells_Summary) == 'StdDev'] <- 'Pdgfr_sdInt'
+names(Cells_Summary)[names(Cells_Summary) == 'IntDen'] <- 'Pdgfr_IntDen'
+
+Cells_Summary$Gfap_Area <- Cells_Summary$Gfap_Area /1000000
+Cells_Summary$Gfap_IntDen <- Cells_Summary$Gfap_IntDen /100000
+Cells_Summary$Pdgfr_Area <- Cells_Summary$Pdgfr_Area /1000000
+Cells_Summary$Pdgfr_IntDen <- Cells_Summary$Pdgfr_IntDen /100000
+```
+
+## 1.8. Plotting functions
+
+```{r}
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 12, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+
+
+```
+
+# 2. Analysis of brain shrinkage
+
+Our `Cells_Summary` data frame contains a row named `Tissue_Area` which contains the ipsilateral hemisphere area in mm2.In this section, we perform scientific inference on this variable as a basis to understand the distribution of cells over time. Given the knowledge of the MCAO technique, we expect an initial inflammatory phase, followed by brain shrinkage.
+
+## 2.1 Exploratory data visualization
+
+We perform an initial visualization o the data to define the statistical model.
+
+### 2.1.1 Density of the response variable
+
+We plot the response variable as a density
+
+```{r}
+#| label: Density of brain shrinkage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Hem_Area_Dens <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = Tissue_Area)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="Hemispheric area (mm2)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+ggsave(
+  plot     = Hem_Area_Dens , 
+  filename = "plots/Hem_Area_Dens.png", 
+  width    = 12, 
+  height   = 10, 
+  units    = "cm")
+
+#Plot the result
+Hem_Area_Dens 
+```
+
+The graph shows a range of \~ 5-20. Without accounting for days-post ischemia (DPI), the response variable exhibits a double peak, resembling the mixture of the normal distributions.Now, we can check the distribution by DPI.
+
+### 2.1.2 Scatter of the response variable
+
+Here, we create a scatter plot to explore the distribution of the response variable according to DPI.We represent the observations as black dots. Moreover, we fit regression lines for linear model (black), together with 2-degree (red) and 3-degree (green) polynomial models.
+
+```{r}
+#| label: Scatter plot for hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Hem_Area_Sctr <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = DPI, 
+        y = Tissue_Area)
+    ) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+scale_y_continuous(name = "Hemispheric area (mm2)") +
+scale_x_continuous(
+  name   ="Days post-ischemia (DPI) ",
+  breaks =c(0, 3,7,14,30)
+  ) +
+Plot_theme
+
+ggsave(
+  plot     = Hem_Area_Sctr , 
+  filename = "Plots/Hem_Area_Sctr.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Hem_Area_Sctr 
+```
+
+The scatter plots reveals brain shrinkage overtime. Importantly, The fitted lines suggest that the trend is not linear, specially because the initial inflammatory phase occurring at 3 DPI. This justifies the use of a non-linear modeling.
+
+## 2.2 Statistical modeling
+
+We make use of the `brms` package [@bürkner2017; @brms] to perform Bayesian modeling.In all the cases, we use weakly informative priors to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
+
+-   **Hem_Area_Mdl1**. We regress `Tissue_Area` (Hemispheric area) variable on `DPI` (days post-ischemia). This models assumes that DPI is a linear predictor of the Hemispheric area.
+
+$Area{i} = \alpha + \beta_{DPI} DPI_{i} + \epsilon_{i}$
+
+This model uses the following user-defined priors
+
+$\beta_{1}, \beta_{2}, ... \sim Normal(0, 1)$ $\alpha \sim Student-t(3, 15, 5)$ $\sigma \sim Student-t(3, 0, 4)$, with $\sigma > 0$
+
+-   **Hem_Area_Mdl2** We regress `Tissue_Area` (Hemispheric area) variable on `DPI` (days post-ischemia) assuming a two-degree polynomial function.
+
+$Area{i} = \alpha + \beta_{DPI} DPI_i + \beta_{DPI^2} DPI^2_i + \epsilon_i$
+
+This model uses the same priors as model 1.
+
+-   **Hem_Area_Mdl3** We regress `Tissue_Area` (Hemispheric area) variable on `DPI` (days post-ischemia) using smooth terms (splines) with five nodes.
+
+$Area_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the same priors as model 1.
+
+-   **Hem_Area_Mdl4** Finally, we add sigma as a predicted variable using the same notation of Mdl3.
+
+$Area_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$ $sigma_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the following used-defined priors:
+
+$b \sim \mathcal{N}(0, 1)$ $\text{Intercept} \sim t_{3}(15, 5), \text{lb}=0$ $\sigma \sim t_{3}(0, 4), \text{class} = b, \text{lb}=0$
+
+```{r}
+#| label: Statistical modeling for hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1: DPI as a linear predictor
+
+Hem_Area_Mdl1 <- bf(Tissue_Area ~ DPI)
+
+get_prior(Hem_Area_Mdl1, data = Cells_Summary)
+
+# Model prior
+Hem_Area_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(student_t(3, 15, 5), class = Intercept),
+    prior(student_t(3, 0, 4), class = sigma, lb=0))
+                                
+# Fit model 1
+Hem_Area_Fit1 <- 
+  brm(
+    data    = Cells_Summary,
+    family  = student,
+    formula = Hem_Area_Mdl1,
+    prior   = Hem_Area_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Hem_Area_Fit1.rds",
+    file_refit = "never") 
+                     
+
+# Add loo for model comparison
+Hem_Area_Fit1 <- 
+  add_criterion(Hem_Area_Fit1, c("loo", "waic", "bayes_R2"))
+
+#####################################################
+#Model 2: 2-degree polynomial with DPI as predictor
+Hem_Area_Mdl2 <- 
+  bf(Tissue_Area ~ DPI + I(DPI^2))
+
+# Fit model 2
+Hem_Area_Fit2 <- 
+  brm(
+    data    = Cells_Summary,
+    family  = student,
+    formula = Hem_Area_Mdl2,
+    prior   = Hem_Area_Prior1,
+    chains  = 4, 
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Hem_Area_Fit2.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Hem_Area_Fit2 <- 
+  add_criterion(Hem_Area_Fit2, c("loo", "waic", "bayes_R2"))
+
+###################################
+# Model 3: Model with splines at DPI
+Hem_Area_Mdl3 <-
+  bf(Tissue_Area ~ s(DPI, k=5))
+
+# Fit model 3
+Hem_Area_Fit3 <-
+    brm(
+    data    = Cells_Summary,
+    family  = student,
+    formula = Hem_Area_Mdl3,
+    prior   = Hem_Area_Prior1,
+    chains  = 4, 
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Hem_Area_Fit3.rds",
+    file_refit = "never")
+
+Hem_Area_Fit3 <- 
+  add_criterion(Hem_Area_Fit3, c("loo", "waic", "bayes_R2"))
+
+###################################
+# Model 4: Model with splines at DPI and sigma
+Hem_Area_Mdl4 <- 
+  bf(Tissue_Area ~ s(DPI, k=5),
+           sigma ~ DPI)
+
+get_prior(Hem_Area_Mdl4, data = Cells_Summary)
+
+Hem_Area_Prior2  <- 
+  c(prior(normal(0, 1), class = b),
+    prior(student_t(3, 15, 5), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 4), class = b, dpar=sigma, lb=0))
+
+# Fit model 4
+Hem_Area_Fit4 <- 
+  brm(
+  data    = Cells_Summary,
+  family  = student,
+  formula = Hem_Area_Mdl4,
+  prior   = Hem_Area_Prior2,
+  knots   = list(DPI = c(0, 3, 7, 14, 30)),
+  chains  = 4, 
+  cores   = 4,
+  warmup = 2500, 
+  iter= 5000, 
+  seed = 8807,
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  file    = "BayesianModels/Hem_Area_Fit4.rds",
+  file_refit = "never")
+
+Hem_Area_Fit4 <- 
+  add_criterion(Hem_Area_Fit4, c("loo", "waic", "bayes_R2"))
+```
+
+## 2.3 We compare the models
+
+The next steps is to compare the model performance using WAIC. We use the `compare_performance` function from the `performance` package, part of the `easystats` environment [@performance; @easystats; @makowski2019]
+
+```{r}
+#| label: Compare performance for hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Hemis_Area_Comp <- 
+  compare_performance(
+    Hem_Area_Fit1, 
+    Hem_Area_Fit2, 
+    Hem_Area_Fit3, 
+    Hem_Area_Fit4
+    )
+
+Hemis_Area_Comp
+```
+
+The results depict that Hem_Area_Fit4 is less penalized for out of sample prediction than other models, although it has similar explained variance (R2 = 0.770 to Mdl2 and Mdl3. The sigma factor is absent given that this model predicts sigma. This offer suffcient grounds to select Mdl4 as the best alternative to make scientific inference about hemispheric area.
+
+We can also generate a plot from scratch using the `loo_compare` function from brms:
+
+```{r}
+#| label: Compare performance for hemispheric areas - Graph
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Hem_Area_W <- 
+loo_compare(
+  Hem_Area_Fit1, 
+  Hem_Area_Fit2, 
+  Hem_Area_Fit3,
+  Hem_Area_Fit4, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Hem_Area_WAIC <- 
+  Hem_Area_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Hem_Area_Fit1", 
+             "Hem_Area_Fit2", 
+             "Hem_Area_Fit3", 
+             "Hem_Area_Fit4"),
+    labels=c("DPI", 
+             "DPI^2", 
+             "s(DPI)", 
+             "sigma")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+# Save WAIC graph
+ggsave(
+  plot     = Hem_Area_WAIC, 
+  filename ="Plots/Hem_Area_WAIC.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+
+Hem_Area_WAIC
+```
+
+## 2.4 Model diagnostics
+
+In this section we check the selected model (Mdl4) to asses its deviation from the observed data
+
+### 2.4.1 Posterior predictive checks
+
+```{r}
+#| label: Posterior predictive checks for hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Hem_Area_Mdl4_pp <- 
+  brms::pp_check(Hem_Area_Fit4, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 4",
+    subtitle = "Smooth terms and sigma",
+    caption = "Model: Area ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Hem_Area_Mdl4_pp, 
+  filename = "Plots/Hem_Area_Mdl4_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Hem_Area_Mdl4_int <- 
+  pp_check(Hem_Area_Fit4, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  Plot_theme 
+
+ggsave(
+  plot     = Hem_Area_Mdl4_int, 
+  filename = "Plots/Hem_Area_Mdl4_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Hem_Area_Mdl4_pp | Hem_Area_Mdl4_int 
+```
+
+The graph shows that the model predictions do not deviate substantially from the data.
+
+### 2.4.2 PSIS diagnostic plot
+
+We can see outliers using the PSIS diagnostic plot
+
+```{r}
+  plot(loo(Hem_Area_Fit4)) 
+  
+```
+
+### 2.4.3 diagnostics with shinystan
+
+To visualize more model diagnostics please look:
+
+```{r}
+launch_shinystan(Hem_Area_Fit4)
+```
+
+## 2.5 Plot the results
+
+Now, let's plot the results using `conditional_effects` from the brms package.
+
+```{r}
+#| label: Plot the results for hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Hem_Area_DPI <- 
+  conditional_effects(Hem_Area_Fit4)
+
+Hem_Area_DPIdf <- 
+  as.data.frame(Hem_Area_DPI$DPI)
+
+Hem_Area_pred <- 
+  Cells_Summary %>%
+  data_grid(DPI, n = 10) %>%
+  add_predicted_draws(
+    Hem_Area_Fit4, 
+    ndraws = 50)
+
+Hem_Area_DPI_Fig <-  
+  ggplot(
+    data  = Hem_Area_DPIdf,
+    aes(x = DPI,
+        y = estimate__)
+    )+
+  geom_jitter(
+    data  = Hem_Area_pred, 
+    aes(x = DPI, 
+        y = .prediction), 
+    width = 0.5, 
+    color = "navyblue", 
+    shape = 1, 
+    size  = 1.5, 
+    alpha = 1/3)+
+  geom_jitter(
+    data  = Cells_Summary, 
+    aes(x = DPI, y=Tissue_Area),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  scale_y_continuous(name = "Hemisphere area (mm2)") +
+  scale_x_continuous(name="Days post-ischemia") +
+  Plot_theme
+
+ggsave(
+  plot     = Hem_Area_DPI_Fig, 
+  filename = "Plots/Hem_Area_DPI.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Hem_Area_DPI_Fig
+
+
+```
+
+Here we can see the observations (black) and the point predictions (blue). Altogether the model captures well the dynamics of brain shrinkage but makes inaccurate estimations for control (0) and 3 DPI.
+
+## 2.6 Evaluation of results
+
+Let's first plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019]
+
+```{r}
+#| label: Description of results for hemispheric area 1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Hem_Area_Fit4,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+Give the nature of this regression, this table summary contains information which is not easy interpretable. For this reason the `estimate_relation` and `estimate_smooth` function from the modelbased package [@modelbased] may be more useful in this context:
+
+```{r}
+#| label: Description of results for hemispheric area 2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Hem_Area_est <- 
+  estimate_relation(
+    Hem_Area_Fit4, 
+    at = "DPI", 
+    ci = c(0.90))
+
+Hem_Area_est
+```
+
+This show us different "fragments" of the DPI range with predicted point estimates and their uncertainty which are more informative. Still, we can summarize further those estimations:
+
+```{r}
+#| label: Description of results for hemispheric area 3
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+ 
+estimate_smooth(Hem_Area_est, x = "DPI")
+```
+
+This results suggest like the model (as seen in the graph) is not capturing the swelling phase at 3 DPI. The most reasonable explanation is that the number of knots for the smooth term is limited given the limited time points along the injury progress. Still, the results predicts a reduction of \~ 8.26 in the hemispheric area(slope of -0.35) from 0 to \~ 23 DPI, which model a strong shrinkage process during the first 3 weeks post ischemia. Later, the model predicts a stabilization of the brain shrinkage (0.39, slope 0.06) from 23 up to 30 DPI. This indicates that brain shrinkage occurs during the first three weeks after ischemia.
+
+The `estimate_slopes` function allow to visualize the effect of DPI in the hemispheric area trough the calculation of derivatives.
+
+```{r}
+#| label: Description of results for hemispheric area - plo derivatives
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Hem_Area_deriv <- 
+  estimate_slopes(
+    Hem_Area_Fit4,
+    trend = "DPI",
+     at = "DPI",
+    length = 30
+    )
+
+# Visualize
+Hem_Area_deriv_Fig <- 
+  plot(deriv) + 
+  labs(x = "Days post-ischemia (DPI)", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Hem_Area_deriv_Fig, 
+  filename = "Plots/Hem_Area_deriv_Fig.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Hem_Area_deriv_Fig 
+```
+
+The graph show a substantial contribution of DPI in hemispheric area (blue) during the first three weeks post-ischemia.
+
+# 3. Gfap reactivity
+
+Our `Cells_Summary` data frame contains a row named `Gfap_IntDen` which accounts for the integrated density measured by FIJI. That is, the mean intensity in GFAP-labeled areas. The units can be considered arbitrary and just useful relative to others. Given the knowledge of GFAP reactivity, we expect a progressive increase in this marker.
+
+## 3.1 Exploratory data visualization
+
+We perform an initial visualization o the data to define the statistical model.
+
+### 3.1.1 Density of the response variable
+
+We plot the response variable as a density
+
+```{r}
+#| label: Density of GFAP IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+GFAP_IntDen_Dens <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = Gfap_IntDen)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="GFAP (IntDen)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+ggsave(
+  plot     = GFAP_IntDen_Dens , 
+  filename = "plots/GFAP_IntDen_Dens.png", 
+  width    = 12, 
+  height   = 10, 
+  units    = "cm")
+
+#Plot the result
+GFAP_IntDen_Dens 
+```
+
+The graph shows a range of \~ 0-1250. Without accounting for days-post ischemia (DPI), the response variable exhibits a single peak far from typical shape responses. Next, we check the distribution by DPI.
+
+### 3.1.2 Scatter of the response variable
+
+Here, we create a scatter plot to explore the distribution of the response variable according to DPI.We represent the observations as black dots. Moreover, we fit regression lines for linear model (black), together with 2-degree (red) and 3-degree (green) polynomial models.
+
+```{r}
+#| label: Scatter plot for GFAP IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Gfap_IntDen_Sctr <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = DPI, 
+        y = Gfap_IntDen)
+    ) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+scale_y_continuous(name = "GFAP (IntDen)") +
+scale_x_continuous(
+  name   ="Days post-ischemia (DPI) ",
+  breaks =c(0, 3,7,14,30)
+  ) +
+Plot_theme
+
+ggsave(
+  plot     = Gfap_IntDen_Sctr , 
+  filename = "Plots/Gfap_IntDen_Sctr.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_IntDen_Sctr 
+```
+
+The visualization indicates that there a low linear correlation for GFAP reactivity. Specially, the line completely misses the intercept. Otherwise, 2-degree and 3-degree polynomials seem to capture well the GFP dynamics.
+
+## 3.2 Bayesian Modeling
+
+Here, we follow a similar approach as done for hemispheric areas. We use weakly informative priors to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
+
+-   **Gfap_IntDen_Mdl1**. We regress `Gfap_IntDen` (GFAP integrated density) on `DPI` (days post-ischemia). This models assumes that DPI is a linear predictor of the GFAP integrated density.
+
+$IntDen{i} = \alpha + \beta_{DPI} DPI_{i} + \epsilon_{i}$
+
+This model uses the following user-defined priors
+
+$\beta_{1}, \beta_{2}, ... \sim Normal(100, 50)$ $\alpha \sim Student-t(3, 500, 300)$ $\sigma \sim Student-t(3, 0, 100)$, with $\sigma > 0$
+
+-   **Gfap_IntDen_Mdl2** We regress `Gfap_IntDen` (GFAP integrated density) on `DPI` (days post-ischemia) assuming a two-degree polynomial function.
+
+$IntDen{i} = \alpha + \beta_{DPI} DPI_i + \beta_{DPI^2} DPI^2_i + \epsilon_i$
+
+This model uses the same priors as model 1.
+
+-   **Gfap_IntDen_Mdl3** We regress `Gfap_IntDen` (GFAP integrated density) on `DPI` (days post-ischemia) assuming using smooth terms (splines) with five nodes.
+
+$IntDen_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the same priors as model 1.
+
+-   **Gfap_IntDen_Mdl4** We add sigma as a predicted variable using the same notation of Mdl3.
+
+$IntDen_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$ $sigma_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the following used-defined priors:
+
+$b \sim \mathcal{N}(100, 50)$ $\text{Intercept} \sim t_{3}(500, 300), \text{lb}=0$ $\sigma \sim t_{3}(0, 100), \text{class} = b, \text{lb}=0$
+
+-   **Gfap_IntDen_Mdl5** Finally, we would like to investigate the correlation of the hemispheric area on GFAP integrated density. We do so by fitting a spline model with interaction using the `t2` function. This model uses the brms-default priors.
+
+```{r}
+#| label: Statistical modeling for GFAP IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: DPI as a linear predictor
+Gfap_IntDen_Mdl1 <- bf(Gfap_IntDen ~ DPI)
+
+get_prior(Gfap_IntDen_Mdl1, Cells_Summary)
+
+Gfap_IntDen_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(normal(100,50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = sigma, lb=0))
+
+# Fit model 1
+Gfap_IntDen_Fit1 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Gfap_IntDen_Mdl1,
+    prior   = Gfap_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_IntDen_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit1 <- 
+  add_criterion(Gfap_IntDen_Fit1, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 2: 2-degree polynomial with DPI as predictor
+Gfap_IntDen_Mdl2 <- bf(Gfap_IntDen ~ DPI + I(DPI^2))
+
+get_prior(Gfap_IntDen_Mdl2, Cells_Summary)
+
+# Fit model 2
+Gfap_IntDen_Fit2 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Gfap_IntDen_Mdl2,
+    prior   = Gfap_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_IntDen_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit2 <- 
+  add_criterion(Gfap_IntDen_Fit2, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 3: Model with splines at DPI
+Gfap_IntDen_Mdl3 <- bf(Gfap_IntDen ~ s(DPI, k = 5))
+
+get_prior(Gfap_IntDen_Mdl3, Cells_Summary)
+
+# Fit model 3
+Gfap_IntDen_Fit3 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Gfap_IntDen_Mdl3,
+    prior   = Gfap_IntDen_Prior1,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_IntDen_Fit3.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit3 <- 
+  add_criterion(Gfap_IntDen_Fit3, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 4: Spline and sigma
+Gfap_IntDen_Mdl4 <- 
+  bf(Gfap_IntDen ~ s(DPI, k=5),
+     sigma ~  s(DPI, k=5)
+     )
+
+get_prior(Gfap_IntDen_Mdl4, Cells_Summary)
+
+Gfap_IntDen_Prior2 <- 
+  c(prior(normal(0, 1), class = b),
+    prior(student_t(1, 100, 50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = b, dpar=sigma, lb=0))
+
+# Fit model 4
+Gfap_IntDen_Fit4 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Gfap_IntDen_Mdl4,
+    prior   = Gfap_IntDen_Prior2,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 5000, 
+    iter    = 10000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.999, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_IntDen_Fit4.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit4 <- 
+  add_criterion(Gfap_IntDen_Fit4, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 5: Spline interaction between DPI and hemispheric area
+Gfap_IntDen_Mdl5 <- 
+  bf(Gfap_IntDen ~ t2(DPI,Tissue_Area))
+
+get_prior(Gfap_IntDen_Mdl5, Cells_Summary)
+
+# Fit model 5
+Gfap_IntDen_Fit5 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Gfap_IntDen_Mdl5,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_IntDen_Fit5.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit5 <- 
+  add_criterion(Gfap_IntDen_Fit5, c("loo", "waic", "bayes_R2"))
+
+```
+
+## 3.3 We compare the models
+
+Here we compare the models as done previously. We explore model 5 later for specific porpuses.
+
+```{r}
+#| label: Compare performance for Gfap IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_IntDen_Comp <- 
+  compare_performance(
+    Gfap_IntDen_Fit1, 
+    Gfap_IntDen_Fit2, 
+    Gfap_IntDen_Fit3, 
+    Gfap_IntDen_Fit4
+    )
+
+Gfap_IntDen_Comp
+```
+
+The results depict that Gfap_IntDen_Fit4 is less penalized for out of sample prediction than other models, and better explain the variance (R2 = 0.52). Still, this R2 value is below the expected. The sigma factor is absent given that this model predicts sigma. This offer sufficient grounds to select Mdl4 as the best alternative to make scientific inference aboutGfap integrated density
+
+Let-s plot the model comparison usng the `loo_compare`
+
+```{r}
+#| label: Compare performance for Gfap IntDen - Graph
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_IntDen_W <- 
+loo_compare(
+  Gfap_IntDen_Fit1, 
+  Gfap_IntDen_Fit2, 
+  Gfap_IntDen_Fit3,
+  Gfap_IntDen_Fit4, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Gfap_IntDen_WAIC <- 
+  Gfap_IntDen_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Gfap_IntDen_Fit1", 
+             "Gfap_IntDen_Fit2", 
+             "Gfap_IntDen_Fit3", 
+             "Gfap_IntDen_Fit4"),
+    labels=c("DPI", 
+             "DPI^2", 
+             "s(DPI)", 
+             "sigma")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+# Save WAIC graph
+ggsave(
+  plot     = Gfap_IntDen_WAIC, 
+  filename ="Plots/Gfap_IntDen_WAIC.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+
+Gfap_IntDen_WAIC
+```
+
+## 3.4 Model diagnostics
+
+Now, we check the model fitting
+
+### 3.4.1 Posterior predictive checks
+
+```{r}
+#| label: Posterior predictive checks for Gfap IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Gfap_IntDen_Mdl4_pp <- 
+  brms::pp_check(Gfap_IntDen_Fit4, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 4",
+    subtitle = "Smooth terms and sigma",
+    caption = "Model: Area ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Gfap_IntDen_Mdl4_pp, 
+  filename = "Plots/Gfap_IntDen_Mdl4_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Gfap_IntDen_Mdl4_int <- 
+  pp_check(Gfap_IntDen_Fit4, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  Plot_theme 
+
+ggsave(
+  plot     = Gfap_IntDen_Mdl4_int, 
+  filename = "Plots/Gfap_IntDen_Mdl4_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Gfap_IntDen_Mdl4_pp | Gfap_IntDen_Mdl4_int 
+```
+
+The graph shows that the model predictions do not deviate substantially from the data.
+
+### 3.4.2 PSIS diagnostic plot
+
+We can see outliers using the PSIS diagnostic plot
+
+```{r}
+plot(loo(Gfap_IntDen_Fit4)) 
+  
+```
+
+### 2.4.3 diagnostics with shinystan
+
+To visualize more model diagnostics please look:
+
+```{r}
+launch_shinystan(Gfap_IntDen_Fit4)
+```
+
+## 3.5 Plot the results
+
+Here we plot the result with the effect of DPI for model 4
+
+```{r}
+#| label: Plot the results for Gfap IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Gfap_IntDen_DPI <- 
+  conditional_effects(Gfap_IntDen_Fit4)
+
+Gfap_IntDen_DPIdf <- 
+  as.data.frame(Gfap_IntDen_DPI$DPI)
+
+Gfap_IntDen_pred <- 
+  Cells_Summary %>%
+  data_grid(DPI, n = 10) %>%
+  add_predicted_draws(
+    Gfap_IntDen_Fit4, 
+    ndraws = 50)
+
+Gfap_IntDen_DPI_Fig <-  
+  ggplot(
+    data  = Gfap_IntDen_DPIdf,
+    aes(x = DPI,
+        y = estimate__)
+    )+
+  geom_jitter(
+    data  = Gfap_IntDen_pred, 
+    aes(x = DPI, 
+        y = .prediction), 
+    width = 0.5, 
+    color = "navyblue", 
+    shape = 1, 
+    size  = 1.5, 
+    alpha = 1/3)+
+  geom_jitter(
+    data  = Cells_Summary, 
+    aes(x = DPI, y=Gfap_IntDen),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  scale_y_continuous(
+    name = "GFAP (integrated density)",
+    limits = c(0, 1500),
+    breaks = seq(0, 1500, 500)
+    ) +
+  scale_x_continuous(name="Days post-ischemia (DPI)") +
+  Plot_theme
+
+ggsave(
+  plot     = Gfap_IntDen_DPI_Fig, 
+  filename = "Plots/Gfap_IntDen_DPI.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_IntDen_DPI_Fig
+
+
+# Plot smooths for sigma
+
+Gfap_IntDen_Smooths <- 
+  conditional_smooths(Gfap_IntDen_Fit4)
+
+Gfap_IntDen_Sigma_df <- 
+  as.data.frame(Gfap_IntDen_Smooths$`sigma: s(DPI,k=5)`)
+
+Gfap_IntDen_Sigma_fig <-  
+  ggplot(Gfap_IntDen_Sigma_df,
+         aes(x = DPI,y = estimate__))+
+  geom_ribbon(
+    aes(ymin  =lower__, 
+        ymax = upper__), 
+    alpha = 0.2)+
+  geom_line(size  = 1,
+            color ="blue",
+            position = position_dodge(0.05)) +
+  scale_y_continuous(name= "Gfap integrated density (sigma)\n") +
+  scale_x_continuous(name="Days post-ischemia (DPI)") +
+  Plot_theme
+          
+ggsave(plot     = Gfap_IntDen_Sigma_fig, 
+       filename = "Plots/Gfap_IntDen_Sigma.png", 
+       width    = 12, 
+       height   = 12, 
+       units    = "cm")
+
+Gfap_IntDen_DPI_Fig | Gfap_IntDen_Sigma_fig
+```
+
+The graphs shown the estimated fitted line for GFAP integrated density and sigma. We can visualize an increasing trend up to the second week, followed by a slight reduction at 30 DPI. We ponder that this reduction may be cause by brain shrinkage. Otherwise, the results estimate a sharp increase in GFAP integrated density variance at 7 DPI, which remain sustained until chronic stages.
+
+## 3.6 Evaluation of results
+
+We plot the posterior summary using the `describe_posterior`.
+
+```{r}
+#| label: Description of results for Gfap IntDen 1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Gfap_IntDen_Fit4,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+As before, the `estimate_relation` and `estimate_smooth` functions can give us a more clear overview:
+
+```{r}
+#| label: Description of results for Gfap IntDen 2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Gfap_IntDen_est <- 
+  estimate_relation(
+    Gfap_IntDen_Fit4, 
+    at = "DPI", 
+    ci = c(0.95))
+
+Gfap_IntDen_est
+```
+
+We summarize further those estimations:
+
+```{r}
+#| label: Description of results for Gfap IntDen 3
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+ 
+estimate_smooth(Gfap_IntDen_est, x = "DPI")
+```
+
+Our model estimates an sustained increase (slope = 50.1) of GFAP integrated density up to \~ 16 DPI (Change of 835, 95%CI = 692.62 - 1223.24). This is followed by a decrease (slope -36) up to 30 DPI. We do not rule out that this decrease can be mediate by brain shrinkage.
+
+We can plot the derivative
+
+```{r}
+#| label: Description of results for Gfap IntDen - plot derivatives
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Gfap_IntDen_deriv <- 
+  estimate_slopes(
+    Gfap_IntDen_Fit4,
+    trend = "DPI",
+     at = "DPI",
+    length = 30
+    )
+
+# Visualize
+Gfap_IntDen_deriv_Fig <- 
+  plot(Gfap_IntDen_deriv) + 
+  labs(x = "Days post-ischemia (DPI)", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Gfap_IntDen_deriv_Fig, 
+  filename = "Plots/Gfap_IntDen_deriv.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_IntDen_deriv_Fig 
+```
+
+## 3.7 GFAP relation to hemispheric area
+
+We explore further the relation between GFAP integrated density and hemispheric area using the model 5, which regress Gfap_IntDen on a interactive spline between DPI and hemispheric area. We do so by plotting a
+
+```{r}
+#| label: Description of results for Gfap IntDen - DPI/Hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+set.seed(8807)
+
+# We convert the estimates to a data frames
+#Gfap_IntDen_Area <- 
+ # conditional_smooths(Gfap_IntDen_Fit5)
+
+Gfap_IntDen_Area_Fig  <- 
+  plot(Gfap_IntDen_Area, 
+       plot = FALSE)[[1]] +
+  
+  scale_y_continuous(name= "Hemisphere area (mm2)\n") +
+  scale_x_continuous(name="DPI") +
+  scale_color_gradientn(
+    name = "IntDen", 
+    colors = viridis(6)) +
+  Plot_theme
+  
+ggsave(
+  plot     = Gfap_IntDen_Area_Fig , 
+  filename = "Plots/Gfap_IntDen_Area.png", 
+  width    = 15, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_IntDen_Area_Fig
+
+```
+
+# 3. Pdgfr reactivity
+
+Our `Cells_Summary` data frame contains a row named `Pdgfr_IntDen` which accounts for the integrated density measured by FIJI. That is, the mean intensity in Pdgfr-labeled areas. The units can be considered arbitrary and just useful relative to others. Given the knowledge of Pdgfr reactivity, we expect a progressive increase in this marker.
+
+## 3.1 Exploratory data visualization
+
+We perform an initial visualization o the data to define the statistical model.
+
+### 3.1.1 Density of the response variable
+
+We plot the response variable as a density
+
+```{r}
+#| label: Density of Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfr_IntDen_Dens <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = Pdgfr_IntDen)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="Pdgfr (IntDen)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+ggsave(
+  plot     = Pdgfr_IntDen_Dens , 
+  filename = "plots/Pdgfr_IntDen_Dens.png", 
+  width    = 12, 
+  height   = 10, 
+  units    = "cm")
+
+#Plot the result
+Pdgfr_IntDen_Dens 
+```
+
+The graph shows a range of \~ 0 - 1500. Without accounting for days-post ischemia (DPI), the response variable exhibits a single peak far from typical shape responses. Next, we check the distribution by DPI.
+
+### 3.1.2 Scatter of the response variable
+
+Here, we create a scatter plot to explore the distribution of the response variable according to DPI.We represent the observations as black dots. Moreover, we fit regression lines for linear model (black), together with 2-degree (red) and 3-degree (green) polynomial models.
+
+```{r}
+#| label: Scatter plot for Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Pdgfr_IntDen_Sctr <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = DPI, 
+        y = Pdgfr_IntDen)
+    ) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+scale_y_continuous(name = "PDGFR-B (IntDen)") +
+scale_x_continuous(
+  name   ="Days post-ischemia (DPI) ",
+  breaks =c(0, 3,7,14,30)
+  ) +
+Plot_theme
+
+ggsave(
+  plot     = Pdgfr_IntDen_Sctr , 
+  filename = "Plots/Pdgfr_IntDen_Sctr.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Pdgfr_IntDen_Sctr 
+```
+
+The visualization indicates that there a low linear correlation for Pdgfr reactivity. Specially, the line completely misses the intercept. Otherwise, 2-degree and 3-degree polynomials seem to capture well the GFP dynamics.
+
+## 3.2 Bayesian Modeling
+
+Here we use the same approximation as done from GFAP.
+
+```{r}
+#| label: Statistical modeling for Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: DPI as a linear predictor
+Pdgfr_IntDen_Mdl1 <- bf(Pdgfr_IntDen ~ DPI)
+
+get_prior(Pdgfr_IntDen_Mdl1, Cells_Summary)
+
+Pdgfr_IntDen_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(normal(100,50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = sigma, lb=0))
+
+# Fit model 1
+Pdgfr_IntDen_Fit1 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_IntDen_Mdl1,
+    prior   = Pdgfr_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_IntDen_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_IntDen_Fit1 <- 
+  add_criterion(Pdgfr_IntDen_Fit1, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 2: 2-degree polynomial with DPI as predictor
+Pdgfr_IntDen_Mdl2 <- bf(Pdgfr_IntDen ~ DPI + I(DPI^2))
+
+get_prior(Pdgfr_IntDen_Mdl2, Cells_Summary)
+
+# Fit model 2
+Pdgfr_IntDen_Fit2 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_IntDen_Mdl2,
+    prior   = Pdgfr_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_IntDen_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_IntDen_Fit2 <- 
+  add_criterion(Pdgfr_IntDen_Fit2, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 3: Model with splines at DPI
+Pdgfr_IntDen_Mdl3 <- bf(Pdgfr_IntDen ~ s(DPI, k = 5))
+
+get_prior(Pdgfr_IntDen_Mdl3, Cells_Summary)
+
+# Fit model 3
+Pdgfr_IntDen_Fit3 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_IntDen_Mdl3,
+    prior   = Pdgfr_IntDen_Prior1,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_IntDen_Fit3.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_IntDen_Fit3 <- 
+  add_criterion(Pdgfr_IntDen_Fit3, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 4: Spline and sigma
+Pdgfr_IntDen_Mdl4 <- 
+  bf(Pdgfr_IntDen ~ s(DPI, k=5),
+     sigma ~  s(DPI, k=5)
+     )
+
+get_prior(Pdgfr_IntDen_Mdl4, Cells_Summary)
+
+Pdgfr_IntDen_Prior2 <- 
+  c(prior(normal(0, 1), class = b),
+    prior(student_t(1, 100, 50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = b, dpar=sigma, lb=0))
+
+# Fit model 4
+Pdgfr_IntDen_Fit4 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_IntDen_Mdl4,
+    prior   = Pdgfr_IntDen_Prior2,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 5000, 
+    iter    = 10000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.999, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_IntDen_Fit4.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_IntDen_Fit4 <- 
+  add_criterion(Pdgfr_IntDen_Fit4, c("loo", "waic", "bayes_R2"))
+
+#######################################
+
+# Model 5: Spline interaction between DPI and hemispheric area
+Pdgfr_IntDen_Mdl5 <- 
+  bf(Pdgfr_IntDen ~ t2(DPI,Tissue_Area))
+
+get_prior(Pdgfr_IntDen_Mdl5, Cells_Summary)
+
+# Fit model 5
+Pdgfr_IntDen_Fit5 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_IntDen_Mdl5,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_IntDen_Fit5.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_IntDen_Fit5 <- 
+  add_criterion(Pdgfr_IntDen_Fit5, c("loo", "waic", "bayes_R2"))
+
+```
+
+## 3.3 We compare the models
+
+Here we compare the models as done previously. We explore model 5 later for specific porpuses.
+
+```{r}
+#| label: Compare performance for Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfr_IntDen_Comp <- 
+  compare_performance(
+    Pdgfr_IntDen_Fit1, 
+    Pdgfr_IntDen_Fit2, 
+    Pdgfr_IntDen_Fit3, 
+    Pdgfr_IntDen_Fit4
+    )
+
+Pdgfr_IntDen_Comp
+```
+
+The results depict that Pdgfr_IntDen_Fit4 is less penalized for out of sample prediction than other models, and better explain the variance (R2 = 0.52). Still, this R2 value is below the expected. The sigma factor is absent given that this model predicts sigma. This offer sufficient grounds to select Mdl4 as the best alternative to make scientific inference aboutPdgfr integrated density
+
+Let-s plot the model comparison usng the `loo_compare`
+
+```{r}
+#| label: Compare performance for Pdgfr IntDen - Graph
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfr_IntDen_W <- 
+loo_compare(
+  Pdgfr_IntDen_Fit1, 
+  Pdgfr_IntDen_Fit2, 
+  Pdgfr_IntDen_Fit3,
+  Pdgfr_IntDen_Fit4, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Pdgfr_IntDen_WAIC <- 
+  Pdgfr_IntDen_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Pdgfr_IntDen_Fit1", 
+             "Pdgfr_IntDen_Fit2", 
+             "Pdgfr_IntDen_Fit3", 
+             "Pdgfr_IntDen_Fit4"),
+    labels=c("DPI", 
+             "DPI^2", 
+             "s(DPI)", 
+             "sigma")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+# Save WAIC graph
+ggsave(
+  plot     = Pdgfr_IntDen_WAIC, 
+  filename ="Plots/Pdgfr_IntDen_WAIC.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+
+Pdgfr_IntDen_WAIC
+```
+
+## 3.4 Model diagnostics
+
+Now, we check the model fitting
+
+### 3.4.1 Posterior predictive checks
+
+```{r}
+#| label: Posterior predictive checks for Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Pdgfr_IntDen_Mdl4_pp <- 
+  brms::pp_check(Pdgfr_IntDen_Fit4, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 4",
+    subtitle = "Smooth terms and sigma",
+    caption = "Model: Area ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Pdgfr_IntDen_Mdl4_pp, 
+  filename = "Plots/Pdgfr_IntDen_Mdl4_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Pdgfr_IntDen_Mdl4_int <- 
+  pp_check(Pdgfr_IntDen_Fit4, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  Plot_theme 
+
+ggsave(
+  plot     = Pdgfr_IntDen_Mdl4_int, 
+  filename = "Plots/Pdgfr_IntDen_Mdl4_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Pdgfr_IntDen_Mdl4_pp | Pdgfr_IntDen_Mdl4_int 
+```
+
+The graph shows that the model predictions do not deviate substantially from the data.
+
+### 2.4.2 PSIS diagnostic plot
+
+We can see outliers using the PSIS diagnostic plot
+
+```{r}
+plot(loo(Pdgfr_IntDen_Fit4)) 
+  
+```
+
+### 2.4.3 diagnostics with shinystan
+
+To visualize more model diagnostics please look:
+
+```{r}
+launch_shinystan(Pdgfr_IntDen_Fit4)
+```
+
+## 3.5 Plot the results
+
+Here we plot the result with the effect of DPI for model 4
+
+```{r}
+#| label: Plot the results for Pdgfr IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Pdgfr_IntDen_DPI <- 
+  conditional_effects(Pdgfr_IntDen_Fit4)
+
+Pdgfr_IntDen_DPIdf <- 
+  as.data.frame(Pdgfr_IntDen_DPI$DPI)
+
+Pdgfr_IntDen_pred <- 
+  Cells_Summary %>%
+  data_grid(DPI, n = 10) %>%
+  add_predicted_draws(
+    Pdgfr_IntDen_Fit4, 
+    ndraws = 50)
+
+Pdgfr_IntDen_DPI_Fig <-  
+  ggplot(
+    data  = Pdgfr_IntDen_DPIdf,
+    aes(x = DPI,
+        y = estimate__)
+    )+
+  geom_jitter(
+    data  = Pdgfr_IntDen_pred, 
+    aes(x = DPI, 
+        y = .prediction), 
+    width = 0.5, 
+    color = "navyblue", 
+    shape = 1, 
+    size  = 1.5, 
+    alpha = 1/3)+
+  geom_jitter(
+    data  = Cells_Summary, 
+    aes(x = DPI, y=Pdgfr_IntDen),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  scale_y_continuous(
+    name = "Pdgfr (integrated density)",
+    limits = c(0, 1500),
+    breaks = seq(0, 1500, 500)
+    ) +
+  scale_x_continuous(name="Days post-ischemia (DPI)") +
+  Plot_theme
+
+ggsave(
+  plot     = Pdgfr_IntDen_DPI_Fig, 
+  filename = "Plots/Pdgfr_IntDen_DPI.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Pdgfr_IntDen_DPI_Fig
+
+
+# Plot smooths for sigma
+
+Pdgfr_IntDen_Smooths <- 
+  conditional_smooths(Pdgfr_IntDen_Fit4)
+
+Pdgfr_IntDen_Sigma_df <- 
+  as.data.frame(Pdgfr_IntDen_Smooths$`sigma: s(DPI,k=5)`)
+
+Pdgfr_IntDen_Sigma_fig <-  
+  ggplot(Pdgfr_IntDen_Sigma_df,
+         aes(x = DPI,y = estimate__))+
+  geom_ribbon(
+    aes(ymin  =lower__, 
+        ymax = upper__), 
+    alpha = 0.2)+
+  geom_line(size  = 1,
+            color ="blue",
+            position = position_dodge(0.05)) +
+  scale_y_continuous(name= "Pdgfr integrated density (sigma)\n") +
+  scale_x_continuous(name="Days post-ischemia (DPI)") +
+  Plot_theme
+          
+ggsave(plot     = Pdgfr_IntDen_Sigma_fig, 
+       filename = "Plots/Pdgfr_IntDen_Sigma.png", 
+       width    = 12, 
+       height   = 12, 
+       units    = "cm")
+
+Pdgfr_IntDen_DPI_Fig | Pdgfr_IntDen_Sigma_fig
+```
+
+The graphs shown the estimated fitted line for Pdgfr integrated density and sigma. We can visualize an increasing trend suring the progression of injury.
+
+## 3.6 Evaluation of results
+
+We plot the posterior summary using the `describe_posterior`.
+
+```{r}
+#| label: Description of results for Pdgfr IntDen 1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfr_IntDen_Fit4,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+As before, the `estimate_relation` and `estimate_smooth` functions can give us a more clear overview:
+
+```{r}
+#| label: Description of results for Pdgfr IntDen 2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfr_IntDen_est <- 
+  estimate_relation(
+    Pdgfr_IntDen_Fit4, 
+    at = "DPI", 
+    ci = c(0.95))
+
+Pdgfr_IntDen_est
+```
+
+We summarize further those estimations:
+
+```{r}
+#| label: Description of results for Pdgfr IntDen 3
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+ 
+estimate_smooth(Pdgfr_IntDen_est, x = "DPI")
+```
+
+The model predicts a sustained increase (slope = 36) of Pdgfr integrated density up to \~ 23 DPI (Change of 841, 95%CI = 831 - 1222). Then, a slightly decrease in slope (-4.4) is observed up to 30 DPI. Diferent to GFAP, the R2 for this markers is high.
+
+We can plot the derivative:
+
+```{r}
+#| label: Description of results for Pdgfr IntDen - plot derivatives
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfr_IntDen_deriv <- 
+  estimate_slopes(
+    Pdgfr_IntDen_Fit4,
+    trend = "DPI",
+     at = "DPI",
+    length = 30
+    )
+
+# Visualize
+Pdgfr_IntDen_deriv_Fig <- 
+  plot(Pdgfr_IntDen_deriv) + 
+  labs(x = "Days post-ischemia (DPI)", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Pdgfr_IntDen_deriv_Fig, 
+  filename = "Plots/Pdgfr_IntDen_deriv.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Pdgfr_IntDen_deriv_Fig 
+```
+
+## 3.7 Pdgfr relation to hemispheric area
+
+We explore further the relation between Pdgfr integrated density and hemispheric area using the model 5, which regress Pdgfr_IntDen on a interactive spline between DPI and hemispheric area. We do so by plotting a
+
+```{r}
+#| label: Description of results for Pdgfr IntDen - DPI/Hemispheric area
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+set.seed(8807)
+
+# We convert the estimates to a data frames
+Pdgfr_IntDen_Area <- 
+ conditional_smooths(Pdgfr_IntDen_Fit5)
+
+Pdgfr_IntDen_Area_Fig  <- 
+  plot(Pdgfr_IntDen_Area, 
+       plot = FALSE)[[1]] +
+  
+  scale_y_continuous(name= "Hemisphere area (mm2)\n") +
+  scale_x_continuous(name="DPI") +
+  scale_color_gradientn(
+    name = "IntDen", 
+    colors = viridis(6)) +
+  Plot_theme
+  
+ggsave(
+  plot     = Pdgfr_IntDen_Area_Fig , 
+  filename = "Plots/Pdgfr_IntDen_Area.png", 
+  width    = 15, 
+  height   = 12, 
+  units    = "cm")
+
+Pdgfr_IntDen_Area_Fig
+
+```
+
+# 4. Analysis of GFAP coverage
+
+We performed of GFAP-covered area in whole brain sections to analyze the changes in glial covarage in the stroked hemisphere.
+
+## 4.1 Load the data set
+
+```{r}
+#| label: Load data set for GFAP coverage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_Coverage <- read.csv(
+  file = 'DataTables/GfapCoverage_Summary.csv', 
+  header = TRUE)
+
+```
+
+We subset the data set to exclude (for the moment) sham animals
+
+```{r}
+#| label: Subset GFAP coverage data set
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_Coverage_Sub <- Gfap_Coverage[(Gfap_Coverage$Condition=="MCAO"),]
+```
+
+## 4.2 Exploratory data visualization
+
+We perform an initial visualization of the Healthy_Ratio data to define the statistical model.
+
+### 4.2.1 Density of the response variable
+
+We plot the response variable as a density
+
+```{r}
+#| label: Density of brain shrinkage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_Coverage_Dens <- 
+  ggplot(
+    data  = Gfap_Coverage_Sub, 
+    aes(x = Healthy_Ratio)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="GFAP area / Contralateral (ratio)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+ggsave(
+  plot     = Gfap_Coverage_Dens, 
+  filename = "plots/Gfap_Coverage_Dens.png", 
+  width    = 12, 
+  height   = 10, 
+  units    = "cm")
+
+#Plot the result
+Gfap_Coverage_Dens 
+```
+
+The graph shows a range of \~ 40-80 excluding sham animals. The data set exhibits a single peak.Now, we can check the distribution by DPI.
+
+### 4.1.2 Scatter of the response variable
+
+Here, we create a scatter plot to explore the distribution of the response variable according to DPI.We represent the observations as black dots. Moreover, we fit regression lines for linear model (black), together with 2-degree (red) and 3-degree (green) polynomial models.
+
+```{r}
+#| label: Scatter plot for Gfap coverage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Gfap_Coverage_Sctr <- 
+  ggplot(
+    data  = Gfap_Coverage_Sub, 
+    aes(x = DPI, 
+        y = Healthy_Ratio)
+    ) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+scale_y_continuous(name = "GFAP area / Contralateral (ratio)") +
+scale_x_continuous(
+  name   ="Days post-ischemia (DPI) ",
+  breaks =c(3,7,14,30)
+  ) +
+Plot_theme
+
+ggsave(
+  plot     = Gfap_Coverage_Sctr , 
+  filename = "Plots/Gfap_Coverage_Sctr.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_Coverage_Sctr 
+```
+
+The scatter plots reveals brain shrinkage overtime. The fitted lines suggest that trend might be no linear. This justifies the use of a non-linear modeling.
+
+## 4.2 Statistical modeling
+
+We make use of the `brms` package to perform Bayesian modeling with weakly informative priors. We fit the following models:
+
+-   **Gfap_Coverage_Mdl1**. We regress `Gfap_Coverage`on `DPI`. This models assumes that DPI is a linear predictor of the Hemispheric area.
+
+$Gfap_Coverage{i} = \alpha + \beta_{DPI} DPI_{i} + \epsilon_{i}$
+
+This model uses the following user-defined priors:
+
+$\beta_{1}, \beta_{2}, ... \sim Normal(0, 1)$ $\alpha \sim Student-t(3, 60, 20)$ $\sigma \sim Student-t(3, 0, 4)$, with $\sigma > 0$
+
+-   **Gfap_Coverage_Mdl2** We regress `Gfap_Coverage` on `DPI` (days post-ischemia) assuming a two-degree polynomial function.
+
+$Gfap_Coverage{i} = \alpha + \beta_{DPI} DPI_i + \beta_{DPI^2} DPI^2_i + \epsilon_i$
+
+This model uses the same priors as model 1.
+
+-   **Gfap_Coverage_Mdl3** We regress `Gfap_Coverage` on `DPI` (days post-ischemia) using smooth terms (splines) with four nodes.
+
+$Gfap_Coverage_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the same priors as model 1.
+
+-   **Gfap_Coverage_Mdl4** Finally, we add sigma as a predicted variable using the same notation of Mdl4.
+
+$Gfap_Coverage_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$ $sigma_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}$
+
+This model uses the following used-defined priors:
+
+$b \sim \mathcal{N}(0, 1)$ $\text{Intercept} \sim t_{3}(60, 20), \text{lb}=0$ $\sigma \sim t_{3}(0, 4), \text{class} = b, \text{lb}=0$
+
+```{r}
+#| label: Statistical modeling for Gfap coverage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1: DPI as a linear predictor
+
+Gfap_Coverage_Mdl1 <- bf(Healthy_Ratio ~ DPI)
+
+get_prior(Gfap_Coverage_Mdl1, data = Gfap_Coverage_Sub)
+
+# Model prior
+Gfap_Coverage_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(student_t(3, 60, 20), class = Intercept),
+    prior(student_t(3, 0, 4), class = sigma, lb=0))
+                                
+# Fit model 1
+Gfap_Coverage_Fit1 <- 
+  brm(
+    data    = Gfap_Coverage_Sub,
+    family  = student,
+    formula = Gfap_Coverage_Mdl1,
+    prior   = Gfap_Coverage_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_Coverage_Fit1.rds",
+    file_refit = "never") 
+                     
+
+# Add loo for model comparison
+Gfap_Coverage_Fit1 <- 
+  add_criterion(Gfap_Coverage_Fit1, c("loo", "waic", "bayes_R2"))
+
+#####################################################
+#Model 2: 2-degree polynomial with DPI as predictor
+Gfap_Coverage_Mdl2 <- 
+  bf(Healthy_Ratio ~ DPI + I(DPI^2))
+
+# Fit model 2
+Gfap_Coverage_Fit2 <- 
+  brm(
+    data    = Gfap_Coverage_Sub,
+    family  = student,
+    formula = Gfap_Coverage_Mdl2,
+    prior   = Gfap_Coverage_Prior1,
+    chains  = 4, 
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_Coverage_Fit2.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Gfap_Coverage_Fit2 <- 
+  add_criterion(Gfap_Coverage_Fit2, c("loo", "waic", "bayes_R2"))
+
+###################################
+# Model 3: Model with splines at DPI
+Gfap_Coverage_Mdl3 <-
+  bf(Healthy_Ratio ~ s(DPI, k=4))
+
+# Fit model 3
+Gfap_Coverage_Fit3 <-
+    brm(
+    data    = Gfap_Coverage_Sub,
+    family  = student,
+    formula = Gfap_Coverage_Mdl3,
+    prior   = Gfap_Coverage_Prior1,
+    chains  = 4, 
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Gfap_Coverage_Fit3.rds",
+    file_refit = "never")
+
+Gfap_Coverage_Fit3 <- 
+  add_criterion(Gfap_Coverage_Fit3, c("loo", "waic", "bayes_R2"))
+
+###################################
+# Model 4: Model with splines at DPI and sigma
+Gfap_Coverage_Mdl4 <- 
+  bf(Healthy_Ratio ~ s(DPI, k=4),
+           sigma ~ DPI)
+
+get_prior(Gfap_Coverage_Mdl4, data = Gfap_Coverage_Sub)
+
+Gfap_Coverage_Prior2  <- 
+  c(prior(normal(0, 1), class = b),
+    prior(student_t(3, 60, 20), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 4), class = b, dpar=sigma, lb=0))
+
+# Fit model 4
+Gfap_Coverage_Fit4 <- 
+  brm(
+  data    = Gfap_Coverage_Sub,
+  family  = student,
+  formula = Gfap_Coverage_Mdl4,
+  prior   = Gfap_Coverage_Prior2,
+  knots   = list(DPI = c(0, 3, 7, 14, 30)),
+  chains  = 4, 
+  cores   = 4,
+  warmup = 2500, 
+  iter= 5000, 
+  seed = 8807,
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  file    = "BayesianModels/Gfap_Coverage_Fit4.rds",
+  file_refit = "never")
+
+Gfap_Coverage_Fit4 <- 
+  add_criterion(Gfap_Coverage_Fit4, c("loo", "waic", "bayes_R2"))
+```
+
+## 4.3 We compare the models
+
+The next steps is to compare the model performance using WAIC.
+
+```{r}
+#| label: Compare performance for Gfap coverage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_Coverage_Comp <- 
+  compare_performance(
+    Gfap_Coverage_Fit1, 
+    Gfap_Coverage_Fit2, 
+    Gfap_Coverage_Fit3, 
+    Gfap_Coverage_Fit4
+    )
+
+Gfap_Coverage_Comp
+```
+
+The results suggest that all the models have similar predictive accuracy. We are going to use model 1.
+
+We can also generate a plot from scratch using the `loo_compare` function from brms:
+
+```{r}
+#| label: Compare performance for Gfap coverage - Graph
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_Coverage_W <- 
+loo_compare(
+  Gfap_Coverage_Fit1, 
+  Gfap_Coverage_Fit2, 
+  Gfap_Coverage_Fit3,
+  Gfap_Coverage_Fit4, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Gfap_Coverage_WAIC <- 
+  Gfap_Coverage_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Gfap_Coverage_Fit1", 
+             "Gfap_Coverage_Fit2", 
+             "Gfap_Coverage_Fit3", 
+             "Gfap_Coverage_Fit4"),
+    labels=c("DPI", 
+             "DPI^2", 
+             "s(DPI)", 
+             "sigma")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+# Save WAIC graph
+ggsave(
+  plot     = Gfap_Coverage_WAIC, 
+  filename ="Plots/Gfap_Coverage_WAIC.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+
+Gfap_Coverage_WAIC
+```
+
+## 4.4 Model diagnostics
+
+In this section we check the selected model (Mdl4) to asses its deviation from the observed data
+
+### 4.4.1 Posterior predictive checks
+
+```{r}
+#| label: Posterior predictive checks for Gfap coveraage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Gfap_Coverage_Mdl1_pp <- 
+  brms::pp_check(Gfap_Coverage_Fit1, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 1",
+    subtitle = "Linear model",
+    caption = "Model: Gfap Coverage ~ DPI") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Gfap_Coverage_Mdl1_pp, 
+  filename = "Plots/Gfap_Coverage_Mdl1_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Gfap_Coverage_Mdl1_int <- 
+  pp_check(Gfap_Coverage_Fit1, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  Plot_theme 
+
+ggsave(
+  plot     = Gfap_Coverage_Mdl1_int, 
+  filename = "Plots/Gfap_Coverage_Mdl1_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Gfap_Coverage_Mdl1_pp | Gfap_Coverage_Mdl1_int 
+```
+
+The graph shows that the model predictions do not deviate substantially from the data.
+
+### 4.4.2 PSIS diagnostic plot
+
+We can see outliers using the PSIS diagnostic plot
+
+```{r}
+  plot(loo(Gfap_Coverage_Fit1)) 
+  
+```
+
+### 4.4.3 diagnostics with shinystan
+
+To visualize more model diagnostics please look:
+
+```{r}
+launch_shinystan(Hem_Area_Fit1)
+```
+
+## 4.5 Plot the results
+
+Now, let's plot the results using `conditional_effects` from the brms package.
+
+```{r}
+#| label: Plot the results for Gfap coverage
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Gfap_Coverage_DPI <- 
+  conditional_effects(Gfap_Coverage_Fit1)
+
+Gfap_Coverage_DPIdf <- 
+  as.data.frame(Gfap_Coverage_DPI$DPI)
+
+Gfap_Coverage_pred <- 
+  Gfap_Coverage_Sub %>%
+  data_grid(DPI, n = 10) %>%
+  add_predicted_draws(
+    Gfap_Coverage_Fit1, 
+    ndraws = 50)
+
+Gfap_Coverage_DPI_Fig <-  
+  ggplot(
+    data  = Gfap_Coverage_DPIdf,
+    aes(x = DPI,
+        y = estimate__)
+    )+
+  geom_jitter(
+    data  = Gfap_Coverage_pred, 
+    aes(x = DPI, 
+        y = .prediction), 
+    width = 0.5, 
+    color = "navyblue", 
+    shape = 1, 
+    size  = 1.5, 
+    alpha = 1/3)+
+  geom_jitter(
+    data  = Gfap_Coverage_Sub, 
+    aes(x = DPI, y=Healthy_Ratio),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  scale_y_continuous(name = "GFAP coverage / contralateral (ratio)") +
+  scale_x_continuous(name="Days post-ischemia") +
+  Plot_theme
+
+ggsave(
+  plot     = Gfap_Coverage_DPI_Fig, 
+  filename = "Plots/Gfap_Coverage_DPI.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_Coverage_DPI_Fig
+
+
+```
+
+Here we can see the observations (black) and the point predictions (blue).
+
+## 4.6 Evaluation of results
+
+Let's first plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019]
+
+```{r}
+#| label: Description of results for Gfap coverage 1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Gfap_Coverage_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+```{r}
+#| label: Description of results for Gfap coverage 2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Gfap_Coverage_est <- 
+  estimate_relation(
+    Gfap_Coverage_Fit1, 
+    at = "DPI", 
+    ci = c(0.90))
+
+Gfap_Coverage_est
+```
+
+This show us different "fragments" of the DPI range with predicted point estimates and their uncertainty which are more informative. Still, we can summarize further those estimations:
+
+```{r}
+#| label: Description of results for Gfap coverage 3
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+ 
+estimate_smooth(Gfap_Coverage_est, x = "DPI")
+```
+
+The `estimate_slopes` function allow to visualize the effect of DPI in the hemispheric area trough the calculation of derivatives.
+
+```{r}
+#| label: Description of results for Gfap Coverage - plo derivatives
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Gfap_Coverage_deriv <- 
+  estimate_slopes(
+    Gfap_Coverage_Fit1,
+    trend = "DPI",
+     at = "DPI",
+    length = 30
+    )
+
+# Visualize
+Gfap_Coverage_deriv_Fig <- 
+  plot(Gfap_Coverage_deriv) + 
+  labs(x = "Days post-ischemia (DPI)", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Gfap_Coverage_deriv_Fig, 
+  filename = "Plots/Gfap_Coverage_deriv_Fig.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Gfap_Coverage_deriv_Fig 
+```
+
+The graph show a substantial contribution of DPI in hemispheric area (blue) during the first three weeks post-ischemia.
+
+# 5. Pdgfr_High and Pdgfr low
+
+Our `Cells_Summary` data set contains columns quantifying the number of PDGFR_low (Pdgfr_NonReact) and PDGFR_High (Pdgfr_React) cells. In this section, we will perform Bayesian inference in this two populations.
+
+## 5.1 Exploratory data visualization
+
+We perform the usual exploratory visualization for the two data sets.
+
+```{r}
+#| label: Exploratory visualization for Pdgfr low and high
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# For Pdgfr_Low
+Pdgfr_Low_Sctr <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = DPI, 
+        y = Pdgfr_NonReact)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= "Number of PDGFR-B (low) \n") +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme
+  
+ggsave(plot     = Pdgfr_Low_Sctr,
+       filename = "Plots/Pdgfr_Low_Sctr.png", 
+       width    = 12, 
+       height   = 12, 
+       units    = "cm")
+
+
+# For Pdgfr_High
+Pdgfr_High_Sctr <- 
+  ggplot(
+    data  = Cells_Summary, 
+    aes(x = DPI, 
+        y = Pdgfr_React)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= "Number of PDGFR-B (High) \n") +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme
+  
+ggsave(plot     = Pdgfr_High_Sctr,
+       filename = "Plots/Pdgfr_High_Sctr.png", 
+       width    = 12, 
+       height   = 12, 
+       units    = "cm")
+
+Pdgfr_Low_Sctr | Pdgfr_High_Sctr
+```
+
+The graphs reveal that Pdgfr_Low are hardly described by the linear and nonlinear functions we assumed, given the sharp drop at 3 DPI. On the contrary, Pdgfr_High is well described by 2 or 3-degree polynomials. Also, this reflects, that the behavior of Pdgfr described in the previous section is heavy driven by Pdgfr_high (reactive) cells. Considering the dynamic of Pdgfr_Low, we are going to assume DPI as a categorical variable.
+
+## 5.2 Bayesian Modeling
+
+Before modeling, we create a variable of DPI as categorical
+
+```{r}
+Cells_Summary$DPI2 <- factor(Cells_Summary$DPI, levels = c("0","3","7", "14", "30"))
+```
+
+Now, we are going to fit a single model with heteroskedasticity for Pdgfr_low and Pdgfr_high.
+
+FLAT PRIOR?
+
+```{r}
+#| label: Statistical modeling for Pdgfr low and high
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#For Pdgfr low
+
+# Model 1: DPI as a predictor
+Pdgfr_Low_Mdl1 <- 
+  bf(Pdgfr_NonReact ~ 0 + DPI2,
+           sigma ~  0 + DPI2)
+
+get_prior(Pdgfr_Low_Mdl1, Cells_Summary)
+
+Pdgfr_Low_Prior <- c(prior(student_t(3, 2000, 1500), class = b, lb= 0),
+                                prior(student_t(3, 2000, 1500), class = Intercept, lb= 0),
+                                prior(student_t(3, 0, 1000), class = b, dpar=sigma, lb=0))
+
+# Fit model 1
+Pdgfr_Low_Fit1 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_Low_Mdl1,
+    #prior   = Pdgfr_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_Low_Fit1.rds",
+    file_refit = "never") 
+
+Pdgfr_Low_Fit1 <- 
+  add_criterion(Pdgfr_Low_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+#################################
+
+#For Pdgfr high
+
+# Model 1: DPI as a predictor
+Pdgfr_High_Mdl1 <- 
+  bf(Pdgfr_React ~ 0 + DPI2,
+           sigma ~  0 + DPI2)
+
+get_prior(Pdgfr_High_Mdl1, Cells_Summary)
+
+Pdgfr_High_Prior <- c(prior(student_t(3, 2000, 1500), class = b, lb= 0),
+                                prior(student_t(3, 2000, 1500), class = Intercept, lb= 0),
+                                prior(student_t(3, 0, 1000), class = b, dpar=sigma, lb=0))
+
+# Fit model 1
+Pdgfr_High_Fit1 <- 
+  brm(
+    data    = Cells_Summary,
+    formula = Pdgfr_High_Mdl1,
+    #prior   = Pdgfr_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_High_Fit1.rds",
+    file_refit = "never") 
+
+Pdgfr_High_Fit1 <- 
+  add_criterion(Pdgfr_High_Fit1, c("loo", "waic", "bayes_R2"))
+```
+
+## 5.3 Model diagnostics
+
+Now, we check the model fitting
+
+### 5.3.1 Posterior predictive checks
+
+We check the model fit for PDGFR_Low and PDGFR_High. We plot first PPGFR_low
+
+```{r}
+#| label: Posterior predictive checks for Pdgfr Low 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Pdgfr_Low_Mdl1_pp <- 
+  brms::pp_check(Pdgfr_Low_Fit1, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 1",
+    subtitle = "DPI as preditor for variable and sigma",
+    caption = "Model: Cells ~ DPI, sigma ~ DPI") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Pdgfr_Low_Mdl1_pp, 
+  filename = "Plots/Pdgfr_Low_Mdl1_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Pdgfr_Low_Mdl1_int <- 
+  pp_check(Pdgfr_Low_Fit1, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  scale_y_continuous(limits = c(0, 1200)) +             
+  Plot_theme 
+
+ggsave(
+  plot     = Pdgfr_Low_Mdl1_int, 
+  filename = "Plots/Pdgfr_Low_Mdl1_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Pdgfr_Low_Mdl1_pp | Pdgfr_Low_Mdl1_int 
+```
+
+Now, let's plot for PDGFR_high
+
+```{r}
+#| label: Posterior predictive checks for Pdgfr High 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 3
+Pdgfr_High_Mdl1_pp <- 
+  brms::pp_check(Pdgfr_High_Fit1, 
+                 ndraws = 20) +
+  geom_density(lwd = 2) +
+  labs(title = "Model 1",
+    subtitle = "DPI as preditor for variable and sigma",
+    caption = "Model: Cells ~ DPI, sigma ~ DPI") +
+  Plot_theme + 
+  legend_none() 
+
+ggsave(
+  plot     = Pdgfr_High_Mdl1_pp, 
+  filename = "Plots/Pdgfr_High_Mdl1_pp.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+
+
+Pdgfr_High_Mdl1_int <- 
+  pp_check(Pdgfr_High_Fit1, 
+           type='intervals',
+           ndraws = 50) +
+  scale_x_continuous(
+    name ="Days after ischemia (DPI)",
+    limits = c(0, 30)                 
+    ) +
+  #scale_y_continuous(limits = c(0, 1200)) +             
+  Plot_theme 
+
+ggsave(
+  plot     = Pdgfr_High_Mdl1_int, 
+  filename = "Plots/Pdgfr_High_Mdl1_int.png", 
+  width    = 12, 
+  height   = 6, 
+  units    = "cm")
+  
+  
+Pdgfr_High_Mdl1_pp | Pdgfr_High_Mdl1_int 
+```
+
+The graphs shows no mayor deviations from observed data points.
+
+## 5.4 Evaluation of results
+
+We plot the posterior summary using the `describe_posterior`.
+
+```{r}
+#| label: Description of results for Pdgfr IntDen 1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfr_Low_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+describe_posterior(
+  Pdgfr_High_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+As before, the `estimate_relation` and `estimate_smooth` functions can give us a more clear overview:
+
+## 5.5 Make contrasts
+
+Here, we employ the
+
+```{r}
+#| label: Contrast between time points for PDGFR Low and High 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfr_Low_Contrast <- Pdgfr_Low_Fit1%>%
+emmeans(~ DPI2) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(1000)
+
+hypothesis(NeuN_Intensity_Fit1, "DPI15D <   DPI5D", class = "b", seed = 8807)
+
+
+#################
+# For high cells
+
+Pdgfr_High_Contrast <- Pdgfr_High_Fit1%>%
+emmeans(~ DPI2) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(1000)
+
+```
+
+## 5.6 Plot the results
+
+Here we generate two graphs. A main graph showing the estimation for data points and a contrast graph showing comparisons between time points of interest. First, we generate the data grid for correct plotting and extraction of the posterior.
+
+```{r}
+#| label: Data grid for PDGFR Low and High 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+##### For PDGFR low
+Pdgfr_Grid = Cells_Summary %>%
+  data_grid(DPI2)
+
+Pdgfr_Low_Means = Pdgfr_Grid %>%
+  add_epred_draws(Pdgfr_Low_Fit1)
+
+Pdgfr_Low_Preds = Pdgfr_Grid %>%
+  add_predicted_draws(Pdgfr_Low_Fit1)
+
+
+##### For PDGFR High
+Pdgfr_High_Means = Pdgfr_Grid %>%
+  add_epred_draws(Pdgfr_High_Fit1)
+
+Pdgfr_High_Preds = Pdgfr_Grid %>%
+  add_predicted_draws(Pdgfr_High_Fit1)
+```
+
+### 5.6.1 For PDGFR low cells
+
+Now we plot the graph for Pdgfr_Low
+
+```{r}
+#| label: Results plots for PDGFR low 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Pdgfr_Low_Fig <- Cells_Summary %>%
+  ggplot(
+    aes(x = Pdgfr_NonReact, 
+        y = DPI2)) +
+  stat_halfeye(
+    aes(x = .epred), 
+        scale    = 0.6, 
+        position = position_nudge(y = 0.175), 
+        data     = Pdgfr_Low_Means) +
+  
+  stat_interval(
+    aes(x    = .prediction), 
+        data = Pdgfr_Low_Preds) +
+  
+  geom_point(data = Cells_Summary) +
+  
+  scale_y_discrete(
+    name= " DPI ",
+    labels = c("Control","3D",  "7D", "14D", "30D")) +
+  
+  scale_x_continuous(
+    name     ="Number of PDGFR_Low",
+    limits   = c(0, 1500), 
+    breaks=seq(0,1500,500)) +
+  
+ scale_fill_manual(
+   name="DPI",
+   breaks=c("0D", "3D", "7D", "14D", "30D"),
+   labels=c("Control", "5", "7", "14", "30")) +
+ 
+ scale_color_brewer(name = "Interval") +
+  
+ Plot_theme +
+  
+ theme (legend.position = c(0.8, 0.8))
+
+ ggsave(plot     = Pdgfr_Low_Fig, 
+       filename  = "Plots/Pdgfr_Low_Fig.png", 
+       width     = 12, 
+       height    = 10, 
+       units     = "cm")
+ 
+#############
+# Generate the contrast graph
+Pdgfr_Low_Contrast_Sub <- Pdgfr_Low_Contrast[
+  (Pdgfr_Low_Contrast$contrast=="DPI230 - DPI20"|
+   Pdgfr_Low_Contrast$contrast=="DPI27 - DPI23" |
+   Pdgfr_Low_Contrast$contrast=="DPI23 - DPI20"),]
+
+Pdgfr_Low_Contrast_Sub$contrast <- 
+  factor(Pdgfr_Low_Contrast_Sub$contrast, 
+         levels = c("DPI23 - DPI20", "DPI27 - DPI23", "DPI230 - DPI20")) 
+              
+Pdgfr_Low_Contrast_Fig <- 
+  Pdgfr_Low_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        fill = stat(abs(x) < 10))) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  geom_vline(
+    xintercept = c(-10, 10), 
+    linetype = "dashed") +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("3D-0D","7D-3D",  "30D-0D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-1200, 600), 
+   breaks=seq(-1200,600, 400)) +
+  
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+  
+  theme (legend.position = c(0.8, 0.8))
+
+ ggsave(plot     = Pdgfr_Low_Contrast_Fig, 
+       filename  = "Plots/Pdgfr_Low_Contrast_Fig.png", 
+       width     = 12, 
+       height    = 10, 
+       units     = "cm")
+```
+
+### 5.6.2 For PDGFR_High cells
+
+```{r}
+#| label: Results plots for PDGFR High 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Pdgfr_High_Fig <- Cells_Summary %>%
+  ggplot(
+    aes(x = Pdgfr_React, 
+        y = DPI2)) +
+  stat_halfeye(
+    aes(x = .epred), 
+        scale    = 0.6, 
+        position = position_nudge(y = 0.175), 
+        data     = Pdgfr_High_Means) +
+  
+  stat_interval(
+    aes(x    = .prediction), 
+        data = Pdgfr_High_Preds) +
+  
+  geom_point(data = Cells_Summary) +
+  
+  scale_y_discrete(
+    name= " DPI ",
+    labels = c("Control","3D",  "7D", "14D", "30D")) +
+  
+  scale_x_continuous(
+    name     ="Number of PDGFR_High",
+    limits   = c(0, 5000), 
+    breaks=seq(0,5000,1000)) +
+  
+ scale_fill_manual(
+   name="DPI",
+   breaks=c("0D", "3D", "7D", "14D", "30D"),
+   labels=c("Control", "5", "7", "14", "30")) +
+ 
+ scale_color_brewer(name = "Interval") +
+  
+ Plot_theme +
+  
+ theme(
+   axis.text.x = element_text(
+     colour = "black", 
+     size = 14, 
+     angle = 0, 
+     hjust = 0.5)) +
+  
+ theme (legend.position = c(0.8, 0.2))
+
+ ggsave(plot     = Pdgfr_High_Fig, 
+       filename  = "Plots/Pdgfr_High_Fig.png", 
+       width     = 12, 
+       height    = 10, 
+       units     = "cm")
+  
+
+#############
+# Generate the contrast graph
+Pdgfr_High_Contrast_Sub <- Pdgfr_High_Contrast[
+  (Pdgfr_High_Contrast$contrast=="DPI230 - DPI20"|
+   Pdgfr_High_Contrast$contrast=="DPI27 - DPI23" |
+   Pdgfr_High_Contrast$contrast=="DPI23 - DPI20"),]
+
+Pdgfr_High_Contrast_Sub$contrast <- 
+  factor(Pdgfr_High_Contrast_Sub$contrast, 
+         levels = c("DPI23 - DPI20", "DPI27 - DPI23", "DPI230 - DPI20")) 
+              
+Pdgfr_High_Contrast_Fig<- 
+  Pdgfr_High_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        fill = stat(abs(x) < 10))) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  geom_vline(
+    xintercept = c(-10, 10), 
+    linetype = "dashed") +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("3D-0D","7D-3D",  "30D-0D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-1000, 3000), 
+   breaks=seq(-1000,3000, 1000)) +
+  
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+
+ theme (legend.position = c(0.8, 0.2))
+
+ ggsave(plot     = Pdgfr_High_Contrast_Fig, 
+       filename  = "Plots/Pdgfr_High_Contrast_Fig.png", 
+       width     = 12, 
+       height    = 10, 
+       units     = "cm")
+```
+
+# 6. Point Pattern Analysis (PPA)
+
+## 5.3 Create density kernels
+
+```{r}
+#| label: Plot density kernels for neurons
+#| include: true
+#| warning: false
+#| message: false
+
+
+PointPatterns$Pdgfr_Low_Density <- with (PointPatterns, density(Pdgfr_Negative, sigma = 0.2))
+
+PointPatterns$Pdgfr_High_Density <- with (PointPatterns, density(Pdgfr_Positive, sigma = 0.2))
+
+PointPatterns$Gfap_Density <- with (PointPatterns, density(Gfap, sigma = 0.2))
+
+```
+
+## 5.4 Plot density kernels
+
+```{r}
+
+Pdgfr_Low_Colmap <- colourmap(topo.colors(256), range = c(0, 60))
+Pdgfr_High_Colmap <- colourmap(topo.colors(256), range = c(0, 600))
+
+par(mfrow = c(1,4), mar=c(1,1,1,1), oma=c(1,1,1,1))
+
+### Mouse 81, 0 DPI
+png("Plots/Pdgfr_Low_0D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_Low_Density$`148`, col = Pdgfr_Low_Colmap, main = "")  
+dev.off()
+
+png("Plots/Pdgfr_High_0D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_High_Density$`148`, col = Pdgfr_High_Colmap, main = "")  
+dev.off()
+
+
+### Mouse 76, 3D DPI
+png("Plots/Pdgfr_Low_3D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_Low_Density$`143`, col = Pdgfr_Low_Colmap, main = "")  
+dev.off()
+
+png("Plots/Pdgfr_High_3D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_High_Density$`143`, col = Pdgfr_High_Colmap, main = "")  
+dev.off()
+
+### Mouse 16, 7D DPI
+png("Plots/Pdgfr_Low_7D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_Low_Density$`12`, col = Pdgfr_Low_Colmap, main = "")  
+dev.off()
+
+png("Plots/Pdgfr_High_7D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_High_Density$`12`, col = Pdgfr_High_Colmap, main = "")  
+dev.off()
+
+
+### Mouse 22, 14D DPI
+png("Plots/Pdgfr_Low_14D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_Low_Density$`16`, col = Pdgfr_Low_Colmap, main = "")  
+dev.off()
+
+png("Plots/Pdgfr_High_14D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_High_Density$`16`, col = Pdgfr_High_Colmap, main = "")  
+dev.off()
+
+### Mouse 43, 30D DPI
+png("Plots/Pdgfr_Low_30D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_Low_Density$`116`, col = Pdgfr_Low_Colmap, main = "")  
+dev.off()
+
+png("Plots/Pdgfr_High_30D.png", width = 500, height = 1000)
+plot(PointPatterns$Pdgfr_High_Density$`116`, col = Pdgfr_High_Colmap, main = "")  
+dev.off()
+```
+
+## 5.5 Relative distribution
+
+### 5.5.1 Subset point patterns
+
+```{r}
+
+PointPatterns$DPI <- factor(PointPatterns$DPI , levels = c("3D", "7D", "14D", "30D")) 
+
+PointPatterns_Sub <- PointPatterns[PointPatterns$Condition != "SHAM",] 
+PointPatterns_Sub 
+
+# Add distance maps for microglia and neurons before subset
+PointPatterns_Sub_3D <- subset(PointPatterns_Sub, DPI=="3D", select = 1:9) 
+PointPatterns_Sub_7D <- subset(PointPatterns_Sub, DPI=="7D", select = 1:9) 
+PointPatterns_Sub_14D <- subset(PointPatterns_Sub, DPI=="14D", select = 1:9)
+PointPatterns_Sub_30D <- subset(PointPatterns_Sub, DPI=="30D", select = 1:9)
+
+
+```
+
+### 5.5.2 Calculate rhohat
+
+```{r}
+
+## For 3D
+Pdgfr_Rhohat_3D <- with(PointPatterns_Sub_3D, spatstat.explore::rhohat.ppp(Pdgfr_Positive, Gfap_Density, do.CI = FALSE))
+Pdgfr_Rhohat_3D <- pool(Pdgfr_Rhohat_3D)
+
+## For 7D
+Pdgfr_Rhohat_7D <- with(PointPatterns_Sub_7D, spatstat.explore::rhohat.ppp(Pdgfr_Positive, Gfap_Density, do.CI = FALSE))
+Pdgfr_Rhohat_7D <- pool(Pdgfr_Rhohat_7D)
+
+## For 14D
+Pdgfr_Rhohat_14D <- with(PointPatterns_Sub_14D, spatstat.explore::rhohat.ppp(Pdgfr_Positive, Gfap_Density, do.CI = FALSE))
+Pdgfr_Rhohat_14D <- pool(Pdgfr_Rhohat_14D)
+
+## For 30D
+Pdgfr_Rhohat_30D <- with(PointPatterns_Sub_30D, spatstat.explore::rhohat.ppp(Pdgfr_Positive, Gfap_Density, do.CI = FALSE))
+Pdgfr_Rhohat_30D <- pool(Pdgfr_Rhohat_30D)
+
+
+```
+
+### 5.5.2 Plot rhohat
+
+```{r}
+png("Plots/Pdgfr_Rhohat_3D.png", width = 600, height = 500)
+par(mar=c(7,7,2,2))
+plot(Pdgfr_Rhohat_3D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 35),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 500, 100), labels = c("0", "200", "300", "400", "500"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 35, 10), labels = c("0", "10", "20", "30"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "Gfap (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Pdgfr_High)", mgp = c(4.5, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Rhohat_7D.png", width = 600, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfr_Rhohat_7D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 180),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 600, 100), labels = c("0", "100", "200", "300", "400", "500", "600"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 180, 40), labels = c("0", "40", "80", "120", "160"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "Gfap (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Pdgfr_High)", mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Rhohat_14D.png", width = 600, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfr_Rhohat_14D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 350),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 800, 200), labels = c("0", "200", "400", "600", "800"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 350, 70), labels = c("0", "70", "140", "210", "280", "350"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "Gfap (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Pdgfr_High)", mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Rhohat_30D.png", width = 600, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfr_Rhohat_30D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 300),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 400, 100), labels = c("0", "100", "200", "300", "400"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 300, 60), labels = c("0", "60", "120", "180", "240", "300"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "Gfap (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Pdgfr_High)", mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+```
+
+## Point Process model
+
+```{r}
+
+Pdgfr_Mdl1 <- mppm(Pdgfr_Positive ~ Gfap_Density, random = ~ Gfap_Density| DPI, data = PointPatterns_Sub)
+
+Pdgfr_Mdl1
+```
+
+# 7. Analyis of different areas
+
+## 7.1 Process cell detection files
+
+Automated cell detection with QuPath generated `_detections.tsv` files containing the coordinates of individual cells. In the following chunk, we manipulate the coordinates, clean and subset the data to obtain .csv tables tables of cell coordinates. The results are stored in the `ResultsTables/Pericytes_Coordinates_10x` folder.
+
+```{r}
+#| label: Process pericytes detections 10x
+#| include: true
+#| warning: false
+#| message: false
+
+process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
+  
+  Cells_Raw <- read_tsv(paste0(basePath, "/", Cells_Path))
+  
+  # Convert to data frame
+  Cells <- as.data.frame(Cells_Raw) 
+  
+  # Subset the date set to keep only relevant columns
+  Cells <- subset(Cells, select = c(Image, Name, Parent, `Centroid X µm`, `Centroid Y µm`))
+  
+  # Extract metadata information from image name
+  Cells <- cbind(Cells, do.call(rbind , strsplit(Cells$Image, "[_\\.]"))[,1:4])
+  colnames(Cells) <- c("Image", "ID", "Class", "X", "Y", "MouseID", "DPI", "Region")
+  Cells <- subset(Cells, select = c(MouseID, DPI, ID, X, Y))
+  
+  # Write a .csv file 
+  write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
+}
+basePath <- "QuPathProject2"
+resultsPath <- "DataTables/Pericytes_Coordinates_10x"
+
+process_folder <- function(folderPath, filename_suffix) {
+  files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
+  for (file in files) {
+    process_initial_data(folderPath, file, filename_suffix, resultsPath)
+  }
+}
+
+#process_folder(paste0(basePath, "/Pdgfr"), "_Coordinates.csv")
+#process_folder(paste0(basePath, "/Dapi"), "_Coordinates.csv")
+process_folder(paste0(basePath, "/Gfap"), "_Coordinates.csv")
+
+
+```
+
+## 7.2 Generate hyperframes
+
+In this step, we retrieve the files located in the `ResultsTables/Pericytes_Coordinates_10x` folder to generate point patterns, density kernels and tessellations, which are stored in a hyperframe. We also generate files containing intensity summaries and cell locations in tessellated images. This features will be explained later in the work flow.
+
+To generate the hyperframe was neccesary to exclude cortical sections from animals 14 and 80. The reason for this is that no Gfap cells were detected in these samples, and therefore, the code can not make a good matching with Pdgfr and Dapi.
+
+```{r}
+#| label: Generate hyperframes and additional data tables
+#| include: true
+#| warning: false
+#| message: false
+
+coordinatesPath <- "DataTables/Pericytes_Coordinates_10x"
+
+IntensityPath <- "DataTables"
+
+Cells_Intensity_CSV_Path <- paste0(IntensityPath, "/Pericytes_Gfap_Intensity.csv")
+Cells_Intensity_Header <- c("Brain", "Pdgfr_Intensity", "Gfap_Intensity")
+
+Tesselation_CSV_Path <- paste0(densityTablesPath, "/Cells_Covariance.csv")
+Tesselation_Test_Header <- c("Brain", "Low", "High")
+
+# Results to generate
+Result_Hyperframe <- NULL
+
+# Functions
+
+add_to_hyperframe <- function (...) {
+    if (is.null(Result_Hyperframe)){
+      Result_Hyperframe <<- hyperframe(...)
+    } else {
+      Result_Hyperframe <<- rbind(Result_Hyperframe, hyperframe(...))
+    }
+}
+
+create_empty_table <- function (path, header) {
+  df_header <- data.frame(matrix(ncol = length(header), nrow = 0))
+  names(df_header) <- header
+
+  write.csv(df_header, path)
+}
+
+create_empty_table(Cells_Intensity_CSV_Path, Cells_Intensity_Header)
+create_empty_table(Tesselation_CSV_Path, Tesselation_Test_Header)
+
+
+coordinates_manipulation <- function (Raw_Table) {
+  Cell_Coor_X <- Raw_Table$Y
+  Cell_Coor_Y <- Raw_Table$X
+
+  ## Bind the vectors, rotate and bind to original table
+  Coords <- cbind(Cell_Coor_X, Cell_Coor_Y)
+  Coords <- secr::rotate(Coords, 180)
+  Coords <- as.data.frame(Coords)
+  return(cbind(Raw_Table, Coords))
+}
+
+# Create a point pattern (PPP) object
+
+create_point_pattern <- function(Subset, ReferenceSubset) {
+  # We define the limits of the window according to Dapi coordinates
+  xlim <- range(ReferenceSubset$X)
+  ylim <- range(ReferenceSubset$Y)
+
+  # Create point pattern for neurons
+  Cells_PPP <- with(Subset, spatstat.geom::ppp(x = Subset$X, y = Subset$Y, xrange = xlim, yrange = ylim))
+  unitname(Cells_PPP)  <- list("mm", "mm", 0.878/1936)
+  Cells_PPP <- spatstat.geom::rescale (Cells_PPP)
+  
+  ## We rescale the unit to obtain measurements in mm2
+  return(Cells_PPP)
+  
+}
+
+tesselation <- function(Cells_Density) {
+  ## We define the quantiles for Neurons
+  Cells_Quantiles <- c(0, 5000, 20000)
+
+  ## We define the cutting spots according to quantiles
+  Cells_Cut <- cut(Cells_Density, breaks = Cells_Quantiles, labels = c ("Low", "High"))
+
+  ## We generate the tesselation image
+  return(tess(image = Cells_Cut))
+}
+
+tesselation_data <- function(Cells_PPP, Cells_Tess) {
+  Result <- quadratcount(Cells_PPP, tess = Cells_Cut )
+  return(Result)
+}
+
+
+process_file <- function (basePath, path) {
+
+  Dapi_Raw <- read.csv(file = paste0(basePath, '/', path, '_Dapi_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Dapi_Raw  <- Dapi_Raw  %>% sample_frac(.5)
+  Pdgfr_Raw <- read.csv(file = paste0(basePath, '/', path, '_Pdgfr_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Pdgfr_Raw  <- Pdgfr_Raw  %>% sample_frac(.5)
+  Gfap_Raw <- read.csv(file = paste0(basePath, '/', path, '_Gfap_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Gfap_Raw  <- Gfap_Raw  %>% sample_frac(.5)
+  
+  Dapi_Raw2 <- coordinates_manipulation(Dapi_Raw)
+  Pdgfr_Raw2 <- coordinates_manipulation(Pdgfr_Raw)
+  Gfap_Raw2 <- coordinates_manipulation(Gfap_Raw)
+  
+  Dapi_PPP <- create_point_pattern(Dapi_Raw2, Dapi_Raw2)
+  Window(Dapi_PPP) <- convexhull(Dapi_PPP)
+  Pdgfr_PPP <- create_point_pattern(Pdgfr_Raw2, Dapi_Raw2)
+  Window(Pdgfr_PPP) <- convexhull(Dapi_PPP)
+  Gfap_PPP <- create_point_pattern(Gfap_Raw2, Dapi_Raw2)
+  Window(Gfap_PPP) <- convexhull(Dapi_PPP)
+  
+  Pdgfr_Intensity <- summary(Pdgfr_PPP)$intensity
+  Gfap_Intensity <- summary(Gfap_PPP)$intensity
+
+  Intensity_Row <- t(c(path, Pdgfr_Intensity, Gfap_Intensity))
+  
+  Pdgfr_Dens <- density(Pdgfr_PPP, sigma =0.02, positive=TRUE, equal.ribbon = TRUE, col = topo.colors, main = "")
+  Gfap_Dens <- density(Gfap_PPP, sigma =0.02, positive=TRUE, equal.ribbon = TRUE, col = topo.colors, main = "")
+
+  Gfap_Tess <- tesselation(Gfap_Dens)
+ 
+  Pdgfr_Gfap <-tesselation_data(Pdgfr_PPP, Gfap_Tess)
+
+  Tesselation_Row <- t(c(path, Pdgfr_Gfap))
+  write.table(Tesselation_Row, Tesselation_CSV_Path, append = TRUE, sep=",", col.names = FALSE)
+  
+  write.table(Intensity_Row, Cells_Intensity_CSV_Path, append = TRUE, sep=",", col.names = FALSE)
+
+  
+  fragments <- strsplit(path, "_")[[1]]
+  len <- length(fragments)
+  mouse <- fragments[1]
+  dpi <- fragments[2]
+  condition <- fragments[3]
+  region <- fragments[4]
+
+add_to_hyperframe(Pdgfr = Pdgfr_PPP, Gfap = Gfap_PPP, Gfap_Dens = Gfap_Dens, Gfap_Tess = Gfap_Tess, ID = mouse, DPI=dpi, Condition = condition, Region = region, stringsAsFactors=TRUE)
+}
+
+csv_files <- list.files(coordinatesPath, full.names = FALSE, recursive = FALSE)
+
+brains <- c()
+
+for (csv in csv_files) {
+  fragments <- strsplit(csv, "_")[[1]]
+  brain_name <- paste(fragments[1:4], collapse="_")
+  brains <- append(brains, brain_name)
+}
+
+brains <- unique(brains)
+
+for (brain in brains) {
+  process_file(coordinatesPath, brain)
+}
+
+saveRDS(Result_Hyperframe, "Hyperframes/Pdgfr_PPP_10x.rds")
+
+```
+
+## 7.3 Load the point pattern
+
+```{r}
+PointPatterns_10x <- readRDS("Hyperframes/Pdgfr_PPP_10x.rds")
+```
+
+### 7.4.1 Plot representative Gfap density
+
+```{r}
+
+Gfap_Colmap <- colourmap(topo.colors(256), range = c(0, 15000))
+
+###### For 7 DPI
+
+# Mouse 71, 3 DPI, Cortex
+png("Plots/Gfap_Dens_Ctx_3D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`1115`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`1115`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+# Mouse 71, 3 DPI, Peri
+png("Plots/Gfap_Dens_7D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`1116`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`1116`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 71, 3 DPI, striatum
+png("Plots/Gfap_Dens_7D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`1117`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`1117`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+###### For 7 DPI
+
+# Mouse 12, 7 DPI, Cortex
+png("Plots/Gfap_Dens_7D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`1`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`1`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 12, 7 DPI, Peri
+png("Plots/Gfap_Dens_7D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`11`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`11`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 12, 7 DPI, Striatum
+png("Plots/Gfap_Dens_7D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`12`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`12`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+###### For 14 DPI
+
+# Mouse 20, 14 DPI, Cortex
+png("Plots/Gfap_Dens_14D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`112`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`112`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 20, 14 DPI, Peri
+png("Plots/Gfap_Dens_14D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`113`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`113`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 20, 14 DPI, Striatum
+png("Plots/Gfap_Dens_14D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`114`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`114`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+###### For 30 DPI
+
+# Mouse 33, 30 DPI, Cortex
+png("Plots/Gfap_Dens_30D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`136`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`136`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 33, 30 DPI, Peri
+png("Plots/Gfap_Dens_30D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`137`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`137`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+# Mouse 33, 30 DPI, Striatum
+png("Plots/Gfap_Dens_30D.png", width = 500, height = 1000)
+plot(PointPatterns_10x$Gfap_Dens$`138`, 
+     col = Gfap_Colmap, 
+     main = "") 
+
+plot(PointPatterns_10x$Pdgfr$`138`, 
+     pch = 16, 
+     cex = 1, 
+     col = "black", 
+     add = TRUE)
+
+dev.off()
+
+
+xx <- PointPatterns_10x$Gfap_Dens$`14`
+
+
+  Cells_Quantiles <- c(0, 5000, 20000)
+xx <-  cut(PointPatterns_10x$Gfap_Dens$`14`, breaks = Cells_Quantiles, labels = c ("Low", "High"))
+
+  ## We generate the tesselation image
+  return(tess(image = Cells_Cut))
+
+
+
+quadratcount(PointPatterns_10x$Pdgfr$`14`, tess = xx )
+
+```
+
+## 7.4 Model tesselations
+
+We rename and subset the relevant columns for the analysis of cell covariance.
+
+```{r}
+#| label: Load and prepare cell covariance data (tessellations)
+#| include: true
+#| warning: false
+#| message: false
+
+# Load the data set
+Cells_Tess_Raw <- read.csv(file = 'DataTables/Cells_Covariance.csv', header = TRUE)
+
+## We subset the relevant columns (cell number)
+Cells_Tess <- subset(Cells_Tess_Raw, select = -c(X))
+
+## And extract metadata from the image name
+Cells_Tess  <- cbind(Cells_Tess, do.call(rbind , strsplit(Cells_Tess$Brain, "[_\\.]"))[,1:4])
+
+## We Rename the relevant columns 
+colnames(Cells_Tess) <- c("Brain", "Low", "High", "MouseID", "DPI", "Condition", "Region")
+
+## Perform a new subset
+Cells_Tess <- subset(Cells_Tess, select = c(MouseID, DPI, Region, Low, High))
+
+## And organize the DPI factors 
+#Cells_Tess$DPI <- factor(Cells_Tess $DPI, levels = c("0D", "3D", "7D", "14D","30D"))
+
+## We exclude 0 DPI
+Cells_Tess <- Cells_Tess[Cells_Tess$DPI != "0",]
+
+## Transform the data set to long format
+Cells_Tess_Long <- melt(Cells_Tess, id.vars = c("MouseID", "DPI", "Region"))
+
+## Set new column names
+colnames(Cells_Tess_Long) <- c("MouseID", "DPI", "Region", "Gfap", "Pdgfr")
+
+Cells_Tess_Long$Gfap <- factor(Cells_Tess_Long$Gfap, ordered = TRUE, levels = c("Low", "High"))
+
+
+```
+
+## Plot data for anitial visualization
+
+We create graphs for initial visualization using `geom_density_ridges` and save them in the designated locations.
+
+```{r}
+#| label: Create Pdgfr/Gfap covariance graph (tessellations)
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+Pdgfr_Gfap_Ridges <- 
+  ggplot(Cells_Tess_Long, 
+        aes(x = Pdgfr, 
+            y = DPI, 
+            fill = Gfap)) + 
+                                                                                           
+  geom_density_ridges(
+    quantile_lines = TRUE,
+    rel_min_height = 0.01,
+    alpha = 0.8, 
+    scale = 2,
+    jittered_points = TRUE,
+    point_alpha = 1, 
+    point_size = 3) +
+    
+  scale_y_discrete(name= " DPI \n",
+                     labels = c("3D", "7D", "14D", "30D")) +
+  
+  scale_x_continuous(name="\n PDGFR-B in GFAP regions") +
+  
+  scale_fill_manual(values= c("cyan", "green"),
+                        name="Gfap density",
+                        breaks=c("Low", "High"),
+                        labels=c("Low", "High")) +
+  
+  
+  scale_color_manual(values= c("cyan", "green"),
+                        name="Gfap density",
+                        breaks=c("Low", "High"),
+                        labels=c("Low", "High")) +
+  
+  Plot_theme +
+
+facet_wrap(~Region, 
+           scales = "free_x", 
+           ncol = 1)
+           
+
+Pdgfr_Gfap_Ridges
+
+ggsave(plot = Pdgfr_Gfap_Ridges, "Plots/Pdgfr_Gfap_Ridges.png", 
+       width = 16, 
+       height = 30, 
+       units = "cm")
+
+```
+
+
+## 7.5 Bayesian modeling
+
+Here, we follow a similar approach for bayesian modeling. In this case, we use DPI and Regions as a categorical variables.
+
+```{r}
+#| label: Statistical modeling for GFAP IntDen
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+Cells_Tess_Long$DPI <- factor(Cells_Tess_Long$DPI, ordered = TRUE, levels = c("3", "7", "14", "30"))
+Cells_Tess_Cortex <- Cells_Tess_Long[(Cells_Tess_Long$Region=="Cortex"),]
+
+
+# Model 1: DPI and Region as linear predictors for Cortex
+Pdgfr_Gfap_Mdl1 <- bf(Pdgfr ~ DPI + Gfap + DPI:Gfap)
+
+get_prior(Pdgfr_Gfap_Mdl1, Cells_Tess_Cortex)
+
+Pdgfr_Gfap_Prior1  <- 
+  c(prior(normal(500, 300), class = b, lb = 0))
+
+# Fit model 1
+Pdgfr_Gfap_Fit1 <- 
+  brm(
+    data    = Cells_Tess_Cortex,
+    formula = Pdgfr_Gfap_Mdl1,
+    #family  = student,
+    #prior   = Pdgfr_Gfap_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_Gfap_Fit1.rds",
+    file_refit = "never") 
+                     
+Pdgfr_Gfap_Fit1 <- 
+  add_criterion(Pdgfr_Gfap_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+####### For striatum
+
+Cells_Tess_Striatum <- Cells_Tess_Long[(Cells_Tess_Long$Region=="Striatum"),]
+
+# Model 2: DPI and Region as linear predictors for Striatum
+get_prior(Pdgfr_Gfap_Mdl1, Cells_Tess_Striatum)
+
+# Fit model 2
+Pdgfr_Gfap_Fit2 <- 
+  brm(
+    data    = Cells_Tess_Striatum,
+    formula = Pdgfr_Gfap_Mdl1,
+    #family  = student,
+    #prior   = Pdgfr_Gfap_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_Gfap_Fit2.rds",
+    file_refit = "never") 
+                     
+Pdgfr_Gfap_Fit2 <- 
+  add_criterion(Pdgfr_Gfap_Fit2, c("loo", "waic", "bayes_R2"))
+
+####### For perilesion
+
+Cells_Tess_Perilesion <- Cells_Tess_Long[(Cells_Tess_Long$Region=="Perilesion"),]
+
+# Model 3: DPI and Region as linear predictors for Perilesion
+get_prior(Pdgfr_Gfap_Mdl1, Cells_Tess_Perilesion)
+
+# Fit model 3
+Pdgfr_Gfap_Fit3 <- 
+  brm(
+    data    = Cells_Tess_Perilesion,
+    formula = Pdgfr_Gfap_Mdl1,
+    #family  = student,
+    #prior   = Pdgfr_Gfap_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/Pdgfr_Gfap_Fit3.rds",
+    file_refit = "never") 
+                     
+Pdgfr_Gfap_Fit3 <- 
+  add_criterion(Pdgfr_Gfap_Fit3, c("loo", "waic", "bayes_R2"))
+
+```
+## Calculate contrast
+```{r}
+
+# For Pdgfr_Gfap cortex
+Pdgfr_Gfap_Cortex_Contrast <- Pdgfr_Gfap_Fit1%>%
+emmeans(~ DPI + Gfap) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+# For Pdgfr_Gfap Striatum
+Pdgfr_Gfap_Striatum_Contrast <- Pdgfr_Gfap_Fit2%>%
+emmeans(~ DPI + Gfap) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+# For Pdgfr_Gfap Perilesion
+Pdgfr_Gfap_Perilesion_Contrast <- Pdgfr_Gfap_Fit2%>%
+emmeans(~ DPI + Gfap) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+```
+
+
+
+## 7.6 Plot the results
+
+Now, let's plot the results using `conditional_effects` from the brms package.
+
+### 7.6.1 For Cortex
+
+```{r}
+#| label: Plot the results for Pdgfr_Gfap cortex
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Pdgfr_Gfap_Cortex <- 
+  conditional_effects(Pdgfr_Gfap_Fit1, effects = "DPI:Gfap")
+
+Pdgfr_Gfap_Cortex_Fig <- 
+  plot(Pdgfr_Gfap_Cortex)[[1]] +
+  geom_point(data=Cells_Tess_Cortex, aes(y = Pdgfr, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Cortex") +
+  
+  scale_y_continuous(name = "Number of PDGFR-B+ cells",
+                     limits=c(0, 1200), 
+                     breaks=seq(0,1200,300)) +
+  
+  scale_x_discrete(name="Days post-ischemia",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= c(0.2, 0.8))
+
+
+#############
+# Generate the contrast graph
+Pdgfr_Gfap_Cortex_Contrast_Sub <- Pdgfr_Gfap_Cortex_Contrast[
+  (Pdgfr_Gfap_Cortex_Contrast$contrast=="DPI7 Low - DPI3 Low"|
+   Pdgfr_Gfap_Cortex_Contrast$contrast=="DPI14 Low - DPI7 Low"|
+   Pdgfr_Gfap_Cortex_Contrast$contrast=="DPI30 Low - DPI14 Low"),]
+
+Pdgfr_Gfap_Cortex_Contrast_Sub$contrast <- 
+  factor(Pdgfr_Gfap_Cortex_Contrast_Sub$contrast, 
+         levels = c("DPI7 Low - DPI3 Low", "DPI14 Low - DPI7 Low", "DPI30 Low - DPI14 Low")) 
+              
+Pdgfr_Gfap_Cortex_Contrast_Fig <- 
+  Pdgfr_Gfap_Cortex_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        fill = stat(abs(x) < 10))) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  geom_vline(
+    xintercept = c(-10, 10), 
+    linetype = "dashed") +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("7D-3D","14D-7D",  "30D-14D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-100, 500), 
+   breaks=seq(-100,600, 100)) +
+
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.9))
+
+
+Pdgfr_Gfap_Cortex_Patch <- 
+  Pdgfr_Gfap_Cortex_Fig + 
+  plot_spacer() + 
+  Pdgfr_Gfap_Cortex_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.3))
+  
+
+ ggsave(plot     = Pdgfr_Gfap_Cortex_Patch, 
+       filename  = "Plots/Pdgfr_Gfap_Cortex_Contrast_Fig.png", 
+       width     = 14, 
+       height    = 14, 
+       units     = "cm")
+
+```
+### 7.6.1 For Striatum
+
+```{r}
+#| label: Plot the results for Pdgfr_Gfap Striatum
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Pdgfr_Gfap_Striatum <- 
+  conditional_effects(Pdgfr_Gfap_Fit2, effects = "DPI:Gfap")
+
+Pdgfr_Gfap_Striatum_Fig <- 
+  plot(Pdgfr_Gfap_Striatum)[[1]] +
+  geom_point(data=Cells_Tess_Striatum, aes(y = Pdgfr, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Striatum") +
+  
+  scale_y_continuous(name = "Number of PDGFR-B+ cells",
+                     limits=c(0, 1000), 
+                     breaks=seq(0,1000,300)) +
+  
+  scale_x_discrete(name="Days post-ischemia",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= c(0.2, 0.8))
+
+
+#############
+# Generate the contrast graph
+Pdgfr_Gfap_Striatum_Contrast_Sub <- Pdgfr_Gfap_Striatum_Contrast[
+  (Pdgfr_Gfap_Striatum_Contrast$contrast=="DPI7 Low - DPI3 Low"|
+   Pdgfr_Gfap_Striatum_Contrast$contrast=="DPI14 Low - DPI7 Low"|
+   Pdgfr_Gfap_Striatum_Contrast$contrast=="DPI30 Low - DPI14 Low"),]
+
+Pdgfr_Gfap_Striatum_Contrast_Sub$contrast <- 
+  factor(Pdgfr_Gfap_Striatum_Contrast_Sub$contrast, 
+         levels = c("DPI7 Low - DPI3 Low", "DPI14 Low - DPI7 Low", "DPI30 Low - DPI14 Low")) 
+              
+Pdgfr_Gfap_Striatum_Contrast_Fig <- 
+  Pdgfr_Gfap_Striatum_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        fill = stat(abs(x) < 10))) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  geom_vline(
+    xintercept = c(-10, 10), 
+    linetype = "dashed") +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("7D-3D","14D-7D",  "30D-14D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-100, 500), 
+   breaks=seq(-100,500, 100)) +
+
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.9))
+
+
+Pdgfr_Gfap_Striatum_Patch <- 
+  Pdgfr_Gfap_Striatum_Fig + 
+  plot_spacer() + 
+  Pdgfr_Gfap_Striatum_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.3))
+  
+
+ ggsave(plot     = Pdgfr_Gfap_Striatum_Patch, 
+       filename  = "Plots/Pdgfr_Gfap_Striatum_Contrast_Fig.png", 
+       width     = 14, 
+       height    = 14, 
+       units     = "cm")
+
+```
+### 7.6.1 For Perilesion
+
+```{r}
+#| label: Plot the results for Pdgfr_Gfap Perilesion
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Pdgfr_Gfap_Perilesion <- 
+  conditional_effects(Pdgfr_Gfap_Fit3, effects = "DPI:Gfap")
+
+Pdgfr_Gfap_Perilesion_Fig <- 
+  plot(Pdgfr_Gfap_Perilesion)[[1]] +
+  geom_point(data=Cells_Tess_Perilesion, aes(y = Pdgfr, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Perilesion") +
+  
+  scale_y_continuous(name = "Number of PDGFR-B+ cells",
+                     limits=c(0, 200), 
+                     breaks=seq(0,200,50)) +
+  
+  scale_x_discrete(name="Days post-ischemia",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= c(0.2, 0.8))
+
+
+#############
+# Generate the contrast graph
+Pdgfr_Gfap_Perilesion_Contrast_Sub <- Pdgfr_Gfap_Perilesion_Contrast[
+  (Pdgfr_Gfap_Perilesion_Contrast$contrast=="DPI7 Low - DPI3 Low"|
+   Pdgfr_Gfap_Perilesion_Contrast$contrast=="DPI14 Low - DPI7 Low"|
+   Pdgfr_Gfap_Perilesion_Contrast$contrast=="DPI30 Low - DPI14 Low"),]
+
+Pdgfr_Gfap_Perilesion_Contrast_Sub$contrast <- 
+  factor(Pdgfr_Gfap_Perilesion_Contrast_Sub$contrast, 
+         levels = c("DPI7 Low - DPI3 Low", "DPI14 Low - DPI7 Low", "DPI30 Low - DPI14 Low")) 
+              
+Pdgfr_Gfap_Perilesion_Contrast_Fig <- 
+  Pdgfr_Gfap_Perilesion_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        fill = stat(abs(x) < 10))) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  geom_vline(
+    xintercept = c(-10, 10), 
+    linetype = "dashed") +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("7D-3D","14D-7D",  "30D-14D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-100, 500), 
+   breaks=seq(-100,500, 100)) +
+
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.9))
+
+
+Pdgfr_Gfap_Perilesion_Patch <- 
+  Pdgfr_Gfap_Perilesion_Fig + 
+  plot_spacer() + 
+  Pdgfr_Gfap_Perilesion_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.3))
+  
+
+ ggsave(plot     = Pdgfr_Gfap_Perilesion_Patch, 
+       filename  = "Plots/Pdgfr_Gfap_Perilesion_Contrast_Fig.png", 
+       width     = 14, 
+       height    = 14, 
+       units     = "cm")
+
+```
+
+## 7.4 Model covariance
+
+```{r}
+
+Pdgfr_Gfap_Fit1 <- mppm(Pdgfr ~ 0 + Gfap_Dens + DPI:Region, data=PointPatterns_10x)
+
+exp(coef(Pdgfr_Gfap_Fit1))
+
+```
+
+## 7.4 Calculate Pdgfr and Gfap covariance
+
+```{r}
+
+PointPatterns_10x$Pdgfr_Gfap_Rhohat <- with(PointPatterns_10x, spatstat.explore::rhohat.ppp(Pdgfr, Gfap_Dens, do.CI = FALSE))
+
+Pdgfr_Rhohatsplit <- split(PointPatterns_10x$Pdgfr_Gfap_Rhohat, list(PointPatterns_10x$DPI, PointPatterns_10x$Region))
+Pdgfr_Rhohatsplit <- Pdgfr_Rhohatsplit[-9]
+
+Pdgfr_Gfap_RhohatPool <- anylapply(Pdgfr_Rhohatsplit, pool)
+
+```
+
+### 7.4.1 Plot rhohats
+
+```{r}
+png("Plots/Pdgfr_Gfap_3D_Ctx_Rhohat.png", width = 500, height = 400)
+par(mar=c(5,5,5,2))
+plot(Pdgfr_Gfap_RhohatPool$`3D.Ctx`,
+     shade = c("lorho", "hirho"),
+     main = "",
+     xlab = "GFAP intensity",
+     ylim = c(-1000, 1000),
+     ylab = "p(PDGFR-B intensity)",
+     cex.main = 2,
+     cex.lab = 2,
+     cex.axis = 2,
+     lwd = 5,
+     legend=FALSE)
+dev.off()
+
+png("Plots/Pdgfr_Gfap_3D_Peri_Rhohat.png", width = 500, height = 400)
+par(mar=c(5,5,5,2))
+plot(Pdgfr_Gfap_RhohatPool$`3D.Peri`,
+     shade = c("lorho", "hirho"),
+     main = "",
+     xlab = "GFAP intensity",
+     ylim = c(0, 10000),
+     ylab = "p(PDGFR-B intensity)",
+     cex.main = 2,
+     cex.lab = 2,
+     cex.axis = 2,
+     lwd = 5,
+     legend=FALSE)
+dev.off()
+
+
+png("Plots/Pdgfr_Gfap_3D_Str_Rhohat.png", width = 500, height = 400)
+par(mar=c(5,5,5,2))
+plot(Pdgfr_Gfap_RhohatPool$`30D.Ctx`,
+     shade = c("lorho", "hirho"),
+     main = "",
+     xlab = "GFAP intensity",
+     ylim = c(0, 1000000),
+     ylab = "p(PDGFR-B intensity)",
+     cex.main = 2,
+     cex.lab = 2,
+     cex.axis = 2,
+     lwd = 5,
+     legend=FALSE)
+dev.off()
+```
+
+## 7.4 Calculate L function for astrocytes
+
+We calculate an L-inhomogeneous function using `linhom` from `spatstat`, assuming that our point patterns are inhomogeneous. With the following procedure, a new *Pdgfr_LInhom* column is generated in the `PointPatterns_10x` hyperframe, which we pool latter to obtain estimates per time point.
+
+```{r}
+#| label: Calculate interaction L-function for pericytes
+#| include: false
+#| warning: false
+#| message: false
+
+PointPatterns_10x$Pdgfr_LInhom <- with (PointPatterns_10x, Linhom(Pdgfr, correction = "isotropic"))
+
+# For Striatal Point Patterns
+PointPatterns_10x_Str <- subset(PointPatterns_10x, Region=="Str", select = 1:6)
+Pdgfr_Str_Lsplit <- split(PointPatterns_10x_Str$Pdgfr_LInhom, PointPatterns_10x_Str$DPI)
+Pdgfr_Str_LPool <- anylapply(Pdgfr_Str_Lsplit, pool)
+
+# For cortical Point Patterns
+PointPatterns_10x_Ctx <- subset(PointPatterns_10x, Region=="Ctx", select = 1:6)
+Pdgfr_Ctx_Lsplit <- split(PointPatterns_10x_Ctx$Pdgfr_LInhom, PointPatterns_10x_Ctx$DPI)
+Pdgfr_Ctx_LPool <- anylapply(Pdgfr_Ctx_Lsplit, pool)
+
+# For perilesional Point Patterns
+PointPatterns_10x_Peri <- subset(PointPatterns_10x, Region=="Peri", select = 1:6)
+Pdgfr_Peri_Lsplit <- split(PointPatterns_10x_Peri$Pdgfr_LInhom, PointPatterns_10x_Peri$DPI)
+Pdgfr_Peri_Lsplit <- Pdgfr_Peri_Lsplit [-4]     
+Pdgfr_Peri_LPool <- anylapply(Pdgfr_Peri_Lsplit, pool)
+```
+
+## 7.5 Plot L-functions for pecicytes
+
+We plot the L-functions (.fv objects) using the r-base graphic system. Lower and higher 95% CI are displayed as a shadowed region.
+
+### 7.5.1 For striatal regions
+
+```{r}
+#| label: Save L-function for Pericytes - striatal regions
+#| include: false
+#| warning: false
+#| message: false
+
+
+png("Plots/Pdgfr_Str_LFunction_0D.png", width = 600, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfr_Str_LPool$`0D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.005, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.08, 0.02), labels = c("0", "0.02", "0.04", "0.06", "0.08"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.005, 0.005, 0.002), labels = c("-0.005","-0.003", "-0.001", "0.001", "0.003", "0.005"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Str_LFunction_3D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Str_LPool$`3D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Str_LFunction_7D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Str_LPool$`7D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Str_LFunction_14D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Str_LPool$`14D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Str_LFunction_30D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Str_LPool$`30D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+```
+
+### 7.5.2 For Cortical regions
+
+```{r}
+#| label: Save L-function for Pericytes - Cortical regions
+#| include: false
+#| warning: false
+#| message: false
+
+
+png("Plots/Pdgfr_Ctx_LFunction_0D.png", width = 600, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfr_Ctx_LPool$`0D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.005, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.08, 0.02), labels = c("0", "0.02", "0.04", "0.06", "0.08"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.005, 0.005, 0.002), labels = c("-0.005","-0.003", "-0.001", "0.001", "0.003", "0.005"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Ctx_LFunction_3D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Ctx_LPool$`3D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Ctx_LFunction_7D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Ctx_LPool$`7D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Ctx_LFunction_14D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Ctx_LPool$`14D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Ctx_LFunction_30D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Ctx_LPool$`30D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+```
+
+# For Perilesional regions
+
+```{r}
+#| label: Save L-function for Pericytes - Perilesional regions
+#| include: false
+#| warning: false
+#| message: false
+
+
+png("Plots/Pdgfr_Peri_LFunction_3D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Peri_LPool$`3D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Peri_LFunction_7D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Peri_LPool$`7D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Peri_LFunction_14D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Peri_LPool$`14D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Pdgfr_Peri_LFunction_30D.png", width = 600, height = 500)
+par(mar=c(7,12,2,2))
+plot(Pdgfr_Peri_LPool$`30D`, cbind(pooliso, pooltheo, loiso, hiiso) - r ~ r,
+     shade = c("loiso", "hiiso"),
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     xlim=c(0, 0.08),
+     ylim=c(-0.008, 0.005),
+     xlab = "",
+     ylab = "",
+     lwd = 6,
+     legend=FALSE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.06, 0.02), labels = c("0", "0.02", "0.04", "0.06"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(-0.008, 0.005, 0.003), labels = c("-0.008", "-0.005", "-0.002", "0.001", "0.004"), cex.axis=2, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L "[inhom] * "(r)-r"), mgp = c(8, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+```
+
+### 8.2.3 Perform permutation test for astrocytes
+
+```{r}
+#| label: Permutation test for astrocytes
+#| include: false
+#| warning: false
+#| message: false
+
+Astrocytes_Permutation <- studpermu.test(PointPatterns_10x, summaryfunction = Lest, use.Tbar = TRUE, Astrocytes ~ DPI)
+
+png("Plots/Astrocytes_Permutation.png", width = 600, height = 500)
+par(mar=c(5,8,2,2))
+plot(Astrocytes_Permutation,
+     main = "", 
+     cex.lab = 3,
+     cex.axis = 3,
+     cex.legend = 3,
+     xlab = "",
+     ylab = "",
+     xlim=c(0, 0.08),
+     ylim=c(0, 0.15),
+     lwd = 4,
+     legend=TRUE,
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 0.08, 0.02), labels = c("0", "0.02", "0.04", "0.06", "0.08"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 0.15, 0.03), labels = c("0","0.3", "0.6", "0.9", "0.12", "0.15"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "r (mm)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = expression("L (r)"), mgp = c(6, 1, 0), cex.lab = 3) 
+
+dev.off()
+     
+
+```
+
+### References
+
+::: {#refs}
+:::
