@@ -16,6 +16,9 @@ The notebooks are listed according to the suggested execution order to follow th
 
 **Widefield_5x_Shrinkage.qmd:** Contains data handling and statistical modeling for the analysis of brain shrinkage. 
 
+**Widefield_5x_Gfap-IntDen.qmd:** Contains data handling and statistical modeling for the analysis of GFAP integrated density. 
+
+**Widefield_5x_Gfap-Convex.qmd:** Contains data handling and statistical modeling for the analysis of GFAP convex hull in the ischemic hemisphere. 
 
 ## Support files
 

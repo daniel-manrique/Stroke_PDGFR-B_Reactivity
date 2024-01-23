@@ -35,14 +35,14 @@ knitr:
     message: false
     
 csl: science.csl
-bibliography: Ref_Shrinkage.bib
+bibliography: Widefield_5x_Shrinkage.bib
 ---
 
 # Preview
 
 In this notebook, we perform analysis of GFAP expression following MCAO.
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) for are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Gfap-Pdgfrb.zip`.
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
 **Working dataset**: The `Pdgfrb_Gfap_Ipsi_5x_Inten.csv`data frame containing the integrated density of GFAP measured in the ipsilateral hemisphere (`Gfap_IntDen`) using FIJI [@schindelin2012]. We perform scientific inference on this variable as a basis to understand astrocyte reactivity in our model. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset.
 
@@ -302,7 +302,7 @@ Gfap_IntDen_Fit1 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/GfapReactivity/Gfap_IntDen_Fit1.rds",
+    file    = "Models/Gfap_IntDen/Gfap_IntDen_Fit1.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison
@@ -330,7 +330,7 @@ Gfap_IntDen_Fit2 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/GfapReactivity/Gfap_IntDen_Fit2.rds",
+    file    = "Models/Gfap_IntDen/Gfap_IntDen_Fit2.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison
@@ -366,7 +366,7 @@ Gfap_IntDen_Fit3 <-
     iter    = 10000, 
     seed    = 8807,
     control = list(adapt_delta = 0.999, max_treedepth = 15),
-    file    = "Models/GfapReactivity/Gfap_IntDen_Fit3.rds",
+    file    = "Models/Gfap_IntDen/Gfap_IntDen_Fit3.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison
@@ -393,7 +393,7 @@ Gfap_IntDen_Fit4 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/GfapReactivity/Gfap_IntDen_Fit4.rds",
+    file    = "Models/Gfap_IntDen/Gfap_IntDen_Fit4.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison

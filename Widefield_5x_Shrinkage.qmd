@@ -42,7 +42,7 @@ bibliography: Widefield_5x_Shrinkage.bib
 
 In this notebook we perform analysis for brain shrinkage following MCAO.Given the broad knowledge on the injury course, we expect an initial inflammatory phase (3-7 DPI) followed by brain shrinkage in the chronic stage (14-30 DPI).
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) for are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Gfap-Pdgfrb.zip`.
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
 **Working dataset**: The `ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using FIJI [@schindelin2012].
 
