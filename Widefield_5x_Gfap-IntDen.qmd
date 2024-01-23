@@ -44,7 +44,7 @@ In this notebook, we perform analysis of GFAP expression following MCAO.
 
 **Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
-**Working dataset**: The `Pdgfrb_Gfap_Ipsi_5x_Inten.csv`data frame containing the integrated density of GFAP measured in the ipsilateral hemisphere (`Gfap_IntDen`) using FIJI [@schindelin2012]. We perform scientific inference on this variable as a basis to understand astrocyte reactivity in our model. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset.
+**Working dataset**: The `Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv`data frame containing the integrated density of GFAP measured in the ipsilateral hemisphere (`Gfap_IntDen`) using FIJI [@schindelin2012]. We perform scientific inference on this variable as a basis to understand astrocyte reactivity in our model. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset.
 
 # Install and load required packages
 
@@ -136,7 +136,7 @@ Gfap_Summary  <- subset(Gfap_Summary, select = c("MouseID", "DPI", "Condition", 
 knitr::kable(Gfap_Summary[1:10, ])
 ```
 
-Our variable of interest `Gfap_IntDen` is the product of the stained area and the mean intensity as calculated in FIJI using the script available at XXXXXX. In this case, the units can be considered arbitrary and its interpretation is useful only relative to others. Knowing the GFAP dynamics following injury, we expect a progressive increase of this marker. We also keep the `Tissue_Area` variable to fir a model relating the two phenomena. 
+Our variable of interest `Gfap_IntDen` is the product of the stained area and the mean intensity as calculated in FIJI using the script available at https://osf.io/mqukx. In this case, the units can be considered arbitrary and its interpretation is useful only relative to others. Knowing the GFAP dynamics following injury, we expect a progressive increase of this marker. We also keep the `Tissue_Area` variable to fit a model relating the two phenomena. 
 
 Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
 
