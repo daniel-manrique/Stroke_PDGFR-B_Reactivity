@@ -218,7 +218,7 @@ We fit the following models to analyze the expression of GFAP:
 -   **Gfap_IntDen_Mdl1:** We use `DPI` as a linear predictor for GFAP integrated density with the notation:
 
 $$
-GFAP-IntDen_{i} = \alpha + \beta_{1} DPI_{i} + \epsilon_{i}
+IntDen_{i} = \alpha + \beta_{1} DPI_{i} + \epsilon_{i}
 $$
 
 This model follows the following pirors:
@@ -234,7 +234,7 @@ $$
 -   **Gfap_IntDen_Mdl2:** We use smooth terms (splines) to model the influence of `DPI`:
 
 $$
-Area_{i} = f_{s(DPI)}(DPI_{i})
+IntDen_{i} = f_{s(DPI)}(DPI_{i})
 $$
 This model uses the same priors as model 1.
 
@@ -242,7 +242,7 @@ This model uses the same priors as model 1.
 
 $$
 \begin{align}
-Area_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i} \\
+IntDen_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i} \\
 sigma_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}
 \end{align}
 $$
@@ -260,13 +260,13 @@ $$
 -   **Gfap_IntDen_Mdl4** Finally, we investigate the correlation between brain shrinkage and GFAP integrated density. We do so by fitting a spline model with interaction using the `t2` function, which denote a tensor product smooth of the predictor variables `DPI` and `Tissue_Area` to model the response variable (`Gfap_IntDen`).
 
 $$ 
- Gfap\_IntDen = \beta_0 + \sum_{i=1}^{k_1} \sum_{j=1}^{k_2} \beta_{ij} B_{1i}(DPI) B_{2j}(Tissue\_Area) + \epsilon
+IntDen = \beta_0 + \sum_{i=1}^{k_1} \sum_{j=1}^{k_2} \beta_{ij} B_{1i}(DPI) B_{2j}(Tissue\_Area) + \epsilon
 $$ 
-Where: - $ \beta*0 \$ is the intercept. - \$ B*{1i}(DPI) $ and $ B\_{2j}(Tissue_Area)$ are basis functions for the `DPI` and `Tissue_Area` predictors. - $ k_1$ and $ k_2 $ are the number of basis functions for `DPI` and `Tissue_Area`, respectively. - $\beta_{ij}$ are the coefficients for the tensor product of the $i^{th}$ basis function of `DPI` and the $j^{th}$ basis function of `Tissue_Area`. - $\epsilon$ is the residual error.
+Where: - $ \beta_0$ is the intercept. - $B_{1i}(DPI)$ and $B\_{2j}(Tissue_Area)$ are basis functions for the `DPI` and `Tissue_Area` predictors. - $ k_1$ and $ k_2 $ are the number of basis functions for `DPI` and `Tissue_Area`, respectively. - $\beta_{ij}$ are the coefficients for the tensor product of the $i^{th}$ basis function of `DPI` and the $j^{th}$ basis function of `Tissue_Area`. Finally, $\epsilon$ is the residual error.
 
 This model uses the brms-default flat priors.
 
-## Fit the models for GFAP reactivity
+## Fit the models for GFAP integrated density
 
 ```{r}
 #| label: GfapIntDen_Modeling
@@ -446,8 +446,8 @@ We can appreciate the same results using `loo_compare`:
 #| message: false
 #| results: false
 #| fig-cap: Model camparison by WAIC
-#| fig-height: 3
-#| fig-width: 4
+#| fig-height: 4
+#| fig-width: 5
 
 
 Gfap_IntDen_W <- 
@@ -509,7 +509,7 @@ color_scheme_set("darkgray")
 # Model 3
 Gfap_IntDen_Mdl3_pp <- 
   brms::pp_check(Gfap_IntDen_Fit3, 
-                 ndraws = 20) +
+                 ndraws = 100) +
   geom_density(lwd = 2) +
   labs(title = "Posterior predictive checks (model 3)",
   subtitle = "Formula: Gfap_IntDen ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
@@ -544,7 +544,7 @@ After validating the model, we plot the full posterior distributions:
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior for GFAP expression
+#| fig-cap: Posterior for GFAP IntDen
 #| fig-width: 5
 #| fig-height: 4
 
@@ -586,7 +586,7 @@ The `conditional_effects` function display the effects of predictors for brms-fi
 $$
  E[y | x_i] = \int f(x_1, x_2, \ldots, x_n) p(x_1, x_2, \ldots, x_{i-1}, x_{i+1}, \ldots, x_n) dx_1 dx_2 \ldots dx_{i-1} dx_{i+1} \ldots dx_n
 $$
-In our case, we use the function to visualize the effect of DPI on GFAP expression and the estimated sigma.
+In our case, we use the function to visualize the effect of DPI on GFAP IntDen and sigma.
 ```{r}
 #| label: fig-Gfap_IntDen_Sigma_CE
 #| include: true
@@ -687,8 +687,6 @@ ggsave(plot     = Gfap_IntDen_Sigma_fig,
 
 Gfap_IntDen_DPI_Fig | Gfap_IntDen_Sigma_fig
 ```
-
-
 @fig-Gfap_IntDen_Sigma_CE shows the splines for GFAP integrated density and sigma. We can see an increasing trend in the integrated density of GFAP until the second week after injury, followed by a slight decrease at 30 DPI. We speculate that the latter could be caused by brain shrinkage. The estimates for sigma show a strong increase in variance at 7 DPI, which is maintained until chronic stages. Please note that the values shown for sigma are not in actual scale, but internally transformed by default in `brms` models.
 
 ## Posterior summary
@@ -714,7 +712,7 @@ The table displays the regression coefficients. In all cases, the coefficients f
 
 ## Estimate derivative
 
-We can estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
+We estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
 
 In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
 
@@ -809,7 +807,7 @@ Previously, we fitted a forth model (Gfap_IntDen \~ t2(DPI,Tissue_Area)) to inve
 
 ## Model diagnostics
 
-We begin by evaluating the sample predictions using `pp_check` for model 3 (Mdl4). In the graph, 𝘺 shows the data and y\~ the simulated data.
+We begin by evaluating the sample predictions using `pp_check` for model 4 (Mdl4). In the graph, 𝘺 shows the data and y\~ the simulated data.
 
 ```{r}
 #| label: fig-GfapIntDen_Hem_Diagnostics
@@ -828,7 +826,7 @@ color_scheme_set("darkgray")
 # Model 3
 Gfap_IntDen_Mdl4_pp <- 
   brms::pp_check(Gfap_IntDen_Fit4, 
-                 ndraws = 20) +
+                 ndraws = 100) +
   geom_density(lwd = 2) +
   labs(title = "Posterior predictive checks (model 3)",
   subtitle = "Formula: Gfap_IntDen ~ t2(DPI,Tissue_Area)") +
