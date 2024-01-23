@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of brain shrinkage following ischemia"
+title: "Analysis of brain shrinkage (Widefield 5x images)"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -42,7 +42,7 @@ bibliography: Widefield_5x_Shrinkage.bib
 
 In this notebook we perform analysis for brain shrinkage following MCAO.Given the broad knowledge on the injury course, we expect an initial inflammatory phase (3-7 DPI) followed by brain shrinkage in the chronic stage (14-30 DPI).
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at XXXXX.
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) for are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Gfap-Pdgfrb.zip`.
 
 **Working dataset**: The `ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using FIJI [@schindelin2012].
 
@@ -122,11 +122,11 @@ Plot_theme <- theme_classic() +
 First, we print the table to recognize the column names and verify the content (not good rendering in pdf).
 
 ```{r}
-#| label: Shrinkage_Table
+#| label: tbl-Shrinkage_Table
 #| include: true
 #| warning: false
 #| message: false
-#| tbl-cap: "Data set"
+#| tbl-cap: "Data set for the analysis of brain shrinkage"
 
 # We load the dataset in case is not present in the R environment
 Ipsi_Summary <- read.csv(file = "ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv", header = TRUE)
@@ -148,7 +148,7 @@ From the full dataset, we are only interested in the `DPI` (Days post-ischemia) 
 #| results: false
 #| fig-cap: Exploratory data visualization for brain shrinkage
 #| fig-width: 9
-#| fig-height: 3
+#| fig-height: 4
 
 set.seed(8807)
 
@@ -220,18 +220,17 @@ We fit the following models for brain shrinkage:
 
 $$
 Area_{i} = \alpha + \beta_{1} DPI_{i} + \epsilon_{i}
-$$ 
+$$
 
 This model uses the following user-defined priors:
 
-$$ 
-\beta \sim Normal(0, 1) \\
-
-\alpha \sim Student-t(3, 15, 5) \\
-
-\sigma \sim Student-t(3, 0, 4)\, \sigma > 0 
 $$
-
+\begin{align}
+\beta \sim Normal(0, 1) \\
+\alpha \sim Student-t(3, 15, 5); \\
+\sigma \sim Student-t(3, 0, 4), \sigma \> 0.
+\end{align}
+$$
 
 -   **Hem_Area_Mdl2:** Non-linear model using splines with five nodes with DPI as unique predictor.
 
@@ -244,18 +243,20 @@ This model uses the same priors as model 1.
 -   **Hem_Area_Mdl3:** A splines model with heteroscedasticity (sigma as additional response variable) and DPI as unique predictor.
 
 $$
-Area_{i} = f_{s(DPI)}(DPI_{i}) \\ sigma_{i} = f_{s(DPI)}(DPI_{i})
+Area_{i} = f_{s(DPI)}(DPI_{i}) \\ 
+sigma_{i} = f_{s(DPI)}(DPI_{i}).
 $$
 
 This model uses the following user-defined priors:
 
 $$
+\begin{align}
 \beta \sim \mathcal{N}(0, 1) \\
+\text{Intercept} \sim t\_{3}(15, 5), \text{lb}=0 \\
+\sigma \sim t\_{3}(0, 4), \text{class} = b, \text{lb}=0 
+\end{align}
+$$ 
 
-\text{Intercept} \sim t_{3}(15, 5), \text{lb}=0 \\
-
-\sigma \sim t_{3}(0, 4), \text{class} = b, \text{lb}=0
-$$
 **The student distribution**:
 
 In all cases, we perform the modeling using a student-t distribution, given the spread of the data. The Student's t-distribution, is distinguished by its heavier tails compared to the Gaussian distribution. It offers a robust alternative when faced with extreme values (or varying levels of kurtosis), ensuring a more stable model fit.Additionally, this distribution is favorable in scenarios with limited samples size as usual in biomedical science. The probability density function (pdf) of the Student's t-distribution with ν degrees of freedom is given by:
@@ -267,11 +268,11 @@ Where:
 
 $T$ is the gamma function. $t$ is the value on the x-axis (our data point or statistic). $ν (nu)$ is the degrees of freedom of the distribution, which determines the shape of the distribution.
 
-## Fit the models
+## Fit the models for brain shrinkage
 
 We fit the models using the specified parameters. Please note we used the seed 8807 to obtain reproducible simulations. In all cases, we store the models as `.RDS` objects in `Models/Brain_Shrinkage/` If the file is available in the specified folder, executing the the fit will load the object. For refit, erase the file.
 
-We use the `add_criterion` function from `brms` to perform model comparison in the subsequent step. 
+We use the `add_criterion` function from `brms` to perform model comparison in the subsequent step.
 
 ```{r}
 #| label: Shrinkage_Fit
@@ -308,7 +309,7 @@ Shrinkage_Fit1 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Brain_Shrinkage/Shrinkage_Fit1.rds",
+    file    = "Models/BrainShrinkage/Shrinkage_Fit1.rds",
     file_refit = "never") 
 
 # Add criteria for comparison
@@ -335,7 +336,7 @@ Shrinkage_Fit2 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Brain_Shrinkage/Shrinkage_Fit2.rds",
+    file    = "Models/BrainShrinkage/Shrinkage_Fit2.rds",
     file_refit = "never")
 
 # Add criteria for comparison
@@ -371,13 +372,14 @@ Shrinkage_Fit3 <-
   iter= 5000, 
   seed = 8807,
   control = list(adapt_delta = 0.99, max_treedepth = 15),
-  file    = "Models/Brain_Shrinkage/Shrinkage_Fit3.rds",
+  file    = "Models/BrainShrinkage/Shrinkage_Fit3.rds",
   file_refit = "never")
 
 # Add criteria for comparison
 Shrinkage_Fit3 <- 
   add_criterion(Shrinkage_Fit3, c("loo", "waic", "bayes_R2"))
 ```
+
 ## Model comparison
 
 We perform model comparison by out-of-sample prediction error using the WAIC criteria. By considering both the log-likelihood of the observed data and the effective number of parameters, WAIC provides a balance between model fit and complexity. This approach inherently accounts for the posterior distribution of the parameters rather than relying on specific point estimates.
@@ -409,8 +411,7 @@ Shrinkage_Comp <- as.data.frame(Shrinkage_Comp)
 Shrinkage_Comp
 ```
 
-The output shows that model 3 is the less penalized and has a similar explained variance (R2 = 0.76 to Mdl2). Note that sigma is absent in this model, given that this parameter is included as a response variable. This offers us sufficient grounds to continue exploring model 3 (Mdl3) as the best alternative to describe brin shrinkage.
-We also visualize this results graphically usin the `loo_compare` function from `brms`:
+The output shows that model 3 is the less penalized and has a similar explained variance (R2 = 0.76 to Mdl2). Note that sigma is absent in this model, given that this parameter is included as a response variable. This offers us sufficient grounds to continue exploring model 3 (Mdl3) as the best alternative to describe brin shrinkage. We also visualize this results graphically usin the `loo_compare` function from `brms`:
 
 ```{r}
 #| label: fig-Shrinkage_Compare
@@ -477,7 +478,8 @@ In the first place, we plot the results and chains to verify they have successfu
 summary(Shrinkage_Fit3)
 plot(Shrinkage_Fit3)
 ```
-We see that all the chin have converged successfully (Rhat=1.00) and that the `Bulk_ESS` is numerous. Also, we see no divergent transitions. Next, we use the `pp_check` function from `brms` to examine the the sample predictions and their deviations from the data (Mdl3). 
+
+We see that all the chin have converged successfully (Rhat=1.00) and that the `Bulk_ESS` is numerous. Also, we see no divergent transitions. Next, we use the `pp_check` function from `brms` to examine the the sample predictions and their deviations from the data (Mdl3).
 
 ```{r}
 #| label: fig-Shrinkage_Diagnostics
@@ -526,13 +528,13 @@ Shrinkage_Mdl3_pp
 After validating that our model perform fair predictions and largely captures the data dynamics, we can visualize the results using different strategies. First, we plot the full posterior distributions for brain shrinkage:
 
 ```{r}
-#| label: fig-Shrinkage_CE
+#| label: fig-Shrinkage_fit
 #| include: true
 #| warning: false
 #| message: false
 #| fig-cap: Posterior distributios for brain shrinkage
-#| fig-width: 9
-#| fig-height: 3
+#| fig-width: 5
+#| fig-height: 4
 
 set.seed(8807)
 
@@ -562,18 +564,19 @@ Shrinkage_Post %>%
   scale_x_continuous(name = expression ("Hemispheric area (mm)"^2)) +
   Plot_theme
 ```
-Here, we see that our models does not predict accurately the swelling phase occurring at 3 DPI. Although this is a limitation, we consider that it does not have a substantial effect on the estimation of subsequent brain shrinkage. 
 
-In this case, it may be more informative to visualize the result as a  Lilineribbon to focus on the slope:
+We see that our models does not predict accurately the swelling phase occurring at 3 DPI. Although this is a limitation, we consider that it does not have a substantial effect on the estimation of subsequent brain shrinkage.
+
+In this case, it may be more informative to visualize the result as a "Lineribbon" to focus on the slope:
 
 ```{r}
-#| label: fig-Shrinkage_CE
+#| label: fig-Shrinkage_Line
 #| include: true
 #| warning: false
 #| message: false
 #| fig-cap: Lineribbon for brain shrinkage
-#| fig-width: 9
-#| fig-height: 3
+#| fig-width: 5
+#| fig-height: 4
 
 nd <- nd %>% 
   mutate(row = 1:n())
@@ -620,9 +623,9 @@ Shrinkage_Line_fig <-
 Shrinkage_Line_fig
 ```
 
-@fig-Shrinkage_CE display the observations (black). Altogether, the model captures well the dynamics of brain shrinkage but makes more inaccurate estimations for control (0) and 3 DPI given the initial inflammatory phase. Still, our interest in long-term changes justifies its use.
+@fig-Shrinkage_Line display the observations (black). Altogether, the model captures well the dynamics of brain shrinkage but makes more inaccurate estimations for control (0) and 3 DPI given the initial inflammatory phase. Still, our interest in long-term changes justifies its use.
 
-Next, we can visualize sigma, specified as a response variable in the model. In this case we employ the `conditional_smooths` function from `brms`. 
+Next, we can visualize sigma, specified as a response variable in the model. In this case we employ the `conditional_smooths` function from `brms`.
 
 ```{r}
 #| label: fig-Shrinkage_Sigma_CE
@@ -630,8 +633,8 @@ Next, we can visualize sigma, specified as a response variable in the model. In 
 #| warning: false
 #| message: false
 #| fig-cap: Lineribbon for brain shrinkage (sigma)
-#| fig-width: 9
-#| fig-height: 3
+#| fig-width: 5
+#| fig-height: 4
 
 Shrinkage_Smooths <- 
   conditional_smooths(Shrinkage_Fit3)
@@ -673,6 +676,8 @@ We plot the posterior summary using the `describe_posterior` function from `baye
 #| include: true
 #| warning: false
 #| message: false
+#| tbl-cap: Posterior distribution for brain shrinkage (Shrinkage_Fit3)
+#| tbl-cap-location: bottom
 
 describe_posterior(
   Shrinkage_Fit3,
@@ -681,12 +686,12 @@ describe_posterior(
   component = "all",
   centrality = "median")
 ```
-@tbl-Shrinkage_DescribePosterior displays the regression coefficients. In all cases, the coefficients for splines models are not straightforward to interpret. For this reason, we use the `estimate_relation` and `estimate_smooth` functions from the `modelbased` package [@modelbased] to transform the splines into "linear" regression segments that are easy to interpret.
+
+The table displays the regression coefficients. In all cases, the coefficients for splines models are not straightforward to interpret. For this reason, we use the `estimate_relation` and `estimate_smooth` functions from the `modelbased` package [@modelbased] to transform the splines into "linear" regression segments that are easy to interpret.
 
 ## Estimate the derivatives
 
-We estimate the derivative to separate positive from negative trends in the fitted curve and obtain linear fits that informs the influence of the predictors over the response. 
-In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
+We estimate the derivative to separate positive from negative trends in the fitted curve and obtain linear fits that informs the influence of the predictors over the response. In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
 
 $$ 
 f'(x) = \lim\_{{\Delta x \to 0}} \frac{f(x + \Delta x) - f(x)}{\Delta x} 
@@ -701,6 +706,8 @@ First, we estimate point-to point derivatives:
 #| include: true
 #| warning: false
 #| message: false
+#| tbl-cap: Derivatives for brain shrinkage (Shrinkage_Fit3)
+#| tbl-cap-location: bottom
 
 Shrinkage_est <- 
   estimate_relation(
@@ -710,17 +717,21 @@ Shrinkage_est <-
 
 Shrinkage_est
 ```
-@tbl-Shrinkage_EstimateRelation shows the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function.
+
+Here we see the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function.
 
 ```{r}
 #| label: tbl-Shrinkage_EstimateSmooth
 #| include: true
 #| warning: false
 #| message: false
+#| tbl-cap:  Summarized derivatives for brain shrinkage (Shrinkage_Fit3)
+#| tbl-cap-location: bottom
 
 estimate_smooth(Shrinkage_est, x = "DPI")
 ```
-@tbl-Shrinkage_EstimateSmooth shows that the model does not capture the swelling phase at 3 DPI. This is likely due to the limited number of nodes for the smooth term. However, the posterior distribution shows a decrease of \~ 7.91 in the hemispheric region (slope of -0.34) from 0 to \~ 23 DPI. This reflects a strong hemispheric shrinkage during the first 3 weeks after ischemia. Later, the hemispheric area stabilizes (0.17, slope 0.03) up to 30 DPI.
+
+The table shows that the model does not capture the swelling phase at 3 DPI. This is likely due to the limited number of nodes for the smooth term. However, the posterior distribution shows a decrease of \~ 7.91 in the hemispheric region (slope of -0.34) from 0 to \~ 23 DPI. This reflects a strong hemispheric shrinkage during the first 3 weeks after ischemia. Later, the hemispheric area stabilizes (0.17, slope 0.03) up to 30 DPI.
 
 ## Visualize the derivatives
 
@@ -732,8 +743,8 @@ We visualize the derivatives using the `estimate_slopes` function:
 #| warning: false
 #| message: false
 #| fig-cap: Derivatives for brain shrinkage
-#| fig-height: 3
-#| fig-width: 4
+#| fig-height: 4
+#| fig-width: 5
 
 
 Shrinkage_deriv <- 
