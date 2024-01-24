@@ -206,7 +206,7 @@ Pdgfrb_IntDen_Dens |  Pdgfrb_IntDen_Sctr
 ```
 @fig-Pdgfrb_IntDen_Expl shows a range of \~ 0 - 1500. Without accounting for days-post ischemia (DPI), the response variable exhibits a single peak far from normal distributions. On the other hand, the scatter shows that there are no substantial differences between the fitted lines. Still, non-linear models capture between the deviation at 15 DPI.
 
-# Statistical modeling for Pdgfr-𝛽 reactivity
+# Statistical modeling for Pdgfr-β reactivity
 
 We use the `brms` package [@brms; @brms-2] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
 
