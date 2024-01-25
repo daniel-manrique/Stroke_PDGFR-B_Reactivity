@@ -41,7 +41,7 @@ bibliography: Widefield_5x_Pdgfrb_LowHigh.bib
 # Preview
 
 In this notebook, we analyze the proportion and distribution of PDGFR-β_Low and PDGFR-β_High+ cells with automatic cell detection and classification using QuPath [@bankhead2017]. We also create point patterns using the coordinates of detecting cells to perform Point Pattern analysis. 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_NonReact) and PDGFR-β^high^ (Pdgfrb_React) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at XXXXXXXX
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_NonReact) and PDGFR-β^high^ (Pdgfrb_React) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/8ehyu.
 
 **Working dataset**: The `Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv`data frame containing the number of PDGFR-β^low^ (Pdgfrb_NonReact) and PDGFR-β^high^ (Pdgfrb_React) cells in the ischemic hemisphere. Here, we analyze the proportion and distribution of these populations.
 
@@ -453,7 +453,7 @@ Pdgfrb_Prop_DPI <- plot(Pdgfrb_Prop_DPI,
        plot = FALSE)[[1]]
 
 Pdgfrb_Prop_fig <- Pdgfrb_Prop_DPI  + 
-  scale_y_continuous(name = expression ("(p) Pdgfrb-β"^high)) +
+  scale_y_continuous(name = expression ("(p) PDGFR-β"^high)) +
   scale_x_continuous(name="DPI") +
   scale_color_manual(
     values = c("#0048BA", "red"),
