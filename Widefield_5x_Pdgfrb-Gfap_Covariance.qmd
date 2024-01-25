@@ -307,7 +307,7 @@ Pdgfr_Rhohat_30D_Low  <- pool(Pdgfr_Rhohat_30D_Low)
 In this chunk, We had an unexpected code error for the calculation of the covariance between PDGFR-β^low^ and GFAP at 3 DPI. All the other calculations were performed successfully.
 Next, we save the pooled rhohat plots.
 
-## Plot rhohat to astrocytes
+# Plot rhohat to astrocytes
 
 ```{r}
 #| label: PPP_Pdgfr_RhohatPlot
@@ -317,7 +317,7 @@ Next, we save the pooled rhohat plots.
 
 # For PDGFR-β^high^
 
-png("Plots/Pdgfr_Rhohat_3D_High.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_3D_High.png", width = 600, height = 400)
 par(mar=c(7,9,2,2))
 plot(Pdgfr_Rhohat_3D_High, 
      shade = c("lorho", "hirho"),
@@ -351,7 +351,7 @@ title(ylab = expression("(p)PDGFR-β"^high),
 
 dev.off()
 
-png("Plots/Pdgfr_Rhohat_7D_High.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_7D_High.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_7D_High, 
      shade = c("lorho", "hirho"),
@@ -387,7 +387,7 @@ title(ylab = expression("(p)PDGFR-β"^high),
 dev.off()
 
 
-png("Plots/Pdgfr_Rhohat_14D_High.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_14D_High.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_14D_High, 
      shade = c("lorho", "hirho"),
@@ -422,7 +422,7 @@ title(ylab = expression("(p)PDGFR-β"^high),
 
 dev.off()
 
-png("Plots/Pdgfr_Rhohat_30D_High.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_30D_High.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_30D_High, 
      shade = c("lorho", "hirho"),
@@ -460,7 +460,7 @@ dev.off()
 
 # For PDGFR-β^Low^
 
-png("Plots/Pdgfr_Rhohat_7D_Low.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_7D_Low.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_7D_Low, 
      shade = c("lorho", "hirho"),
@@ -496,7 +496,7 @@ title(ylab = expression("(p)PDGFR-β"^Low),
 dev.off()
 
 
-png("Plots/Pdgfr_Rhohat_14D_Low.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_14D_Low.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_14D_Low, 
      shade = c("lorho", "hirho"),
@@ -532,7 +532,7 @@ title(ylab = expression("(p)PDGFR-β"^Low),
 dev.off()
 
 
-png("Plots/Pdgfr_Rhohat_30D_Low.png", width = 600, height = 400)
+png("Plots/Pdgfrb_Rhohat_30D_Low.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
 plot(Pdgfr_Rhohat_30D_Low, 
      shade = c("lorho", "hirho"),
@@ -570,7 +570,7 @@ dev.off()
 
 These graphical results show the convariance between PDGFR-B and GFAP.
 
-# Point Process model for PDGFR-β^high^ - GFAP covariance
+# Point Process model 
 
 Next, we fit a spatial model for replicated point patterns using the `mppm` function from `spatstat`.The spatial point process modeled by `mppm` assumes that the points follow an inhomogeneous Poisson process with intensity function $\lambda(u)$ that varies over space $u$.For the count of points in any spatial region \$ A\$, we follow a Poisson distribution with the mean determined by the spatial integral of the intensity function $\lambda(u)$:
 
@@ -637,3 +637,10 @@ summary(Pdgfr_Gfap_Low_Mdl1)
 ```
 
 Otherwise, PDGFR-β^low^ display positive intercepts with a bigger uncertainty, suggesting a reduced spatial intensity for these cells and increasing allocation probability as the spatial intensity of GFAP increases.
+
+
+# References
+
+::: {#refs}
+:::
+
