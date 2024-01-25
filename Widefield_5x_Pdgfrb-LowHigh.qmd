@@ -9,7 +9,7 @@ author:
     orcid: 0000-0002-1912-1764
     affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
 keywords: 
-  - GFAP analysis
+  - PDGFR-β
   - Brain injury
   - Bayesian modeling 
    
@@ -131,7 +131,8 @@ Pdgfrb_Summary <- read.csv(file = "ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv", h
 knitr::kable(Pdgfrb_Summary[1:10, ])
 ```
 
-We perform the exploratory visualization for PDGFR-β^low^ and PDGFR-β^high^
+
+From this table, we focus on `DPI` (Days post-ischemia), `Pdgfr_NonReact`, `Pdgfr_React` variables to analyze these cells proportions in the ischemic brain. Next, we visualize the raw data to guide the statistical modeling. We plot the response variables as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
 
 ```{r}
 #| label: fig-Pdgfrb_LowHigh_Exploratory

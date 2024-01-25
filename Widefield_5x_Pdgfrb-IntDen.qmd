@@ -9,7 +9,7 @@ author:
     orcid: 0000-0002-1912-1764
     affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
 keywords: 
-  - GFAP analysis
+  - PDGFR-β
   - Brain injury
   - Bayesian modeling 
    
