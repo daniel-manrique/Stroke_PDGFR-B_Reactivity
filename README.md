@@ -30,6 +30,7 @@ The notebooks are listed according to the suggested execution order to follow th
 
 **Widefield_5x_Pdgfrb-Gfap_Covariance_Str.qmd:** Contains data and point pattern analysis for PDGFR-β and its covariance for GFAP. This notebook process the data from striatal (only) lesions.
 
+**Widefield_10x_Pdgfrb-Gfap_Covariance.qmd:** Contains data and point pattern analysis for PDGFR-β and its covariance for GFAP. This notebook process the data from striatal (only) lesions.
 
 
 ## Support files
