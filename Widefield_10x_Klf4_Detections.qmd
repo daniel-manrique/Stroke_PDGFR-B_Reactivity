@@ -40,7 +40,7 @@ bibliography: References.bib
 
 # Preview
 
-This notebook reports the analysis of Klf4 expression in the ipsilateral hemisphere following cerebral ischemia.
+This notebook reports the analysis of KLF4 expression in the ipsilateral hemisphere following cerebral ischemia.
 
 **Parent dataset:** KLF4 and PDGFR-β stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Klf4.zip`.
 
@@ -61,7 +61,7 @@ Install and load all required packages. Please uncomment (delete #) the line cod
 #install.packages("devtools")
 library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","modelbased", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","modelbased", "modelr", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
 
 
 library(bayesplot)

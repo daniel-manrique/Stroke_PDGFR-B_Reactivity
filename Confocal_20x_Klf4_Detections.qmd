@@ -1,0 +1,669 @@
+---
+title-block-banner: true
+title: "Analysis of Klf4 expression in defined ROIs"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
+keywords: 
+  - Klf4
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: References.bib
+---
+
+# Preview
+
+This notebook reports the analysis of KLF4 expression in defined ROIs (injured cortex and contralateral hemisphere following cerebral ischemia).
+
+**Parent dataset:** KLF4, PDGFR-β, and CD31 stained ischemic hemispheres imaged at 20x in a confocal microscope. Samples are grouped at 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name XXXXXXXXXXX
+
+**Working dataset**: The `Data_Raw/Confocal_20x_Pdgfrb-Klf4_Coloc/Confocal_20x_ROIs_Pdgfrb-Klf4_Image.csv`data frame containing the raw output from CellProfiller [@stirling2021]. The CellProfiller pipeline used to perform the KLF4+ cell detection is available at XXXX
+
+We perform scientific inference based on the number of colocalized KLF4 and PDGFR-β onjects.
+
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(ggplot2)
+library(modelr)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load and handle the datasets
+
+We load the `Confocal_20x_ROIs_Pdgfrb-Klf4_Image.csv` dataset containing summary information about KLF4 and PDGFR-β colocalized objects.
+
+```{r}
+#| label: tbl-Klf4_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Klf4_Cells <- read.csv(file = "Data_Raw/Confocal_20x_Pdgfrb-Klf4_Coloc/Confocal_20x_ROIs_Pdgfrb-Klf4_Image.csv", header = TRUE)
+
+knitr::kable(Klf4_Cells [1:10, ])
+```
+
+From the KLF4 table, we are interested in the `FileName_Klf4`column containing the identification data for the images, the `Count_Klf4_Eroded` and `Count_Pdgfrb_Eroded`, indicating all KLF4+ and PDGFR-β+ cells detected, and `Count_Pdgfrb_Klf4` quantifying the colocalized objects. Next, we subset the dataset to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: tbl-Klf4-Pdgfrb_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Klf4_Coloc_Data <- subset(Klf4_Cells, select = c("FileName_Klf4", "Count_Klf4_Eroded", "Count_Pdgfrb_Eroded", "Count_Pdgfrb_Klf4"))
+
+## And extract metadata from the image name
+Klf4_Coloc_Data  <- cbind(Klf4_Coloc_Data, do.call(rbind , strsplit(Klf4_Coloc_Data$FileName_Klf4, "[_\\.]"))[,1:4])
+
+Klf4_Coloc_Data <- subset(Klf4_Coloc_Data, select = -c(FileName_Klf4))
+
+## We Rename the relevant columns 
+colnames(Klf4_Coloc_Data) <- c("Klf4", "Pdgfrb", "Coloc", "MouseID", "DPI", "Condition", "Region")
+
+## We set the factors
+Klf4_Coloc_Data$DPI <- factor(Klf4_Coloc_Data$DPI, levels = c("0D", "7D", "14D", "30D"))
+Klf4_Coloc_Data$Region <- factor(Klf4_Coloc_Data$Region, levels = c("Contra", "Peri", "Ipsi"))
+
+write.csv(Klf4_Coloc_Data, "Data_Processed/Conf20x_ROIs_Klf4-Pdgfrb_Coloc.csv", row.names = FALSE)
+```
+
+With the data handled, we proceed to exploratory data visualization to appreciate the tendency of the data. We focus on the KLF4+ object detections. 
+
+# Explortory data visualization
+```{r}
+#| label: fig-Klf4_Coloc_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for KLF4-PDGFR-β colocalization
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+ggplot(
+    data  = Klf4_Coloc_Data, 
+    aes(x = DPI, 
+        y = Coloc,
+        color = Region)) +
+  geom_boxplot() +
+  scale_y_continuous(name= "Number of KLF4+ cells") +
+  scale_x_discrete(name="DPI") +
+  Plot_theme
+```
+@fig-Klf4_Coloc_Exploratory shows the tendency of the ipsi (cortical lesioned regions) to show increase in the colocalization between KLF4 and PDGFR-β.Some extreme values are also visible, more likely due to artifacts in the analysis algorithm. We can take this into account when modeling the data.
+
+# Statistical modeling for the KLF4-PDGFR-β colocalization
+
+Here, we model the proportion of colocalized KLF4-PDGFR-β+ cells conditioning on the total number of KLF4+. For this purpose, we employ the binomial family distribution, where the response variable represents a series of Bernoulli trials (KLF4-PDGFR-β)in a fixed number of independent trials (KLF4). This family is particularly well-suited for interpreting the underlying event probabilities.
+
+Mathematically, the probability mass function (PMF) for a binomial distribution is given as:
+
+$$
+P(y | n, p) = \binom{n}{y} p^y (1 - p)^{n - y}
+$$ 
+
+Where: - $y$ is the number of successes. - $n$ is the number of trials. - $p$ is the probability of success on an individual trial. - $\binom{n}{y}$ is the binomial coefficient, representing the number of ways to choose $y$ successes in $n$ trials. In `brms`, the linear predictor $\eta$ is linked to the probability $p$ of success using a the logit function:
+
+$$
+log\left(\frac{p}{1 - p}\right) = \eta
+$$ 
+
+First, we explore the variation specifically in the contralateral hemispheres. For this purpose, we subset the dataset to obtain row with `Region==Contra`, exclusively. The model takes the following notation: 
+
+-   **Klf4_Coloc_Mdl1:** We use `DPI` to calculate the probability of colocalization in contralateral regions using a logistic function:
+
+$$
+\text{Coloc} | \text{trials}(Klf4) \sim \text{Binomial}(Klf4, p) 
+$$ 
+Te probability of KLF4 colocalizing with PDGFR-β is linked to the linear predictor  through a logit link function, represented as: 
+
+$$
+\text{logit}(p) = \beta_0 + \beta_{DPI}[DPI]
+$$
+Were $\beta_0$ is the intercept, representing the log-odds of colocalization when when DPI = 0 and $\beta_{DPI}$ represents the effect of each DPI on the log-odds, relative to 0D.
+
+This model uses `brms` flat-default priors. 
+
+-   **Klf4_Coloc_Mdl2:** This model takes the same shape that model 1, replacing DPI by Region. It also uses `brms` flat-default priors. 
+
+As we postulate that the level of KLF4/PDGFR-β may be mediated by the effect of DPI in specific regions, we built a third model with interaction terms between `DPI` and `Regions`. The model takes the following notation:
+
+-   **Klf4_Coloc_Mdl3:** Interaction between `DPI` and `Region`. 
+
+$$
+
+\text{Coloc} | \text{trials}(Klf4) \sim \text{Binomial}(Klf4, p) \\
+\text{logit}(p) = \beta_0 + \beta_{DPI}[DPI] + \beta_{Region}[Region] + \beta_{DPI \times Region}[DPI \times Region]
+
+$$
+
+Given the results obtained in the second model (see below) we use an informative beta(2, 20) prior for all the $\beta$ coefficients of this model.
+
+## Fit the models
+
+```{r}
+#| label: Klf4_Coloc_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+# Model 1: DPI as a linear predictor
+########################################
+
+Klf4_Coloc_Contra <- Klf4_Coloc_Data[Klf4_Coloc_Data$Region=="Contra",]
+
+Klf4_Coloc_Mdl1 <- bf(Coloc | trials(Klf4) ~ DPI)
+
+get_prior(Klf4_Coloc_Mdl1, Klf4_Coloc_Contra, family = binomial())
+
+# Fit model 1
+Klf4_Coloc_Fit1 <- 
+  brm(
+    data    = Klf4_Coloc_Contra,
+    family  = binomial(), 
+    formula = Klf4_Coloc_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Klf4_Expression/Klf4_Coloc_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Klf4_Coloc_Fit1 <- 
+  add_criterion(Klf4_Coloc_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2: Region as a linear predictor
+########################################
+
+Klf4_Coloc_Mdl2 <- bf(Coloc | trials(Klf4) ~ Region)
+
+get_prior(Klf4_Coloc_Mdl2, Klf4_Coloc_Data, family = binomial())
+
+# Fit model 2
+Klf4_Coloc_Fit2 <- 
+  brm(
+    data    = Klf4_Coloc_Data,
+    family  = binomial(), 
+    formula = Klf4_Coloc_Mdl2,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Klf4_Expression/Klf4_Coloc_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Klf4_Coloc_Fit2 <- 
+  add_criterion(Klf4_Coloc_Fit2, c("loo", "waic", "bayes_R2"))
+
+
+# Model 3: DPI and Region as predictors 
+#############################################
+
+Klf4_Coloc_Regions <- Klf4_Coloc_Data[Klf4_Coloc_Data$DPI!="0D",]
+Klf4_Coloc_Regions$DPI <- factor(Klf4_Coloc_Regions$DPI, levels = c("7D", "14D", "30D"))
+
+Klf4_Coloc_Mdl3 <- bf(Coloc | trials(Klf4) ~ DPI * Region)
+
+get_prior(Klf4_Coloc_Mdl3, Klf4_Coloc_Regions, family = binomial())
+
+Klf4_Coloc_Mdl3_Prior <- prior(beta(2, 20), class = b, lb = 0, ub = 1)
+
+#define range
+p = seq(0,1, length=100)
+
+#create plot of Beta distribution with shape parameters 2 and 10
+plot(p, dbeta(p, 2, 20), type='l')
+
+# Fit model 3
+Klf4_Coloc_Fit3 <- 
+  brm(
+    data    = Klf4_Coloc_Regions,
+    family  = binomial(), 
+    formula = Klf4_Coloc_Mdl3,
+    prior   = Klf4_Coloc_Mdl3_Prior,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Klf4_Expression/Klf4_Coloc_Fit3.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Klf4_Coloc_Fit3 <- 
+  add_criterion(Klf4_Coloc_Fit3, c("loo", "waic", "bayes_R2"))
+```
+## Model diagnostics
+
+We check the models fitting using posterior predictive checks
+
+```{r}
+#| label: Klf4_Coloc_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for the probability of PDGFR-β^high^
+#| fig-height: 9
+#| fig-width: 4
+
+set.seed(8807)
+
+Klf4_Coloc_Mdl1_pp <- 
+  brms::pp_check(Klf4_Coloc_Fit1, 
+                 ndraws = 100) +
+  labs(title = expression("Posterior predictive checks (KLF4/PDGFR-β)"),
+      subtitle = "Formula: Coloc | trials(Klf4) ~ DPI") +
+  Plot_theme 
+
+Klf4_Coloc_Mdl2_pp <- 
+  brms::pp_check(Klf4_Coloc_Fit2, 
+                 ndraws = 100) +
+  labs(title = expression("Posterior predictive checks (KLF4/PDGFR-β)"),
+      subtitle = "Formula: Coloc | trials(Klf4) ~ Region") +
+  Plot_theme 
+
+Klf4_Coloc_Mdl3_pp <- 
+  brms::pp_check(Klf4_Coloc_Fit3, 
+                 ndraws = 100) +
+  labs(title = expression("Posterior predictive checks (KLF4/PDGFR-β)"),
+      subtitle = "Formula: Coloc | trials(Klf4) ~ DPI * Region") +
+  Plot_theme 
+
+Klf4_Coloc_Mdl1_pp | Klf4_Coloc_Mdl2_pp | Klf4_Coloc_Mdl3_pp
+```
+In general, our predictions do not display major deviations from the observations.Still, please note that some predictions display a larger density (over 0.10) that the observed data.
+
+# Model results
+
+## Visualization of posterior distributions
+
+In the first place, we visualize the results for the first two models, evaluating the contralateral hemispheres (Mdl1) and the change by regions (Mdl2):
+
+```{r}
+#| label: fig-Klf4_Contra_CondEff
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior for DPI and Regions contribution for KLF4/PDGFR-β colocalization
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Model 1
+Klf4_Coloc_Fit1_CE <- 
+  conditional_effects(Klf4_Coloc_Fit1)
+
+Klf4_Coloc_Fit1_CE <- plot(Klf4_Coloc_Fit1_CE, 
+       plot = FALSE)[[1]]
+
+Klf4_Coloc_Fit1_fig <- Klf4_Coloc_Fit1_CE  + 
+  scale_y_continuous(name = expression ("(p) PDGFR-β/KLF4")) +
+  scale_x_discrete(name="DPI") +
+  Plot_theme 
+
+
+# Model 2
+Klf4_Coloc_Fit2_CE <- 
+  conditional_effects(Klf4_Coloc_Fit2)
+
+Klf4_Coloc_Fit2_CE <- plot(Klf4_Coloc_Fit2_CE, 
+       plot = FALSE)[[1]]
+
+Klf4_Coloc_Fit2_fig <- Klf4_Coloc_Fit2_CE  + 
+  scale_y_continuous(name = expression ("(p) PDGFR-β/KLF4")) +
+  scale_x_discrete(name="DPI") +
+  Plot_theme 
+
+Klf4_Coloc_Fit1_fig | Klf4_Coloc_Fit2_fig
+```
+
+@fig-Klf4_Contra_CondEff show that the probability of colocalization for KLF4/PDGFR-β is about 10% considering all data points. 7D stands out due to its reduction compared to other time points. Otherwise, regression conditioning in region shows that the ipsilateral (injured) region shows a significant increase in colocalization. However, given our knowledge in this area, we take these results with caution, as injured regions are more prone to staining/colocalization artifacts due to the agglomeration of cells. We compensated for this by careful pixel classification and object filtering to reduce the effects. Nevertheless, we use the estimate for the perilesional regions as a basis for inference for the ipsilateral injured regions, given the lack of extreme cell aggregation and staining artifacts. 
+
+Next, we plot the posterior estimates for model 3:
+
+```{r}
+#| label: fig-Klf4_Coloc_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for KLF4/PDGFR-β colocalization
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Model 1
+Klf4_Coloc_Fit3_CE <- 
+  conditional_effects(Klf4_Coloc_Fit3)
+
+Klf4_Coloc_Fit3_CE <- plot(Klf4_Coloc_Fit3_CE, 
+       plot = FALSE)[[3]]
+
+Klf4_Coloc_Fit3_fig <- Klf4_Coloc_Fit3_CE  + 
+  scale_y_continuous(name = expression ("(p) PDGFR-β/KLF4"),
+                     limits = c(0.05, 0.3)) +
+  scale_x_discrete(name="DPI") +
+  scale_color_manual(name="Region",
+    values = c("#28E358", "#0048BA", "red"),
+    labels = c("Contralateral", "Perilesion", "Injury")
+        ) +
+  scale_fill_manual(name="Region",
+    values = c("#28E358", "#0048BA", "red"),
+    labels = c("Contralateral", "Perilesion", "Injury")
+        ) +
+  Plot_theme +
+  theme(legend.position = c(0.25, 0.8), legend.direction = "vertical")
+
+ggsave(
+  plot     = Klf4_Coloc_Fit3_fig, 
+  filename = "Plots/Klf4_Coloc_Fig.png", 
+  width    = 10, 
+  height   = 8, 
+  units    = "cm")
+
+Klf4_Coloc_Fit3_fig 
+```
+@fig-Klf4_Coloc_Posterior shows that the interaction between 30D and the ipsilateral region has a prominent effect in KLF4/PDGFR-β. However, we take the results with caution given the likelihood of false positives given the augmented cell aggregation. For us, it is conservative to stated that the estimates for this colocalization are about 10-15% considering the colocalization error measured by the colocalization ratio in the contralateral hemispheres.  
+
+## Posterior summary
+
+We plot the posterior summary for the fist model using the `describe_posterior` function:
+
+```{r}
+#| label: Klf4_Coloc_Fit1_Describe
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Klf4_Coloc_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+This indicates that the coefficients do not vary significantly for the contralateral hemispheres. Apart from 7D, there is substantial overlap between 0D and 14D (-0.25 - 0.91) and 30D (-0.86 - 0.35). In general, we can maintain that approximately 10% of PDGFR-β+ cells express KLF4. Given the context and our current knowledge in this area, we take this result as ground truth for the colocalization error, as the objects are likely to be considered colocalized by CellProfiller due to their proximity. 
+
+We perform the same procedure for our second model:
+
+```{r}
+#| label: Klf4_Coloc_Fit2_Describe
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Klf4_Coloc_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+We observed that, independent of DPI, the perilesion and the ischemic region have an effect on KLF4/PDGFR-β+ colocalization. The effect in the perilesion is smaller (0.14 - 0.72), suggesting that in this region 1 out of 10 KLF4+ cells are PDGFR-β+. Taking into account the colocalization error, this number is 1 in 20. This means that in the perilesion, KLF4 induction is not substantially associated with PDGFR-β+ but with endothelial cells. On the other hand, we can imagine that the ischemic regions double the probability of the perilesional regions without considering the DPI. Given our knowledge on the subject, we took as a reference the probability of KLF4/PDGFR-β+ colocalization in the ipsilateral perilesion (where there is less likelihood of staining artifacts) as an informative prior `beta (2, 10)` to model the interaction between DPI and region in `Klf4_Coloc_Fit2`.    
+
+
+Finally, we plot the posterior summary for the third model:
+
+```{r}
+#| label: Klf4_Coloc_Fit2_Describe
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Klf4_Coloc_Fit3,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+These results show that the ipsilateral region has a substantial effect in the log-odds of colocalization for KLF4/PDGFR-β (0.37 - 0.66). This effect is particularly meaningful at 30D (0.15 - 0.53). As specified previously, we ponder that the real colocalization ratio ar this time point is about 10-15% considering the error ratio measured by the colocalization in the contralateral areas and the likelihood of false positives given the cell aggregation.   
+
+# One additional model
+
+To complement the previous insights, we fit a model to calculate the KLF4/PDGFR-β colocalization ratio conditional on the total number of PDGFR-β+ (not KFL4). This model takes the same structure as model 3, with a more flexible beta prior of `beta(2, 10)`.
+
+```{r}
+#| label: Pdgfrb_Coloc_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: DPI and Region as predictors 
+#############################################
+
+Pdgfrb_Coloc_Mdl1 <- bf(Coloc | trials(Pdgfrb) ~ DPI * Region)
+
+get_prior(Pdgfrb_Coloc_Mdl1, Klf4_Coloc_Regions, family = binomial())
+
+Pdgfrb_Coloc_Mdl1_Prior <- prior(beta(2, 10), class = b, lb = 0, ub = 1)
+
+# Fit model 3
+Pdgfrb_Coloc_Fit1 <- 
+  brm(
+    data    = Klf4_Coloc_Regions,
+    family  = binomial(), 
+    formula = Pdgfrb_Coloc_Mdl1,
+    prior   = Pdgfrb_Coloc_Mdl1_Prior,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Klf4_Expression/Pdgfrb_Coloc_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Coloc_Fit1 <- 
+  add_criterion(Pdgfrb_Coloc_Fit1, c("loo", "waic", "bayes_R2"))
+```
+## Visualization of posterior distributions
+
+```{r}
+#| label: fig-Pdgfrb_Coloc_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for KLF4/PDGFR-β colocalization
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Model 1
+Pdgfrb_Coloc_Fit1_CE <- 
+  conditional_effects(Pdgfrb_Coloc_Fit1)
+
+Pdgfrb_Coloc_Fit1_CE <- plot(Pdgfrb_Coloc_Fit1_CE, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Coloc_Fit1_fig <- Pdgfrb_Coloc_Fit1_CE  + 
+  scale_y_continuous(name = expression ("(p) PDGFR-β/KLF4"),
+                     limits = c(0.15, 0.4),
+                     breaks = seq(0.15, 0.4, 0.1)) +
+  scale_x_discrete(name="DPI") +
+  scale_color_manual(name="Region",
+    values = c("#28E358", "#0048BA", "red"),
+    labels = c("Contralateral", "Perilesion", "Injury")
+        ) +
+  scale_fill_manual(name="Region",
+    values = c("#28E358", "#0048BA", "red"),
+    labels = c("Contralateral", "Perilesion", "Injury")
+        ) +
+  Plot_theme +
+  theme(legend.position = c(0.25, 0.8), legend.direction = "vertical")
+
+ggsave(
+  plot     = Pdgfrb_Coloc_Fit1_fig, 
+  filename = "Plots/Pdgfrb_Coloc_Fig.png", 
+  width    = 10, 
+  height   = 8, 
+  units    = "cm")
+
+Pdgfrb_Coloc_Fit1_fig 
+```
+
+Our previous analysis indicated that the participation of PDGFR-β in KLF4 induction is about the 10-15% in the most extreme case (ipsilateral region at 30D). This new perspective after a new nuance. Conditioning on the total number of PDGFR-β+ cells, indicates that most KFL4+ PDGFR-β+ cells are found a 14D in the perilesion, instead of the injury site. This entails that, for PDGFR-β+, KLF4 induction is more prominent in the perilesion than in the injured cortex.  
+
+We can calculate the contrast to obtain precise estimates (TO DO). Numbers do not make sense.
+```{r}
+# We generate a data frame with the contrast
+Pdgfrb_Coloc_Contrast <- Pdgfrb_Coloc_Fit1%>%
+emmeans(~ DPI + Region, type = "response") %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+
+# Subset relevant data fo the contrast graph
+Pdgfrb_Coloc_Contrast_Sub <- Pdgfrb_Coloc_Contrast[
+  (Pdgfrb_Coloc_Contrast$contrast=="7D Peri - 7D Contra"|
+   Pdgfrb_Coloc_Contrast$contrast=="7D Ipsi - 7D Contra"|
+   Pdgfrb_Coloc_Contrast$contrast=="14D Peri - 14D Contra"|
+   Pdgfrb_Coloc_Contrast$contrast=="14D Ipsi - 14D Contra"|
+   Pdgfrb_Coloc_Contrast$contrast=="30D Peri - 30D Contra"| 
+   Pdgfrb_Coloc_Contrast$contrast=="30D Peri - 30D Contra"),]
+
+Pdgfrb_Coloc_Contrast_Sub$contrast <- 
+  factor(Pdgfrb_Coloc_Contrast_Sub$contrast, 
+         levels = c("7D Peri - 7D Contra", 
+                    "7D Ipsi - 7D Contra", 
+                    "14D Peri - 14D Contra", 
+                    "14D Ipsi - 14D Contra", 
+                    "30D Peri - 30D Contra",
+                    "30D Ipsi - 30D Contra"))
+
+
+Pdgfrb_Coloc_Contras_fig <- ggplot(Pdgfrb_Coloc_Contrast_Sub , 
+                                   aes(x = .value, y = contrast)) +
+  stat_halfeye(alpha = .7) +
+  Plot_theme
+```
+
+
+
+# References
+
+::: {#refs}
+:::
