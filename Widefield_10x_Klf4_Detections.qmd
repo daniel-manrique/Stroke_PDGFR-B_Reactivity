@@ -378,7 +378,7 @@ write.csv(Klf4_Intensity , "Data_Processed/Wide10x_Ipsilateral_Klf4_Intensity.cs
 
 ## Exploratory data visualization
 
-We conduct exploratory data visualization to observe the distribution of the variables and have first ideas about modeing strategies.
+We conduct exploratory data visualization to observe the distribution of the variables and have first ideas about modeling strategies.
 
 ```{r}
 #| label: fig-Klf4_Int_Expl

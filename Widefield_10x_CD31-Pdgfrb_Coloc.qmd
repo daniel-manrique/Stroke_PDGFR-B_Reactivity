@@ -1,0 +1,1533 @@
+---
+title-block-banner: true
+title: "Analysis of PDGFR-β attachment to vasculature (CD31+)"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
+keywords: 
+  - PDGFR-β
+  - Brain vasculature
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: References.bib
+---
+
+# Preview
+
+This notebook reports the analysis of PDGFR-β attachment to the vasculature in defined ROIs (injured cortex and striatum, and perilesional cortex).
+
+**Parent dataset:** CD31 and PDGFR-β stained ROIs imaged at 10x using widefiled microscopy. These data set contain three major groups. First, animals with cortico-striatal injuries grouped at 0 (sham), 3, 7, 14, and 30 days post-ischemia (DPI). Second, animals with striatal injuries at 14 and 30 DPI; and finally, a group of sham animals scarified at during the time course to control for protein recombination after tamoxifen injection. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_CD31-Pdgfrb.zip`.
+
+**Working dataset**: The `Data_Raw/Raw_Widefield_10x_ROIs_CD31-Pdgfrb_Coloc.csv`data frame containing the raw output from CellProfiller [@stirling2021]. The pipeline used to perform PDGFR-β/CD31 colocalization is available at XXXXXXX
+
+We perform scientific inference based on the ratio of PDGFR-β cells attached to the brain vasculature stained with CD31.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(ggplot2)
+library(modelr)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load and handle the datasets
+
+We load the `Data_Raw/Raw_Widefield_10x_ROIs_CD31-Pdgfrb_Coloc.csv` raw data set to obtain the variables of interest. 
+
+```{r}
+#| label: Pdgfr_CD31_Load_ROIs10x
+#| include: true
+#| warning: false
+#| message: false
+
+Pdgfrb_CD31_Raw <- read.csv (file = "Data_Raw/Raw_Widefield_10x_ROIs_CD31-Pdgfrb_Coloc.csv", header = TRUE)
+
+# Eliminate unnecessary columns
+Pdgfrb_CD31_Coloc <- subset(Pdgfrb_CD31_Raw, select = c(Count_Colocalization, Count_PDGFR_PrimaryObjects, FileName_PDGFR))
+
+# Extract metadata information from image name
+Pdgfrb_CD31_Coloc <- cbind(Pdgfrb_CD31_Coloc, do.call(rbind , strsplit(Pdgfrb_CD31_Coloc$FileName_PDGFR, "[_\\.]"))[,1:5])
+
+# Eliminate File_Name column
+Pdgfrb_CD31_Coloc <- subset(Pdgfrb_CD31_Coloc, select = -c(FileName_PDGFR))
+
+# Change column names
+colnames(Pdgfrb_CD31_Coloc) <- c("Pdgfrb_Perivascular", "Pdgfrb_Total", "AnimalID", "DPI", "Condition", "Lesion", "Region")
+  
+# Reordering the table
+Pdgfrb_CD31_Coloc <- subset(Pdgfrb_CD31_Coloc, select = c("AnimalID", "DPI", "Condition", "Lesion", "Region", "Pdgfrb_Perivascular", "Pdgfrb_Total"))
+
+# Create the variable for parenchymal cells
+Pdgfrb_CD31_Coloc$Pdgfrb_Parenchymal <- Pdgfrb_CD31_Coloc$Pdgfrb_Total - Pdgfrb_CD31_Coloc$Pdgfrb_Perivascular
+
+# Setting factors
+Pdgfrb_CD31_Coloc$DPI <- factor(Pdgfrb_CD31_Coloc$DPI, levels = c("3D", "7D", "14D", "30D"))
+
+Pdgfrb_CD31_Coloc$Region <- factor(Pdgfrb_CD31_Coloc$Region, levels = c("Peri", "Str", "Ctx"))
+
+Pdgfrb_CD31_Coloc$Condition <- factor(Pdgfrb_CD31_Coloc$Condition, levels = c("Sham", "MCAO"))
+
+Pdgfrb_CD31_Coloc$Lesion <- factor(Pdgfrb_CD31_Coloc$Lesion, levels = c("L0", "L1", "L2"))
+
+# Create an additional DPI variable (numeric)
+
+DPI_mapping <- c("0D" = "0", "3D" = "3", "7D" = "7", "14D" = "14", "30D" = "30")
+Pdgfrb_CD31_Coloc$DPI2 <- as.numeric(DPI_mapping[as.character(Pdgfrb_CD31_Coloc$DPI)])
+
+write.csv(Pdgfrb_CD31_Coloc, "Data_Processed/Wide10x_ROIs_CD31-Pdgfrb_Coloc.csv", row.names = FALSE)
+```
+
+We save the `Wide10x_ROIs_CD31-Pdgfrb_Coloc.csv` containing the following variables:
+
+-   **AnimalID**: Unique animal identification
+-   **DPI**: Days post-ischemia with factor levels (3D, 7D, 14D, 30D)
+-   **Condition**: MCAO = Animals submitted to middle cerebral artery occlusion. Sham = Healthy animals. For Sham animals, DPI equalizes time of tamoxifen recombination to MCAO animals.
+-   **Lesion**: Lesion type. L0 = No lesion. L1 = Cortico-striatal lesion. L2 = triatal lesion.
+-   **Region**: Brain region where imaging was performed. Ctx = Cortex (injured). Str = Striaum (injured). Peri = Perilesion (healthy).
+-   **Pdgfr_Perivascular**: PDGFR-β+ cells attached (colocalizing) with CD31 (blood vessels)
+-   **Pdgfr_Total**: Total number of PDGFR-β+ cells.
+-   **Pdgfr_Parenchymal**: PDGFR-β+ cells not attached (colocalizing) with CD31 (blood vessels)
+-   **DPI2**: Days-post ischemia as continuous (nemeric variable)
+
+# Analysis of cortico-striatal lesions
+
+First, our objective is to analyze the proportion of PDGFR-β/CD31 colocalization in animals with cortico-striatal lesions. To facilitate the modeling and visualization of results using a binominal distribution, we fit different models per brain region (Cortex, striatum and perilesion).  
+
+## Analysis of PDGFR-β-CD31 colocalization in the cortex 
+
+We subset the dataset to exclude sham mice and animals with only striatal injuries.
+
+```{r}
+#| label: Pdgfrb_CD31_MCAOData
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_CD31_CtxMCAO <- filter(Pdgfrb_CD31_Coloc, Lesion == "L1", Region == "Ctx")
+```
+
+### Exploratory data visualization
+
+We visualize the number of parenchymal PDGFR-β+ cells in the injured cortex.
+
+```{r}
+#| label: fig-Pdgfrb_CtxMCAO_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-β/CD31 colocalization
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_Parenchymal_10x <- 
+  ggplot(
+    data  = Pdgfrb_CD31_CtxMCAO, 
+    aes(x = DPI2, 
+        y = Pdgfrb_Parenchymal)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of parenchymal PDGFR-β cells")) +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme 
+
+Pdgfrb_Parenchymal_10x
+```
+@fig-Pdgfrb_CtxMCAO_Exploratory shows that the number of parenchymal cells strongly increases in the cortex after 3 Days post ischemia and seem the remain constant over time. However, to gain a more comprehensive picture, we will model the number of parenchymal PDGFR-β cells conditional on the total number of cells.
+
+### Statistical modeling 
+
+We will fit a linear and a non-linear Bayesian model using a binomial distribution to predict the proportion of parenchymal PDGFR-β cells by DPI.
+
+-   **Pdgfr_CtxMCAO_Mdl1** DPI as a linear predictor of PDGFR-β, with the following notation:
+
+$$
+P(Parenchymal | Total) \sim Binomial(n = Total, p) \\
+
+\text{logit}(P(Y -1)) = \beta_0 + \beta_{DPI} \times DPI
+$$
+Where $Y$ represents the occurrence of parenchymal cells, $P(Y=1)$ is the probability of observing parenchymal cells, $\beta_0$ is the intercept, and $\beta_{DPI}$ is the coefficient for the effect of DPI on the log-odds of observing parenchymal cells.
+
+Next, we incorporate a smooth term for DPI, allowing a non-linear relationship between DPI and the log-odds of observing parenchymal cells within the total number fo cells. The use of a smoothing function with k = 4 represents a flexible, spline-based curve to model this relationship:
+
+
+-   **Pdgfr_CtxMCAO_Mdl2** Splines model on DPI, with the following notation:
+
+$$
+Parenchymal | Total \sim Binomial(p) \\
+
+\text{logit}(p) = s(DPI2, k = 4)
+$$
+
+Both models use default `brms` flat priors.
+
+#### Fit the models
+
+```{r}
+#| label: Pdgfrb_CtxMCAO_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: DPI as a single predictor
+Pdgfrb_CtxMCAO_Mdl1 <- bf(Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ DPI2)
+
+get_prior(Pdgfrb_CtxMCAO_Mdl1, Pdgfrb_CD31_CtxMCAO, family = binomial())
+
+# Fit model 1
+Pdgfrb_CtxMCAO_Fit1 <- 
+  brm(
+    data    = Pdgfrb_CD31_CtxMCAO,
+    family  = binomial(), 
+    formula = Pdgfrb_CtxMCAO_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_CtxMCAO_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_CtxMCAO_Fit1 <- 
+  add_criterion(Pdgfrb_CtxMCAO_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2: DPI with splines
+
+Pdgfrb_CtxMCAO_Mdl2 <- bf(Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ s(DPI2, k = 4))
+
+get_prior(Pdgfrb_CtxMCAO_Mdl2, Pdgfrb_CD31_CtxMCAO, family = binomial())
+
+# Fit model 2
+Pdgfrb_CtxMCAO_Fit2 <- 
+  brm(
+    data    = Pdgfrb_CD31_CtxMCAO,
+    family  = binomial(), 
+    formula = Pdgfrb_CtxMCAO_Mdl2,
+    knots   = list(DPI = c(3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_CtxMCAO_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_CtxMCAO_Fit2 <- 
+  add_criterion(Pdgfrb_CtxMCAO_Fit2, c("loo", "waic", "bayes_R2"))
+```
+
+#### Model comparison
+
+We compare the fitted models using WAIC.
+
+```{r}
+#| label: tbl-Pdgfrb_CtxMCAO_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfrb_CtxMCAO_Comp <- 
+  compare_performance(
+    Pdgfrb_CtxMCAO_Fit1, 
+    Pdgfrb_CtxMCAO_Fit2 
+    )
+
+Pdgfrb_CtxMCAO_Comp
+```
+Let's see it in graphical terms:
+
+```{r}
+#| label: fig-Pdgfrb_CtxMCAO_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| #| fig-cap: Model coparison for PDGFR-β/CD31 colocalization
+#| fig-width: 5
+#| fig-height: 4
+
+Pdgfrb_CtxMCAO_W <- 
+loo_compare(
+  Pdgfrb_CtxMCAO_Fit1, 
+  Pdgfrb_CtxMCAO_Fit2, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Pdgfrb_CtxMCAO_WAIC <- 
+  Pdgfrb_CtxMCAO_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Pdgfrb_CtxMCAO_Fit1", 
+             "Pdgfrb_CtxMCAO_Fit2"), 
+             
+    labels=c("Mdl1", 
+             "Mdl2")) +
+    
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+Pdgfrb_CtxMCAO_WAIC
+```
+The graph shows the model with splines is far less penalized that the linear model. This offer us good support to continue inference using the model with splines.
+
+#### Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: Pdgfrb_CtxMCAO_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization (Cortex)
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_CtxMCAO_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_CtxMCAO_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Formula: PDGFR_Parenchymal | PDGFR_Total ~ s(DPI, k = 4)") +
+  Plot_theme  
+  
+Pdgfrb_CtxMCAO_Fit2_pp
+```
+
+The predictions follow the same pattern that the observed data. However, we can appreciate a moderate deviation in the density of the peak about 200. Nonetheless, considering the R2 = 0.83 from this model, we believe it has a good prediction accuracy. 
+
+```{r}
+#| label: Pdgfrb_CtxMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization
+#| fig-height: 4
+#| fig-width: 5
+
+
+#launch_shinystan(Pdgfrb_CtxMCAO_Fit2)
+```
+
+### Model results
+
+#### Visualization of conditional effects
+
+We use the `conditiona_effects` function to see the posterior distribution:
+
+```{r}
+#| label: fig-Pdgfrb_CtxMCAO_CE
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfrb_CtxMCAO_DPI <- 
+  conditional_effects(Pdgfrb_CtxMCAO_Fit2)
+
+Pdgfrb_CtxMCAO_DPI <- plot(Pdgfrb_CtxMCAO_DPI, 
+       plot = FALSE)[[1]]
+
+Pdgfrb_CtxMCAO_fig <- Pdgfrb_CtxMCAO_DPI  + 
+  scale_y_continuous(name = expression ("(P) parenchymal PDGFR-β")) +
+  scale_x_continuous(name="DPI"                   ,
+                     breaks = c(3, 10, 20, 30),
+                     labels = c("3", "10", "20", "30")) +
+
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_CtxMCAO_fig, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_CtxMCAO_fig.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_CtxMCAO_fig
+```
+
+@fig-Pdgfrb_CtxMCAO_CE show an increasing probability for parenchymal PDGFR-β+ cells with a peak during the second week post injury, and a higher uncertainty thereafter.
+
+#### Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfrb_CtxMCAO_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_CtxMCAO_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+Please note that we are unable to calculate derivatives for binominal models.
+
+## Analysis of PDGFR-β-CD31 colocalization in the striatum
+
+We perform the same analysis for the injured striatum. As done before, we filter the data set to select relevant ROIs.
+
+```{r}
+#| label: Pdgfrb_StrMCAO
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_CD31_StrMCAO <- filter(Pdgfrb_CD31_Coloc, Lesion == "L1", Region == "Str")
+```
+
+
+### Exploratory data visualization
+
+We visualize the number of parenchymal PDGFR-β+ cells in the injured striatum.
+
+```{r}
+#| label: fig-Pdgfrb_StrMCAO_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-β/CD31 colocalization
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_Parenchymal_10x <- 
+  ggplot(
+    data  = Pdgfrb_CD31_StrMCAO, 
+    aes(x = DPI2, 
+        y = Pdgfrb_Parenchymal)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of parenchymal PDGFR-β cells")) +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme 
+
+Pdgfrb_Parenchymal_10x
+```
+In this case, we see that linear and non-linear models are close. However, we fit a splines model for consistency.
+
+### Statistical modeling
+
+We reproduce the same same approach employed with the cortex. This time we focus exclusively in the model with splines. 
+
+#### Fit the model
+
+```{r}
+#| label: Pdgfrb_StrMCAO_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 2: DPI with splines
+Pdgfrb_StrMCAO_Mdl2 <- bf(Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ s(DPI2, k = 4))
+
+get_prior(Pdgfrb_StrMCAO_Mdl2, Pdgfrb_CD31_StrMCAO, family = binomial())
+
+# Fit model 2
+Pdgfrb_StrMCAO_Fit2 <- 
+  brm(
+    data    = Pdgfrb_CD31_StrMCAO,
+    family  = binomial(), 
+    formula = Pdgfrb_StrMCAO_Mdl2,
+    knots   = list(DPI = c(3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_StrMCAO_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_StrMCAO_Fit2 <- 
+  add_criterion(Pdgfrb_StrMCAO_Fit2, c("loo", "waic", "bayes_R2"))
+```
+
+#### Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: Pdgfr_StrMCAO_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization (Striatum)
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_StrMCAO_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_StrMCAO_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Formula: PDGFR_Parenchymal | PDGFR_Total ~ s(DPI, k = 4)") +
+  Plot_theme  
+  
+Pdgfrb_StrMCAO_Fit2_pp
+```
+We observe no significant deviations from the data. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfr_StrMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_StrMCAO_Fit2)
+```
+
+### Model results
+
+#### Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfr_StrMCAO_CE
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfrb_StrMCAO_DPI <- 
+  conditional_effects(Pdgfrb_StrMCAO_Fit2)
+
+Pdgfrb_StrMCAO_DPI <- plot(Pdgfrb_StrMCAO_DPI, 
+       plot = FALSE)[[1]]
+
+Pdgfrb_StrMCAO_fig <- Pdgfrb_StrMCAO_DPI  + 
+  scale_y_continuous(name = expression ("(p) parenchymal PDGFR-β")) +
+    scale_x_continuous(name="DPI"                   ,
+                     breaks = c(3, 10, 20, 30),
+                     labels = c("3", "10", "20", "30")) +
+
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_StrMCAO_fig, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_StrMCAO_fig.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_StrMCAO_fig
+```
+
+@fig-Pdgfr_StrMCAO_CE show an increasing probability for parenchymal PDGFR-β+ cells with a peak during the second weeks post injury in 0.25. 
+
+#### Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfr_StrMCAO_DescribePosterior_Ipsi5x
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_StrMCAO_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+## Analysis of PDGFR-β-CD31 colocalization in the perilesion
+
+We analyze the perilesion using the same approach.We begin by filtering the perilesion 
+```{r}
+#| label: PDGFR_CD31_MCAOPeri
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_CD31_PeriMCAO <- filter(Pdgfrb_CD31_Coloc, Lesion == "L1", Region == "Peri")
+```
+
+### Exploratory data visualization
+
+We visualize the number of parenchymal PDGFR-β+ cells in the perilesion.
+
+```{r}
+#| label: fig-Pdgfrb_PeriMCAO_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-β/CD31 colocalization
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_Parenchymal_10x <- 
+  ggplot(
+    data  = Pdgfrb_CD31_PeriMCAO, 
+    aes(x = DPI2, 
+        y = Pdgfrb_Parenchymal)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of parenchymal PDGFR-β cells")) +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme 
+
+Pdgfrb_Parenchymal_10x
+```
+@fig-Pdgfrb_PeriMCAO_Exploratory reveals that the number of parenchymal PDGFR-β cells tends to remain constant. 
+
+### Statistical modeling
+
+
+#### Fit the model
+
+We fit a similar statistical model with splines per DPI.
+
+```{r}
+#| label: Pdgfrb_PeriMCAO_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1: DPI with splines
+
+Pdgfrb_PeriMCAO_Mdl2 <- bf(Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ s(DPI2, k = 4))
+
+get_prior(Pdgfrb_PeriMCAO_Mdl2, Pdgfrb_CD31_PeriMCAO, family = binomial())
+
+# Fit model 2
+Pdgfrb_PeriMCAO_Fit2 <- 
+  brm(
+    data    = Pdgfrb_CD31_PeriMCAO,
+    family  = binomial(), 
+    formula = Pdgfrb_PeriMCAO_Mdl2,
+    knots   = list(DPI = c(3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_PeriMCAO_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_PeriMCAO_Fit2 <- 
+  add_criterion(Pdgfrb_PeriMCAO_Fit2, c("loo", "waic", "bayes_R2"))
+```
+
+#### Model diagnostics
+
+We plot posterior predictive checks
+
+```{r}
+#| label: Pdgfrb_PeriMCAO_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization (Perilesion)
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_PeriMCAO_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_PeriMCAO_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Formula: PDGFR_Parenchymal | PDGFR_Total ~ s(DPI, k = 4)") +
+  Plot_theme  
+  
+Pdgfrb_PeriMCAO_Fit2_pp
+```
+We observe similar trend and no significant deviations from the observations.
+
+```{r}
+#| label: Pdgfrb_PeriMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_PeriMCAO_Fit2)
+```
+
+## Model results
+
+#### Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfrb_PeriMCAO_CE
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfrb_PeriMCAO_DPI <- 
+  conditional_effects(Pdgfrb_PeriMCAO_Fit2)
+
+Pdgfrb_PeriMCAO_DPI <- plot(Pdgfrb_PeriMCAO_DPI, 
+       plot = FALSE)[[1]]
+
+Pdgfrb_PeriMCAO_fig <- Pdgfrb_PeriMCAO_DPI  + 
+  scale_y_continuous(name = expression ("(p) parenchymal PDGFR-β")) +
+    scale_x_continuous(name="DPI"                   ,
+                     breaks = c(3, 10, 20, 30),
+                     labels = c("3", "10", "20", "30")) +
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_PeriMCAO_fig, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_PeriMCAO_fig.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_PeriMCAO_fig
+```
+
+@PDGFRProp_ConditionalEffects show an increasing probability for parenchymal PDGFR-β+ cells with a peak during the second weeks post injury, and a higher uncertainty thereafter.
+
+#### Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfr_PeriMCAO_DescribePosterior_Ipsi5x
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfr_PeriMCAO_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+We generate a markdown table:
+
+```{r}
+#| label: tbl-Pdgfr_PeriMCAO_PosteriorTable
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+brms_SummaryTable(Pdgfr_PeriMCAO_Fit2,
+  formatOptions = list(digits = 1, nsmall = 2),
+  round = 2,
+  aPeriology = FALSE,
+  hype = FALSE,
+  panderize = TRUE,
+  justify = NULL,
+  seed = 8807)
+```
+
+## 10.7 Analisys of Sham animals
+
+To estimate the effects of tamoxifen recombination in the number of parenchymal PDGFR-B cells, we analyze the cortical regions from MCAO and Sham animals in a single Bayesian model.
+
+### 10.7.1 We subset the data set
+
+We filter the data set to select rows with cortical ROIs for MCAO and Sham animals.
+
+```{r}
+#| label: PDGFR_CD31_ShamMCAO
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfr_CD31_ShamMCAO <- filter(Pdgfr_CD31_Coloc, Lesion != "L2", Region == "Peri")
+
+Pdgfr_CD31_ShamMCAO$Condition <- factor(Pdgfr_CD31_ShamMCAO$Condition, levels = c("Sham", "MCAO"))
+```
+
+### 10.7.2 Fit the statistical model
+
+For this regression, the interaction between `Condition` and `DPI` is impractical for a binominal/splines models. Therefore, we will fit a poisson linear model for `Pdgfr_Parenchymaland`, with the interaction between DPI and condition as predictor. The model takes the following notation
+
+$Y ~ Poisson(\mu)$ $log(\mu) = \beta_{0} + \beta_{1} * \alpha + \beta_{2} * \delta + \beta_{3} * \alpha * \delta$
+
+Where:
+
+Y represents the response variable "Pdgfr_Parenchymal".
+
+$\mu$ represents the mean parameter of the Poisson distribution.
+
+log($\mu$) indicates the logarithm of the mean count.
+
+$\beta_{0}$ represents the intercept term.
+
+$\beta_{1}$ represents the coefficient for the predictor variable "ConditionMCAO", which we'll represent using the Greek letter alpha (α).
+
+$\beta_{2}$ represents the coefficient for the predictor variable "DPI2", which we'll represent using the Greek letter delta (δ).
+
+$\beta_{3}$ represents the coefficient for the interaction term between "ConditionMCAO" and "DPI2", which we'll represent using the product of the Greek letters alpha and delta (αδ).
+
+The model takes the following weakly informative priors:
+
+$\beta_{0} ~ Normal(0,5)$ $\beta_{2} ~ Normal(0,2.5)$ $\beta_{3} ~ Normal(0,5)$
+
+```{r}
+#| label: Pdgfr_ShamMCAO_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1: DPI with splines
+
+Pdgfr_ShamMCAO_Mdl1 <- bf(Pdgfr_Parenchymal ~ Condition * DPI2)
+                  
+get_prior(Pdgfr_ShamMCAO_Mdl1, Pdgfr_CD31_ShamMCAO, poisson(link = "log"))
+
+# Model prior
+Pdgfr_ShamMCAO_Prior1 <- 
+  c(prior(normal(0, 5), class = "Intercept"),
+    prior(normal(0, 2.5), class = "b", coef = DPI2),
+    prior(normal(0, 5), class = "b", coef = "ConditionMCAO:DPI2")
+  )
+
+# Fit model 1
+Pdgfr_ShamMCAO_Fit1 <- 
+  brm(
+    data    = Pdgfr_CD31_ShamMCAO,
+    family  = poisson, 
+    formula = Pdgfr_ShamMCAO_Mdl1,
+    prior   = Pdgfr_ShamMCAO_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/8. PdgfrParenchymal/Pdgfr_ShamMCAO_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_ShamMCAO_Fit1 <- 
+  add_criterion(Pdgfr_ShamMCAO_Fit1, c("loo", "waic", "bayes_R2"))
+
+```
+
+### 10.7.3 Model diagnostics
+
+We plot posterior predictive checks
+
+```{r}
+#| label: Pdgfr_ShamMCAO_Diagnistics_Ipsi5x 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# For PDGFR-β_Low
+Pdgfr_ShamMCAO_Mdl1_pp <- 
+  brms::pp_check(Pdgfr_ShamMCAO_Fit1, 
+                 ndraws = 20,
+                 fun = "stat_grouped") +
+  geom_density(lwd = 2) +
+  labs(title = expression("Posterior predictive checks (PDGFR-β)"),
+    subtitle = "Formula: PDGFR_Parenchymal ~ Condition * DPI") +
+  Plot_theme + 
+  legend_none() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.line=element_blank(),
+        plot.subtitle = element_text(size = 10, color = "black"))
+
+Pdgfr_ShamMCAO_Mdl1_int <- 
+  pp_check(Pdgfr_ShamMCAO_Fit1, 
+           type='intervals',
+           ndraws = 50) +
+  
+  scale_x_continuous(
+    name ="Injury course",
+    breaks = c(0,3, 7, 14, 30),
+    labels = c("0","3", "7", "14", "30"),
+    limits = c(0, 30)
+    ) +
+  scale_y_continuous(limits = c(0, 30)) +             
+  Plot_theme +
+  theme (legend.position= c(1.1, 0.8))
+
+Pdgfr_ShamMCAO_PPchecks <-
+  Pdgfr_ShamMCAO_Mdl1_pp + 
+  plot_spacer() + 
+  Pdgfr_ShamMCAO_Mdl1_int  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.7))
+ggsave(
+  plot     = Pdgfr_ShamMCAO_PPchecks, 
+  filename = "Plots/Pdgfr_ShamMCAO_PPchecks.png", 
+  width    = 14, 
+  height   = 14, 
+  units    = "cm")
+
+Pdgfr_ShamMCAO_PPchecks
+```
+
+We do not see substantial deviations from the data points. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfr_ShamMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfr_ShamMCAO_Fit2)
+```
+
+### 10.7.4 Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfr_ShamMCAO_ConditionalEffects 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfr_ShamMCAO_DPI <- 
+  conditional_effects(Pdgfr_ShamMCAO_Fit1)
+
+Pdgfr_ShamMCAO_DPI <- plot(Pdgfr_ShamMCAO_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfr_ShamMCAO_fig <- Pdgfr_ShamMCAO_DPI  + 
+  scale_y_continuous(name = expression ("# of parenchymal PDGFR-β")) +
+  scale_x_continuous(name="DPI",
+                     breaks = c(3, 10, 20, 30)) +
+                   
+  scale_color_manual(
+    values = c("#0048BA", "red"),
+    name="Condition"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red"),
+    name="Condition"
+    ) +
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfr_ShamMCAO_fig, 
+  filename = "Plots/Pdgfr_ShamMCAO_fig.png", 
+  width    = 10, 
+  height   = 11, 
+  units    = "cm")
+
+Pdgfr_ShamMCAO_fig
+```
+
+@PDGFRProp_ConditionalEffects show an increasing probability for parenchymal PDGFR-β+ cells with a peak during the second weeks post injury, and a higher uncertainty thereafter.
+
+### 10.7.5 Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfr_PeriMCAO_DescribePosterior_Ipsi5x
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfr_ShamMCAO_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+We generate a markdown table:
+
+```{r}
+#| label: tbl-Pdgfr_PeriMCAO_PosteriorTable
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+brms_SummaryTable(Pdgfr_ShamMCAO_Fit1,
+  formatOptions = list(digits = 1, nsmall = 2),
+  round = 2,
+  aPeriology = FALSE,
+  hype = FALSE,
+  panderize = TRUE,
+  justify = NULL,
+  seed = 8807)
+```
+
+### 10.7.6 Addon: Modeling with categorical variable
+
+To very the accuracy of the previous model, we fit the same model using DPI as a categorical variable to have a closer look at the estimations per DPI.
+
+```{r}
+#| label: Pdgfr_ShamMCAO_Modeling2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+# Model 2: DPI as a categorical variable
+
+Pdgfr_ShamMCAO_Mdl2 <- bf(Pdgfr_Parenchymal ~ 0 + Condition * DPI)
+                  
+get_prior(Pdgfr_ShamMCAO_Mdl2, Pdgfr_CD31_ShamMCAO, poisson(link = "log"))
+
+# Model prior
+Pdgfr_ShamMCAO_Prior1 <- 
+  c(prior(normal(0, 5), class = "Intercept"),
+    prior(normal(0, 2.5), class = "b", coef = DPI2),
+    prior(normal(0, 5), class = "b", coef = "ConditionMCAO:DPI2")
+  )
+
+# Fit model 2
+Pdgfr_ShamMCAO_Fit2 <- 
+  brm(
+    data    = Pdgfr_CD31_ShamMCAO,
+    family  = poisson, 
+    formula = Pdgfr_ShamMCAO_Mdl2,
+    #prior   = Pdgfr_ShamMCAO_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/8. PdgfrParenchymal/Pdgfr_ShamMCAO_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_ShamMCAO_Fit2 <- 
+  add_criterion(Pdgfr_ShamMCAO_Fit2, c("loo", "waic", "bayes_R2"))
+```
+
+Once more, we visualize the conditional effects:
+
+### 10.7.4 Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfr_ShamMCAO_ConditionalEffects2  
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfr_ShamMCAO_DPI <- 
+  conditional_effects(Pdgfr_ShamMCAO_Fit2)
+
+Pdgfr_ShamMCAO_DPI <- plot(Pdgfr_ShamMCAO_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfr_ShamMCAO_fig <- Pdgfr_ShamMCAO_DPI  + 
+  scale_y_continuous(name = expression ("Number of parenchymal PDGFR-β")) +
+  scale_x_discrete(name="Days post-ischemia (DPI)") +
+
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfr_ShamMCAO_fig, 
+  filename = "Plots/Pdgfr_ShamMCAO_fig.png", 
+  width    = 12, 
+  height   = 12, 
+  units    = "cm")
+
+Pdgfr_ShamMCAO_fig
+```
+
+## 10.8 Analisys of cortico-striatal lesions (all regions)
+
+Now, we will model together all the section of animals with cortico-striatal lesion to estimate the differences in slopes between the different brain regions for the number of parenchymal PDGFR-B cells
+
+### 10.8.1 We subset the data set
+
+We filter the data set to select rows with L1 animals.
+
+```{r}
+#| label: PDGFR_CD31_ShamMCAO
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfr_CD31_L1MCAO <- filter(Pdgfr_CD31_Coloc, Lesion == "L1")
+
+Pdgfr_CD31_L1MCAO$Region <- factor(Pdgfr_CD31_L1MCAO$Region, levels = c("Peri", "Str", "Ctx"))
+
+```
+
+### 10.8.2 Fit the statistical model
+
+```{r}
+#| label: Pdgfr_L1MCAO_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1
+
+Pdgfr_L1MCAO_Mdl1 <- bf(Pdgfr_Parenchymal ~ DPI * Region)
+                  
+get_prior(Pdgfr_L1MCAO_Mdl1, Pdgfr_CD31_L1MCAO)
+
+# Model prior
+Pdgfr_L1MCAO_Prior1 <- 
+  c(prior(normal(0, 5), class = "Intercept"),
+    prior(normal(0, 2.5), class = "b", coef = DPI2),
+    prior(normal(0, 5), class = "b", coef = "RegionPeri:DPI2")
+  )
+
+# Fit model 1
+Pdgfr_L1MCAO_Fit1 <- 
+  brm(
+    data    = Pdgfr_CD31_L1MCAO,
+    family  = poisson, 
+    formula = Pdgfr_L1MCAO_Mdl1,
+    #prior   = Pdgfr_L1MCAO_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "BayesianModels/8. PdgfrParenchymal/Pdgfr_L1MCAO_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfr_L1MCAO_Fit1 <- 
+  add_criterion(Pdgfr_L1MCAO_Fit1, c("loo", "waic", "bayes_R2"))
+
+```
+
+### 10.8.3 Model diagnostics
+
+We plot posterior predictive checks
+
+```{r}
+#| label: Pdgfr_L1MCAO_Diagnistics_Ipsi5x 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+#| 
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# For PDGFR-β_Low
+Pdgfr_L1MCAO_Mdl1_pp <- 
+  brms::pp_check(Pdgfr_L1MCAO_Fit1, 
+                 ndraws = 20,
+                 fun = "stat_grouped") +
+  geom_density(lwd = 2) +
+  labs(title = expression("Posterior predictive checks (PDGFR-β)"),
+    subtitle = "Formula: PDGFR_Parenchymal ~ Condition * DPI") +
+  Plot_theme + 
+  legend_none() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.line=element_blank(),
+        plot.subtitle = element_text(size = 10, color = "black"))
+
+Pdgfr_L1MCAO_Mdl1_int <- 
+  pp_check(Pdgfr_L1MCAO_Fit1, 
+           type='intervals',
+           ndraws = 50) +
+  
+  scale_x_continuous(
+    name ="Injury course",
+    breaks = c(0,3, 7, 14, 30),
+    labels = c("0","3", "7", "14", "30"),
+    limits = c(0, 30)
+    ) +
+  scale_y_continuous(limits = c(0, 30)) +             
+  Plot_theme +
+  theme (legend.position= c(1.1, 0.8))
+
+Pdgfr_L1MCAO_PPchecks <-
+  Pdgfr_L1MCAO_Mdl1_pp + 
+  plot_spacer() + 
+  Pdgfr_L1MCAO_Mdl1_int  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.7))
+ggsave(
+  plot     = Pdgfr_L1MCAO_PPchecks, 
+  filename = "Plots/Pdgfr_L1MCAO_PPchecks.png", 
+  width    = 14, 
+  height   = 14, 
+  units    = "cm")
+
+Pdgfr_L1MCAO_PPchecks
+```
+
+We do not see substantial deviations from the data points. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfr_ShamMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfr_ShamMCAO_Fit2)
+```
+
+### 10.7.4 Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfr_L1MCAO_ConditionalEffects 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfr_L1MCAO_DPI <- 
+  conditional_effects(Pdgfr_L1MCAO_Fit1)
+
+Pdgfr_L1MCAO_DPI <- plot(Pdgfr_L1MCAO_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfr_L1MCAO_fig <- Pdgfr_L1MCAO_DPI  + 
+  scale_y_continuous(name = expression ("# of parenchymal PDGFR-β")) +
+  scale_x_discrete(name="DPI") +
+  
+    geom_point(data=Pdgfr_CD31_L1MCAO, aes(y = Pdgfr_Parenchymal, x = DPI, colour=Region),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  scale_color_manual(
+    values = c("#0048BA", "red", "darkgreen"),
+    labels = c("Perilesional", "Striatum", "Cortex"),
+    name="Region"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red", "darkgreen"),
+    labels = c("Perilesional", "Striatum", "Cortex"),
+    name="Region"
+    ) +
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfr_L1MCAO_fig, 
+  filename = "Plots/Pdgfr_L1MCAO_fig.png", 
+  width    = 11, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfr_L1MCAO_fig
+```
+
+### 10.5.5 Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfr_PeriMCAO_DescribePosterior_Ipsi5x
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfr_L1MCAO_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+We generate a markdown table:
+
+```{r}
+#| label: tbl-Pdgfr_L1MCAO_PosteriorTable
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+brms_SummaryTable(Pdgfr_L1MCAO_Fit1,
+  formatOptions = list(digits = 1, nsmall = 2),
+  round = 2,
+  aPeriology = FALSE,
+  hype = FALSE,
+  panderize = TRUE,
+  justify = NULL,
+  seed = 8807)
+```
+
+# References
+
+::: {#refs}
+:::
