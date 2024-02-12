@@ -36,6 +36,8 @@ The notebooks are listed according to the suggested execution order to follow th
 
 **Widefield_10x_Klf4_Detections.qmd:** Contains data and point pattern analysis for KLF4 spatial and intensity analysis.
 
+**Widefield_20x_Klf4_Detections.qmd:** Contains data analysis for KLF4/PDGFR-β colocalization in defined ROIs.
+
 ## Support files
 
 **.bib files** These are files associated to each notebook containing cited bibliography. 

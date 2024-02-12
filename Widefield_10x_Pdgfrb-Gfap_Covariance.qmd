@@ -587,7 +587,7 @@ Pdgfr_Gfap_Region_Contrast_Sub$contrast <-
 We plot the contrast using ggplot
 
 ```{r}
-#| label: Pdgfr_Gfap_PlotRegions2
+#| label: Pdgfrb_Gfap_PlotRegions2
 #| include: true
 #| warning: false
 #| message: false
