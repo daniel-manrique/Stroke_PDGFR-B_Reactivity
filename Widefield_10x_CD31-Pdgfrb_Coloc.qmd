@@ -178,7 +178,7 @@ We save the `Wide10x_ROIs_CD31-Pdgfrb_Coloc.csv` containing the following variab
 -   **Pdgfr_Parenchymal**: PDGFR-β+ cells not attached (colocalizing) with CD31 (blood vessels)
 -   **DPI2**: Days-post ischemia as continuous (nemeric variable)
 
-# Analysis of cortico-striatal lesions
+# Analysis of of PDGFR-β-CD31 colocalization in cortico-striatal lesions
 
 First, our objective is to analyze the proportion of PDGFR-β/CD31 colocalization in animals with cortico-striatal lesions. To facilitate the modeling and visualization of results using a binominal distribution, we fit different models per brain region (Cortex, striatum and perilesion).  
 
@@ -1027,7 +1027,7 @@ Pdgfrb_L1MCAO_Fit1_pp
 @fig-Pdgfrb_L1MCAO_Diagnistics shows no the model predictions align with the observed data. We can explore further the model using `shinystan`.
 
 ```{r}
-#| label: Pdgfrb_ShamMCAO_Shiny
+#| label: Pdgfrb_L1MCAO_Shiny
 #| include: true
 #| warning: false
 #| message: false
@@ -1046,7 +1046,6 @@ Pdgfrb_L1MCAO_Fit1_pp
 #| include: true
 #| warning: false
 #| message: false
-#| results: false
 #| fig-cap: Posterior for the number of PDGFR-β+ cells in different brain regions
 #| fig-height: 4
 #| fig-width: 5
@@ -1107,7 +1106,6 @@ Additionally, we can calculate the contrast between regions per time point, focu
 #| include: true
 #| warning: false
 #| message: false
-#| results: false
 
 # We generate a data frame with the contrast
 Pdgfrb_Region_Contrast <- Pdgfrb_L1MCAO_Fit1%>%
@@ -1134,8 +1132,9 @@ Next, we plot the contrast using ggplot
 #| include: true
 #| warning: false
 #| message: false
-#| cache: true
-
+#| fig-cap: Contrast for the number of PDGFR-β+ cells in different brain regions
+#| fig-height: 4
+#| fig-width: 5
 
 Pdgfrb_Region_Contrast_Fig <- 
   Pdgfrb_Region_Contrast_Sub %>%
@@ -1175,12 +1174,10 @@ Pdgfrb_Region_Contrast_Fig
 We plot the posterior summary using the `describe_posterior` function:
 
 ```{r}
-#| label: tbl-Pdgfrb_PeriMCAO_Posterior
+#| label: tbl-Pdgfrb_L1MCAO_Posterior
 #| include: true
 #| warning: false
 #| message: false
-#| results: false
-#| cache: true
 
 describe_posterior(
   Pdgfrb_L1MCAO_Fit1,
@@ -1190,8 +1187,353 @@ describe_posterior(
   centrality = "median")
 ```
 
+# Analysis of of PDGFR-β/CD31 colocalization in striatal lesions
+
+In this section, we analyze the PDGFR-β/CD31are colocalization in brain with striatal lesions to evaluate the impact of cortical injures in the appearance of PDGFR-β+ parenchymal cells. To achieve this goal, we subset the "L1" and "L2" lesions in our data set at 14 and 30 DPI.
+
+```{r}
+#| label: Pdgfrb_Coloc_Striatum
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_CD31_Striatum <- subset(Pdgfrb_CD31_Coloc, Lesion != "L0" & Region == "Str" & DPI %in% c("14D", "30D"))
+
+Pdgfrb_CD31_Striatum$Lesion <- factor(Pdgfrb_CD31_Striatum$Lesion, levels = c("L2", "L1"))
+
+Pdgfrb_CD31_Striatum$DPI <- factor(Pdgfrb_CD31_Striatum$DPI, levels = c("14D", "30D"))
+```
+
+## Exploratory data visualization
+
+We perform exploratory data visualization to appreciate data trends
+
+```{r}
+#| label: Pdgfrb_Striatum_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Exploratory data visualization for the number of PDGFR-β+ cells in striatal lesions
+#| fig-height: 4
+#| fig-width: 5
 
 
+set.seed(8807)
+
+### For perenchymal cells
+Pdgfrb_Coloc_Str_fig <- 
+  ggplot(
+    data  = Pdgfrb_CD31_Striatum, 
+    aes(x = DPI, 
+        y = Pdgfrb_Parenchymal,
+        color = Lesion)) +
+  geom_boxplot()+
+  scale_y_continuous(name= expression("Parenchymal PDGFR-β+")) +
+  scale_x_discrete(name="Days post-ischemia (DPI) ",
+                     breaks=c("14D","30D")) +
+  Plot_theme 
+
+Pdgfrb_Coloc_Str_fig
+```
+
+In particular, we observe that animals with cortico-striatal injuries present extreme values, reflecting a major variability probably related to infarct size.
+
+## Statistical modeling
+
+Given that we count on two data points, we will fit linear models. First, we fit a model for the total number of PDGFR-β cells using a student-t distribution, having the interaction of DPI and Lesion as predictors variables. This model takes the following notation:
+
+$$
+Cells = \beta_{0} + \beta_{1} * DPI + \beta_{2} * Lesion + \beta_{3} * DPI * Lesion
+$$
+This model uses default `brms` flat priors.
+
+Secondly, we fit a binominal (logit) model to predict the proportion of parenchymal PDGFR-β cells conditional on the total number of PDGFR-β cells. Similarly, this model have the interaction of DPI and Lesion as a predictor variables. The model takes the following notation:
+
+$$
+Y | n ~ Binominal(n, \mu) \\ 
+logit(\mu) = \beta_{0} + \beta_{1} * DPI + \beta_{2} * Lesion + \beta_{3} * DPI * Lesion
+$$
+
+Where:
+
+Y represents the response variable "Pdgfr_Parenchymal".
+
+n represent the total number of trials or observations corresponding to the response variable "Pdgfr_Total".
+
+$\mu$ represent the probability of success in each trial..
+
+$\beta_{0}$ represents the intercept term.
+
+$\beta_{1}$ represents the coefficient for the predictor variable "DPI".
+
+$\beta_{2}$ represents the coefficient for the predictor variable "Lesion".
+
+$\beta_{3}$ represents the coefficient for the interaction term between "DPI" and "Lesion".
+
+This model uses beta(2,5) priors for the intercept and the class "b" variables based on the information obtained from the striatum fit for cortio-striatal injuries in this same notebook.
+
+### Fit the models
+
+```{r}
+#| label: Pdgfrb_Striatum_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+# Model 1
+Pdgfrb_Striatum_Mdl1 <- bf(Pdgfrb_Total ~ DPI * Lesion,
+                           sigma ~ DPI * Lesion)
+
+get_prior(Pdgfrb_Striatum_Mdl1, Pdgfrb_CD31_Striatum, family = student())
+
+# Fit model 1
+Pdgfrb_Striatum_Fit1 <- 
+  brm(
+    data    = Pdgfrb_CD31_Striatum,
+    family  = student(), 
+    formula = Pdgfrb_Striatum_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_Striatum_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Striatum_Fit1 <- 
+  add_criterion(Pdgfrb_Striatum_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2
+Pdgfrb_Striatum_Mdl2 <- bf(Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ DPI * Lesion)
+
+get_prior(Pdgfrb_Striatum_Mdl2, Pdgfrb_CD31_Striatum, family = binomial())
+
+Pdgfrb_Striatum_Prior1 <- 
+  c(prior(beta(2, 5), class = b))
+
+# Fit model 2
+Pdgfrb_Striatum_Fit2 <- 
+  brm(
+    data    = Pdgfrb_CD31_Striatum,
+    family  = binomial(), 
+    formula = Pdgfrb_Striatum_Mdl2,
+    #prior   = Pdgfrb_Striatum_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_Striatum_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Striatum_Fit2 <- 
+  add_criterion(Pdgfrb_Striatum_Fit2, c("loo", "waic", "bayes_R2"))
+```
+### Model diagnostics
+
+We plot posterior predictive checks
+
+```{r}
+#| label: fig-Pdgfrb_Striatum 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Model diagnostics for the number of PDGFR-β+ cells in striatal lesions
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# For model 1
+Pdgfrb_Striatum_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Striatum_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb_Parenchymal ~ DPI * Region, sigma ~ Region") +
+  scale_x_continuous(limits = c(0, 1000)) +
+  Plot_theme  
+  
+
+# For model 2
+Pdgfrb_Striatum_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_Striatum_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb_Parenchymal | trials(Pdgfrb_Total) ~ DPI2 * Lesion") +
+  scale_x_continuous(limits = c(0, 200)) +
+  Plot_theme  
+  
+Pdgfrb_Striatum_Fit1_pp | Pdgfrb_Striatum_Fit2_pp
+```
+
+The predictions follow the overall trend and do not show mayor deviations from the data. However, please note that the predictions of the second model have a moderate deviation from the offset. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfrb_StriatalMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfr_Striatum_Fit1)
+#launch_shinystan(Pdgfr_Striatum_Fit2)
+```
+
+## Model results
+
+###  Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfrb_Striatum_CE 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Posterior for the number of PDGFR-β+ cells in striatal lesions
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# We create the graph for the total number of cells
+Pdgfrb_Striatum_DPI <- 
+  conditional_effects(Pdgfrb_Striatum_Fit1)
+
+Pdgfrb_Striatum_DPI <- plot(Pdgfrb_Striatum_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Striatum_fig1 <- Pdgfrb_Striatum_DPI  + 
+  scale_y_continuous(name = expression ("PDGFR-β cells")) +
+  scale_x_discrete(name="DPI") +
+  scale_color_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_Striatum_fig1, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_Striatum_fig1.png", 
+  width    = 10, 
+  height   = 9, 
+  units    = "cm")
+
+
+# We create the graph for sigma
+Pdgfrb_Striatum_Sigma <- 
+  conditional_effects(Pdgfrb_Striatum_Fit1, dpar = "sigma")
+
+Pdgfrb_Striatum_Sigma <- plot(Pdgfrb_Striatum_Sigma, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_StriatumSigma_fig1 <- Pdgfrb_Striatum_Sigma  + 
+  scale_y_continuous(name = expression ("PDGFR-β cells (Sigma)")) +
+  scale_x_discrete(name="DPI") +
+  scale_color_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_StriatumSigma_fig1, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_Striatum_Sigma_fig1.png", 
+  width    = 10, 
+  height   = 9, 
+  units    = "cm")
+
+
+# We create the graph for the probability of parenchymal
+Pdgfrb_Striatum_DPI <- 
+  conditional_effects(Pdgfrb_Striatum_Fit2)
+
+Pdgfrb_Striatum_DPI <- plot(Pdgfrb_Striatum_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Striatum_fig2 <- Pdgfrb_Striatum_DPI  + 
+  scale_y_continuous(name = expression ("(p) parenchymal PDGFR-β")) +
+  scale_x_discrete(name="DPI",
+                     breaks = c("14D", "30D"),
+                     labels = c("14D", "30D")) +
+  scale_color_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red"),
+    labels = c("Striatal", "Cortico-Striatal"),
+    name="Lesion"
+    ) +
+  
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_Striatum_fig2, 
+  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_Striatum_fig2.png", 
+  width    = 10, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_Striatum_fig1 | Pdgfrb_StriatumSigma_fig1 | Pdgfrb_Striatum_fig2
+```
+
+@fig-Pdgfrb_Striatum_CE shows a substantial overlap in the total number of PDGFR-β in both conditions. The decrease in the uncertainty at 30 DPI for cortico-striatal lesions is notable Interestingly, cortico-striatal lesion display a lower probability for parenchymal PDGFR-β cells at 30 DPI. This contrast sharply with the increasing trend showed by striatal lesion. We speculate this reduction in the proportion of parenchymal cells may be guided by increased cell mortality in cortico-striatal lesions.
+
+Next, we visualize the posterior summaries
+
+### Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Pdgfrb_Striatum_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Striatum_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+
+describe_posterior(
+  Pdgfrb_Striatum_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
 
 # Analisys of Sham/MCAO animals (effect of recombination)
 
@@ -1370,7 +1712,7 @@ Pdgfrb_ShamMCAO_fig
 Next, We plot the posterior summary using the `describe_posterior` function:
 
 ```{r}
-#| label: tbl-Pdgfrb_PeriMCAO_Posterior
+#| label: tbl-Pdgfrb_ShamMCAO_Posterior
 #| include: true
 #| warning: false
 #| message: false
@@ -1384,9 +1726,6 @@ describe_posterior(
   component = "all",
   centrality = "median")
 ```
-
-
-
 
 # References
 

@@ -230,7 +230,7 @@ As we postulate that the level of KLF4/PDGFR-β may be mediated by the effect of
 $$
 
 \text{Coloc} | \text{trials}(Klf4) \sim \text{Binomial}(Klf4, p) \\
-\text{logit}(p) = \beta_0 + \beta_{DPI}[DPI] + \beta_{Region}[Region] + \beta_{DPI \times Region}[DPI \times Region]
+\text{logit}(p) = \beta_0 + \beta_{DPI} + \beta_{Region} + \beta_{DPI \times Region}
 
 $$
 
