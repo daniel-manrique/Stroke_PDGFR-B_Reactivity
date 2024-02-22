@@ -164,7 +164,7 @@ colnames(Klf4_Data) <- c("Intensity", "CenterX", "CenterY", "MouseID", "DPI")
 ## We set the factors
 Klf4_Data$DPI <- factor(Klf4_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
 
-write.csv(Klf4_Data, "Data_Processed/Wide10x_Ipsilateral_Klf4_CellIntensity.csv", row.names = FALSE)
+write.csv(Klf4_Data, "Data_Processed/Widefield_10x_Ipsilateral_Klf4_CellIntensity.csv", row.names = FALSE)
 
 
 ## For DAPI
@@ -183,7 +183,7 @@ colnames(Dapi_Data) <- c("Intensity", "CenterX", "CenterY", "MouseID", "DPI")
 ## We set the factors
 Dapi_Data$DPI <- factor(Dapi_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
 
-write.csv(Dapi_Data, "Data_Processed/Wide10x_Ipsilateral_Dapi_CellIntensity.csv", row.names = FALSE)
+write.csv(Dapi_Data, "Data_Processed/Widefield_10x_Ipsilateral_Dapi_CellIntensity.csv", row.names = FALSE)
 
 ```
 
@@ -365,7 +365,7 @@ for (i in 1:nrow(PointPatterns)) {
   current_dpi2 <- PointPatterns$DPI[i]
   
   # Add the results to the data frame
-  Klf4_Intensity  <- rbind(intensity_results, data.frame(MouseID=current_mouse_id, DPI2=current_dpi2, Intensity=rounded_intensity))
+  Klf4_Intensity  <- rbind(Klf4_Intensity, data.frame(MouseID=current_mouse_id, DPI2=current_dpi2, Intensity=rounded_intensity))
 }
 
 Klf4_Intensity$DPI2 <- factor(Klf4_Intensity$DPI2, levels = c("0D", "3D", "7D", "14D", "30D") )
@@ -373,7 +373,7 @@ Klf4_Intensity$DPI2 <- factor(Klf4_Intensity$DPI2, levels = c("0D", "3D", "7D", 
 # View the final data frame
 print(Klf4_Intensity )
 
-write.csv(Klf4_Intensity , "Data_Processed/Wide10x_Ipsilateral_Klf4_Intensity.csv", row.names = FALSE)
+write.csv(Klf4_Intensity , "Data_Processed/Widefield_10x_Ipsilateral_Klf4_Intensity.csv", row.names = FALSE)
 ```
 
 ## Exploratory data visualization
@@ -392,7 +392,7 @@ We conduct exploratory data visualization to observe the distribution of the var
 
 # Load the data set in case is not present in the environment
 
-Klf4_Intensity <- read.csv("Data_Processed/Wide10x_Ipsilateral_Klf4_Intensity.csv", header = TRUE)
+Klf4_Intensity <- read.csv("Data_Processed/Widefield_10x_Ipsilateral_Klf4_Intensity.csv", header = TRUE)
 
 set.seed(8807)
 
@@ -424,7 +424,8 @@ Klf4_Int_Sctr <-
 
 scale_y_continuous(name = "KLF4 (spatial intensity)") +
 scale_x_discrete(
-  name   ="Days post-ischemia (DPI) "
+  name   ="Days post-ischemia (DPI) ",
+  breaks = c("0D", "3D", "7D", "14D", "30D")
   ) +
 Plot_theme
 
@@ -507,7 +508,7 @@ To evaluate sample predictions, we perform the model diagnostics using the `pp_c
 set.seed(8807)
 
 Klf4_Int_Fit1_pp <- 
-  brms::pp_check(Klf4_Fit1, 
+  brms::pp_check(Klf4_Int_Fit1, 
                  ndraws = 100) +
   geom_density(lwd = 2) +
   labs(title = "Posterior predictive checks",
@@ -758,7 +759,7 @@ Klf4_Data <- Klf4_Data %>%
 Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
 
 ```{r}
-#| label: fig-Klf4_Int_Expl
+#| label: fig-Klf4_CellInt_Expl
 #| include: true
 #| warning: false
 #| message: false
@@ -803,7 +804,7 @@ Klf4_Int_Dens |  Klf4_Int_Box
 
 @fig-Klf4_Int_Expl shows a range of \~ 0 - 10 in the KFL4 intensity. Without accounting for days-post ischemia (DPI), the response variable exhibits a single concentrated peak. On the other hand, the scatter shows that there are no substantial differences between the fitted lines. We speculate that the median (per object) intensity of KLF4 does not vary meaningfully by DPI.
 
-# Statistical modeling for Klf4 expression
+## Statistical modeling for Klf4 expression
 
 We use the `brms` package [@brms; @brms-2] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. Given the exploratory data visualization, we fit a linear model to explore the variability of KLF4 by DPI. We build a multilevel model to take into consideration the clustering of cells per animal:
 
@@ -828,7 +829,7 @@ $$
 ## Fit the models for Klf4 intensity
 
 ```{r}
-#| label: Klf4_Int_Model
+#| label: Klf4_CellInt_Model
 #| include: true
 #| warning: false
 #| message: false

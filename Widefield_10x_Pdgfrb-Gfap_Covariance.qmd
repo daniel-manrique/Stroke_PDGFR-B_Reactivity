@@ -35,7 +35,7 @@ knitr:
     message: false
     
 csl: science.csl
-bibliography: Widefield_PPP.bib
+bibliography: References.bib
 ---
 
 # Preview
@@ -1250,3 +1250,10 @@ plot(PPP_ROIs_10x$Pdgfr$`140`, pch = 16, cex = 0.4, col = "white", add = TRUE)
 ```
 
 The black/white dots represent PDGFR-β+ cells, while the density kernels depict the GFAP spatial intensity.
+
+# References
+
+::: {#refs}
+:::
+
+
