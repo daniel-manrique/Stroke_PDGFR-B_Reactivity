@@ -1,0 +1,120 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+```{python}
+import os
+from tifffile import imread
+import re
+import numpy as np
+import pandas as pd
+from skimage.metrics import adapted_rand_error
+from skimage.filters import threshold_otsu
+import seaborn as sns
+import matplotlib.pyplot as plt
+```
+
+
+```{python}
+def extract_metadata_from_filename(filename):
+    """
+    Extracts Day, Region, Protein, and AnimalID information from the given filename.
+    
+    Parameters:
+        filename (str): The filename to extract metadata from.
+    
+    Returns:
+        tuple: (animalid, day, region, protein)
+    """
+    # Extract AnimalID as the first string of the filename, for example, "Td012"
+    animalid = filename.split("_")[0]
+    
+    # Define a regular expression pattern based on your file naming convention
+    pattern = r"_(\d+D)_.*_(\w+)_(\w+)"
+    match = re.search(pattern, filename)
+    
+    if match:
+        day, region, protein = match.groups()
+        return animalid, day, region, protein
+    else:
+        raise ValueError(f"Pattern not matched for: {filename}")
+
+# Example usage
+data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
+files = [f for f in os.listdir(data_directory) if f.endswith('.tif')]
+
+for file in files:
+    # Extract metadata
+    animalid, day, region, protein = extract_metadata_from_filename(file)
+    
+    # Load the image stack
+    image_stack = imread(os.path.join(data_directory, file))
+    
+    # For now, let's just print the metadata and the shape of the image stack
+    print(f"Filename: {file} | AnimalID: {animalid} | Day: {day} | Region: {region} | Protein: {protein} | Image Shape: {image_stack.shape}")
+
+```
+```{python}
+def calculate_manders(image1, image2, threshold1=None, threshold2=None):
+    """Calculate Manders' Coefficients between two images."""
+    if threshold1 is None:
+        threshold1 = threshold_otsu(image1)
+    if threshold2 is None:
+        threshold2 = threshold_otsu(image2)
+    
+    m1_numerator = np.sum(np.where(image1 > threshold1, image2, 0))
+    m2_numerator = np.sum(np.where(image2 > threshold2, image1, 0))
+    
+    m1_denominator = np.sum(image1[image1 > threshold1])
+    m2_denominator = np.sum(image2[image2 > threshold2])
+    
+    m1 = m1_numerator / m1_denominator
+    m2 = m2_numerator / m2_denominator
+    
+    return m1, m2
+
+data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
+files = sorted([f for f in os.listdir(data_directory) if f.endswith('.tif')])
+
+results = []
+
+for i in range(0, len(files), 2):  # Assuming pdgfra and pdgfrb images alternate
+    pdgfra_file = files[i]
+    pdgfrb_file = files[i+1]
+    
+    # Ensure we are pairing the correct imagesF:\\Daniel\\Stroke_PDGFR-B_Reactivity\\2.Images\\Exp3-Pdgfr-a\\20x_ROId_Widefield\\Images_StacksChannels
+    if "Pdgfra" not in pdgfra_file or "Pdgfrb" not in pdgfrb_file:
+        raise ValueError(f"File pairing mismatch: {pdgfra_file}, {pdgfrb_file}")
+    
+    image_pdgfra = imread(os.path.join(data_directory, pdgfra_file))
+    image_pdgfrb = imread(os.path.join(data_directory, pdgfrb_file))
+    
+    m1, m2 = calculate_manders(image_pdgfra, image_pdgfrb, threshold1=15, threshold2=10)
+    
+    animalid, day, region, _ = extract_metadata_from_filename(pdgfra_file)
+    sample_id = pdgfra_file.split('_')[0]
+    
+    results.append({
+        'Sample ID': sample_id,
+        'Day': day,
+        'Region': region,
+        'M1 (Pdgfra)': m1,
+        'M2 (Pdgfrb)': m2
+    })
+
+# Convert results to DataFrame
+results_df = pd.DataFrame(results)
+
+# Save results to CSV
+save_path = "D:\\Research\\Stroke_PDGFR-B_Reactivity\\ImageAnalysis\\20x_ROIS_Pdgfra_Pdgfrb\\Results\\MandersCoefficients.csv"
+results_df.to_csv(save_path, index=False)
+
+```
+
+```{python}
+# Save results to CSV
+save_path = "D:/Research/Stroke_PDGFR-B_Reactivity/Pdgfrb_Reactivity_DataAnalysis/Stroke_Pdgfrb_Reactivity/Data_Raw/Raw_Widefield_20x_ROIs_Pdgfrb-Pdgfra_Manders.csv"
+results_df.to_csv(save_path, index=False)
+```
+
