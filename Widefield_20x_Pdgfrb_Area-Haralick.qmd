@@ -1,0 +1,352 @@
+---
+title-block-banner: true
+title: "Analysis of Area and Haralick features for PDGFR-β"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
+keywords: 
+  - PDGFR-β
+  - Haralick features
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: References.bib
+---
+
+
+# Preview
+
+This notebook reports the analysis of the area and Haralick features for PDGFR-β in defined ROIs of the ipsilateral hemisphere.
+
+**Parent dataset:** PDGFR-β (td-tomato) Z-plane ROIs imaged at 20x. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Pdgfra-Pdgfrb.zip`.
+
+**Working dataset**: The `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.csv`contains the quantification of the area covered by the detected cells after processing using CellProfiller. The pipeline is available at https://osf.io/k9zbe.
+
+PUT DESCRIPTION FOR HARALICK FEATURES
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","modelbased", "modelr", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(modelbased)
+library(modelr)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+
+# Analysis of area covered by PDGFR-β+ cells
+
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.csv` dataset containing the total objects area exported by CellProfiller.
+
+```{r}
+#| label: tbl-Pdgfrb_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Pdgfrb_Area <- read.csv(file = "Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.csv", header = TRUE)
+
+knitr::kable(Pdgfrb_Area [1:10, ])
+```
+
+From the table, we are interested in the `AreaOccupied_AreaOccupied_Cells`and the `FileName_Raw`columns containing the measured area and metadata information from the image names. Next, we subset the dataset to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: tbl-Pdgfrb_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Pdgfrb_Area <- subset(Pdgfrb_Area, select = c("FileName_Raw", "AreaOccupied_AreaOccupied_Cells"))
+
+## And extract metadata from the image name
+Pdgfrb_Area  <- cbind(Pdgfrb_Area, do.call(rbind , strsplit(Pdgfrb_Area$FileName_Raw, "[_\\.]"))[,1:5])
+
+Pdgfrb_Area <- subset(Pdgfrb_Area, select = -c(FileName_Raw))
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_Area) <- c("Area", "MouseID", "DPI", "Condition", "Lesion", "Region")
+
+# Setting factors
+Pdgfrb_Area$DPI <- factor(Pdgfrb_Area$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+
+Pdgfrb_Area$Region <- factor(Pdgfrb_Area$Region, levels = c("Peri", "Str", "Ctx"))
+
+Pdgfrb_Area$Condition <- factor(Pdgfrb_Area$Condition, levels = c("SHAM", "MCAO"))
+
+Pdgfrb_Area$Lesion <- factor(Pdgfrb_Area$Lesion, levels = c("L0", "L1", "L2"))
+
+# Create an additional DPI variable (numeric)
+
+DPI_mapping <- c("0D" = "0", "3D" = "3", "7D" = "7", "14D" = "14", "30D" = "30")
+Pdgfrb_Area$DPI_cont <- as.numeric(DPI_mapping[as.character(Pdgfrb_Area$DPI)])
+
+write.csv(Pdgfrb_Area, "Data_Processed/Widefield_20x_ROIs_Pdgfrb_Area.csv", row.names = FALSE)
+
+knitr::kable(Pdgfrb_Area [1:10, ])
+```
+
+Next, we perform exploratory data visualization.
+
+### Exploratory data visualization
+
+We visualize the number of parenchymal PDGFR-β+ cells in the injured cortex.
+
+```{r}
+#| label: fig-Pdgfrb_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-β area
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_Area_EDV <- 
+  ggplot(
+    data  = Pdgfrb_Area, 
+    aes(x = DPI_cont, 
+        y = Area)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of parenchymal PDGFR-β cells")) +
+  scale_x_continuous(name="Days post-ischemia (DPI) ",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme +
+  facet_wrap(~ Region)
+
+Pdgfrb_Area_EDV
+```
+
+
+
+
+```{python}
+import os
+from tifffile import imread
+import re
+import numpy as np
+import pandas as pd
+from skimage.metrics import adapted_rand_error
+from skimage.filters import threshold_otsu
+import seaborn as sns
+import matplotlib.pyplot as plt
+```
+
+```{python}
+def extract_metadata_from_filename(filename):
+    """
+    Extracts Day, Region, Protein, and AnimalID information from the given filename.
+    
+    Parameters:
+        filename (str): The filename to extract metadata from.
+    
+    Returns:
+        tuple: (animalid, day, region, protein)
+    """
+    # Extract AnimalID as the first string of the filename, for example, "Td012"
+    animalid = filename.split("_")[0]
+    
+    # Define a regular expression pattern based on your file naming convention
+    pattern = r"_(\d+D)_.*_(\w+)_(\w+)"
+    match = re.search(pattern, filename)
+    
+    if match:
+        day, region, protein = match.groups()
+        return animalid, day, region, protein
+    else:
+        raise ValueError(f"Pattern not matched for: {filename}")
+
+# Example usage
+data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
+files = [f for f in os.listdir(data_directory) if f.endswith('.tif')]
+
+for file in files:
+    # Extract metadata
+    animalid, day, region, protein = extract_metadata_from_filename(file)
+    
+    # Load the image stack
+    image_stack = imread(os.path.join(data_directory, file))
+    
+    # For now, let's just print the metadata and the shape of the image stack
+    print(f"Filename: {file} | AnimalID: {animalid} | Day: {day} | Region: {region} | Protein: {protein} | Image Shape: {image_stack.shape}")
+
+```
+
+```{python}
+def calculate_manders(image1, image2, threshold1=None, threshold2=None):
+    """Calculate Manders' Coefficients between two images."""
+    if threshold1 is None:
+        threshold1 = threshold_otsu(image1)
+    if threshold2 is None:
+        threshold2 = threshold_otsu(image2)
+    
+    m1_numerator = np.sum(np.where(image1 > threshold1, image2, 0))
+    m2_numerator = np.sum(np.where(image2 > threshold2, image1, 0))
+    
+    m1_denominator = np.sum(image1[image1 > threshold1])
+    m2_denominator = np.sum(image2[image2 > threshold2])
+    
+    m1 = m1_numerator / m1_denominator
+    m2 = m2_numerator / m2_denominator
+    
+    return m1, m2
+
+data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
+files = sorted([f for f in os.listdir(data_directory) if f.endswith('.tif')])
+
+results = []
+
+for i in range(0, len(files), 2):  # Assuming pdgfra and pdgfrb images alternate
+    pdgfra_file = files[i]
+    pdgfrb_file = files[i+1]
+    
+    # Ensure we are pairing the correct imagesF:\\Daniel\\Stroke_PDGFR-B_Reactivity\\2.Images\\Exp3-Pdgfr-a\\20x_ROId_Widefield\\Images_StacksChannels
+    if "Pdgfra" not in pdgfra_file or "Pdgfrb" not in pdgfrb_file:
+        raise ValueError(f"File pairing mismatch: {pdgfra_file}, {pdgfrb_file}")
+    
+    image_pdgfra = imread(os.path.join(data_directory, pdgfra_file))
+    image_pdgfrb = imread(os.path.join(data_directory, pdgfrb_file))
+    
+    m1, m2 = calculate_manders(image_pdgfra, image_pdgfrb, threshold1=15, threshold2=15)
+    
+    animalid, day, region, _ = extract_metadata_from_filename(pdgfra_file)
+    sample_id = pdgfra_file.split('_')[0]
+    
+    results.append({
+        'Sample ID': sample_id,
+        'Day': day,
+        'Region': region,
+        'M1 (Pdgfra)': m1,
+        'M2 (Pdgfrb)': m2
+    })
+
+# Convert results to DataFrame
+results_df = pd.DataFrame(results)
+
+# Save results to CSV
+save_path = "D:\\Research\\Stroke_PDGFR-B_Reactivity\\ImageAnalysis\\20x_ROIS_Pdgfra_Pdgfrb\\Results\\MandersCoefficients.csv"
+results_df.to_csv(save_path, index=False)
+
+```
+
+```{python}
+# Save results to CSV
+save_path = "D:/Research/Stroke_PDGFR-B_Reactivity/Pdgfrb_Reactivity_DataAnalysis/Stroke_Pdgfrb_Reactivity/Data_Raw/Raw_Widefield_20x_ROIs_Pdgfrb-Pdgfra_Manders.csv"
+results_df.to_csv(save_path, index=False)
+```
