@@ -143,7 +143,9 @@ Pdgfrb_Area <- read.csv(file = "Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.c
 knitr::kable(Pdgfrb_Area [1:10, ])
 ```
 
-From the table, we are interested in the `AreaOccupied_AreaOccupied_Cells`and the `FileName_Raw`columns containing the measured area and metadata information from the image names. Next, we subset the dataset to select the columns of interest and give them meaningful names.
+From the table, we are interested in the `AreaOccupied_AreaOccupied_Cells`and the `FileName_Raw`columns containing the measured area and metadata information from the image names. Next, we subset the dataset to select the columns of interest and give them meaningful names. Please note that to facilitate the reading of results, we downscale the pixel area count by thousand.  
+
+When performing pre-processing, we noticed that the CellProfiller pipeline yielded 0 cell count for three images because an unknown error. We exclude this images with biased counts. 
 
 ```{r}
 #| label: tbl-Pdgfrb_Handle
@@ -166,7 +168,7 @@ colnames(Pdgfrb_Area) <- c("Area", "MouseID", "DPI", "Condition", "Lesion", "Reg
 # Setting factors
 Pdgfrb_Area$DPI <- factor(Pdgfrb_Area$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
 
-Pdgfrb_Area$Region <- factor(Pdgfrb_Area$Region, levels = c("Peri", "Str", "Ctx"))
+Pdgfrb_Area$Region <- factor(Pdgfrb_Area$Region, levels = c("Peri", "Str", "Ctx"), ordered = TRUE)
 
 Pdgfrb_Area$Condition <- factor(Pdgfrb_Area$Condition, levels = c("SHAM", "MCAO"))
 
@@ -176,6 +178,12 @@ Pdgfrb_Area$Lesion <- factor(Pdgfrb_Area$Lesion, levels = c("L0", "L1", "L2"))
 
 DPI_mapping <- c("0D" = "0", "3D" = "3", "7D" = "7", "14D" = "14", "30D" = "30")
 Pdgfrb_Area$DPI_cont <- as.numeric(DPI_mapping[as.character(Pdgfrb_Area$DPI)])
+
+## To facilitate reading
+Pdgfrb_Area$Area <- Pdgfrb_Area$Area/1000
+
+# Exclued error-derived 0 counts
+Pdgfrb_Area <- filter(Pdgfrb_Area, Area != "0")
 
 write.csv(Pdgfrb_Area, "Data_Processed/Widefield_20x_ROIs_Pdgfrb_Area.csv", row.names = FALSE)
 
@@ -233,120 +241,202 @@ geom_jitter(
 Pdgfrb_Area_EDV
 ```
 
+@fig-Pdgfrb_Exploratory shows the distribution of area per DPI and regions. As expected, the cortical regions present the most prominent increase in area. The differences in the fit show little variation for linear and non linear models.Given that our objective is to capture the main differences in the trends between regions we will develop a linear model.  
 
 
+# Statistical modeling for PDGFR-β area
 
-```{python}
-import os
-from tifffile import imread
-import re
-import numpy as np
-import pandas as pd
-from skimage.metrics import adapted_rand_error
-from skimage.filters import threshold_otsu
-import seaborn as sns
-import matplotlib.pyplot as plt
+We use the `brms` package [@brms; @brms-2] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following model with a student_t distribution:
+
+-   **Pdgfrb_Area_Mdl1:** We use `DPI` and Region as a linear predictors for PDGFR-β Area. The model takes the following notation:
+
+$$
+Area = \beta_{0} + \beta_{1} * DPI + \beta_{2} * Region + \beta_{3} * DPI * Region + \epsilon_{i}
+$$
+
+This model uses the following weakly informative priors:
+
+$$
+\begin{align}
+\beta_{1} \sim Normal(0, 100) \\
+\alpha \sim Student-t(3, 150, 50) \\
+\sigma \sim Student-t(3, 0, 100), \sigma > 0 \\
+\end{align}
+$$
+
+## Fit the models for PDGFR-β area
+
+```{r}
+#| label: Pdgfrb_Area_Fit
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: DPI and Region as a linear predictors
+###########################################
+Pdgfrb_Area_Mdl1 <- bf(Area ~ DPI_cont * Region)
+
+get_prior(Pdgfrb_Area_Mdl1, Pdgfrb_Area)
+
+Pdgfrb_Area_Prior1 <- 
+  c(prior(normal(0,100), class = b),
+    prior(student_t(3, 150,50), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 100), class = sigma, lb=0))
+
+# Fit model 1
+Pdgfrb_Area_Fit1 <- 
+  brm(
+    family  = student,  
+    data    = Pdgfrb_Area,
+    formula = Pdgfrb_Area_Mdl1,
+    prior   = Pdgfrb_Area_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Pdgfrb_AreaHaralick/Pdgfrb_Area_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Area_Fit1 <- 
+  add_criterion(Pdgfrb_Area_Fit1, c("loo", "waic", "bayes_R2"))
+```
+## Model diagnostics
+
+To evaluate sample predictions, we perform the diagnostics for the fitted model using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-Pdgfrb_Area_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β area
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+color_scheme_set("darkgray")
+
+# Model 4
+Pdgfrb_Area_Mdl1_pp <- 
+  brms::pp_check(Pdgfrb_Area_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks (model 4)",
+  subtitle = "Formula: Area ~ DPI * Region") +
+  scale_x_continuous(limits=c(-200, 1000)) +
+  Plot_theme 
+
+Pdgfrb_Area_Mdl1_pp
 ```
 
-```{python}
-def extract_metadata_from_filename(filename):
-    """
-    Extracts Day, Region, Protein, and AnimalID information from the given filename.
-    
-    Parameters:
-        filename (str): The filename to extract metadata from.
-    
-    Returns:
-        tuple: (animalid, day, region, protein)
-    """
-    # Extract AnimalID as the first string of the filename, for example, "Td012"
-    animalid = filename.split("_")[0]
-    
-    # Define a regular expression pattern based on your file naming convention
-    pattern = r"_(\d+D)_.*_(\w+)_(\w+)"
-    match = re.search(pattern, filename)
-    
-    if match:
-        day, region, protein = match.groups()
-        return animalid, day, region, protein
-    else:
-        raise ValueError(f"Pattern not matched for: {filename}")
+@fig-PdgfrbIntDen_Diagnostics shows that the model predictions do not deviate substantially from the data. We can explore further the model using `shinystan`:
 
-# Example usage
-data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
-files = [f for f in os.listdir(data_directory) if f.endswith('.tif')]
+```{r}
+#| label: PdgfrbIntDen_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
 
-for file in files:
-    # Extract metadata
-    animalid, day, region, protein = extract_metadata_from_filename(file)
-    
-    # Load the image stack
-    image_stack = imread(os.path.join(data_directory, file))
-    
-    # For now, let's just print the metadata and the shape of the image stack
-    print(f"Filename: {file} | AnimalID: {animalid} | Day: {day} | Region: {region} | Protein: {protein} | Image Shape: {image_stack.shape}")
-
+#launch_shinystan(Pdgfrb_Area_Fit1)
 ```
 
-```{python}
-def calculate_manders(image1, image2, threshold1=None, threshold2=None):
-    """Calculate Manders' Coefficients between two images."""
-    if threshold1 is None:
-        threshold1 = threshold_otsu(image1)
-    if threshold2 is None:
-        threshold2 = threshold_otsu(image2)
-    
-    m1_numerator = np.sum(np.where(image1 > threshold1, image2, 0))
-    m2_numerator = np.sum(np.where(image2 > threshold2, image1, 0))
-    
-    m1_denominator = np.sum(image1[image1 > threshold1])
-    m2_denominator = np.sum(image2[image2 > threshold2])
-    
-    m1 = m1_numerator / m1_denominator
-    m2 = m2_numerator / m2_denominator
-    
-    return m1, m2
+# Model results
 
-data_directory = "E:/Research/Stroke_PDGFRb_Reactivity/Exp4-Pdgfra-Pdgfrb/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_StacksChannels/"
-files = sorted([f for f in os.listdir(data_directory) if f.endswith('.tif')])
+### Visualizing the results
 
-results = []
+We visualize the results using the `conditional_effects` function form `brms`.
 
-for i in range(0, len(files), 2):  # Assuming pdgfra and pdgfrb images alternate
-    pdgfra_file = files[i]
-    pdgfrb_file = files[i+1]
-    
-    # Ensure we are pairing the correct imagesF:\\Daniel\\Stroke_PDGFR-B_Reactivity\\2.Images\\Exp3-Pdgfr-a\\20x_ROId_Widefield\\Images_StacksChannels
-    if "Pdgfra" not in pdgfra_file or "Pdgfrb" not in pdgfrb_file:
-        raise ValueError(f"File pairing mismatch: {pdgfra_file}, {pdgfrb_file}")
-    
-    image_pdgfra = imread(os.path.join(data_directory, pdgfra_file))
-    image_pdgfrb = imread(os.path.join(data_directory, pdgfrb_file))
-    
-    m1, m2 = calculate_manders(image_pdgfra, image_pdgfrb, threshold1=15, threshold2=15)
-    
-    animalid, day, region, _ = extract_metadata_from_filename(pdgfra_file)
-    sample_id = pdgfra_file.split('_')[0]
-    
-    results.append({
-        'Sample ID': sample_id,
-        'Day': day,
-        'Region': region,
-        'M1 (Pdgfra)': m1,
-        'M2 (Pdgfrb)': m2
-    })
+```{r}
+#| label: fig-Pdgfrb_Area_CondEff
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior for PDGFR-𝛽 area
+#| fig-width: 9
+#| fig-height: 4
 
-# Convert results to DataFrame
-results_df = pd.DataFrame(results)
+set.seed(8807)
 
-# Save results to CSV
-save_path = "D:\\Research\\Stroke_PDGFR-B_Reactivity\\ImageAnalysis\\20x_ROIS_Pdgfra_Pdgfrb\\Results\\MandersCoefficients.csv"
-results_df.to_csv(save_path, index=False)
 
+# We create the graph for convex hull
+Pdgfrb_Area_DPI <- 
+  conditional_effects(Pdgfrb_Area_Fit1)
+
+Pdgfrb_Area_DPI <- plot(Pdgfrb_Area_DPI, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Area_fig <- Pdgfrb_Area_DPI  + 
+  scale_y_continuous(name = expression ("PDGFR-β area (pixels)")) +
+  scale_x_continuous(name="DPI"                   ,
+                     breaks = c(0, 3, 7, 14, 30),
+                     labels = c("0", "3", "7", "14", "30")) +
+  
+  geom_point(data=Pdgfrb_Area, 
+               aes(y = Area, 
+                   x = DPI_cont, colour=Region),
+             inherit.aes=FALSE, 
+             alpha=0.5,
+             size = 1,
+             position=position_jitter(h=0, w=0.07)) +    
+  
+  scale_color_manual(
+    values = c("#0048BA", "red", "darkgreen"),
+    labels = c("Perilesion", "Striatum", "Cortex"),
+    name="Region"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red", "darkgreen"),
+    labels = c("Perilesion", "Striatum", "Cortex"),
+    name="Region"
+    ) +
+
+  Plot_theme +
+  theme(legend.position = c(0.4, 1), 
+        legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_Area_fig, 
+  filename = "Plots/Widefield_20x_ROIs_Pdgfrb_Area-Haralick/Pdgfrb_Area_fig.png", 
+  width    = 10, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_Area_fig
+```
+@fig-Pdgfrb_Area_CondEff shows the fit for PDGFR-β area. We can visualize an increasing trend, specially for cortex. 
+
+## Posterior summary
+
+We plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Pdgfrb_Area_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Area_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
 ```
 
-```{python}
-# Save results to CSV
-save_path = "D:/Research/Stroke_PDGFR-B_Reactivity/Pdgfrb_Reactivity_DataAnalysis/Stroke_Pdgfrb_Reactivity/Data_Raw/Raw_Widefield_20x_ROIs_Pdgfrb-Pdgfra_Manders.csv"
-results_df.to_csv(save_path, index=False)
-```
+With this summary we can visualize estimates and the uncertainty for each parameter. Specifically, we can observe a difference of 14.7 (CI95% 12.6 - 16.6) for the slope of cortex, denoting a marked difference compared to perilesion and striatum.
+
+# Analysis of Haralick features (Texture analysis)
+
+
+
+
