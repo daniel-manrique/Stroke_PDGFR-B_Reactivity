@@ -40,7 +40,7 @@ The notebooks are listed according to the suggested execution order to follow th
 
 **Widefield_10x_Pdgfra-Pdgfrb_Coloc.qmd:** Contains data handling and statistical modeling for the analysis of PDGFR-α and PDGFR-β colocalization in the ipsilateral hemisphere. 
 
-
+**Widefield_20x_ROIs_Pdgfrb_Area-Haralick.qmd:** Contains data handling and statistical modeling for the analysis of the area and Haralick features of PDGFR-β cells in specific ROIs. 
 
 **Widefield_10x_Klf4_Detections.qmd:** Contains data and point pattern analysis for KLF4 spatial and intensity analysis.
 

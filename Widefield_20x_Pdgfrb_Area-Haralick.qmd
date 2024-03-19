@@ -80,7 +80,6 @@ library(modelr)
 library(patchwork)
 library(poorman)
 library(plyr)
-library(spatstat)
 library(tidybayes)
 library(tidyverse)
 library(viridis)
@@ -337,7 +336,7 @@ Pdgfrb_Area_Mdl1_pp <-
 Pdgfrb_Area_Mdl1_pp
 ```
 
-@fig-PdgfrbIntDen_Diagnostics shows that the model predictions do not deviate substantially from the data. We can explore further the model using `shinystan`:
+@fig-Pdgfrb_Area_Diagnostics shows that the model predictions do not deviate substantially from the data. We can explore further the model using `shinystan`:
 
 ```{r}
 #| label: PdgfrbIntDen_Shiny
@@ -362,7 +361,7 @@ We visualize the results using the `conditional_effects` function form `brms`.
 #| message: false
 #| results: false
 #| fig-cap: Posterior for PDGFR-𝛽 area
-#| fig-width: 9
+#| fig-width: 6
 #| fig-height: 4
 
 set.seed(8807)
@@ -681,8 +680,8 @@ Pdgfrb_Haralick_Spyder_fig <- Pdgfrb_Haralick_Spyder_Sum %>%
   scale_y_continuous(name = "Value (scaled)") +
   coord_radar() +
   theme_radar() +
-  theme(legen
-    legend.position="top",
+  theme(
+    legend.position="none",
     legend.direction="horizontal",
     legend.title = element_text(colour="black", face="bold", size=10),
     legend.text = element_text(colour="black", size=8),
@@ -704,4 +703,7 @@ Pdgfrb_Haralick_Spyder_fig
 ```
 
 
+# References
 
+::: {#refs}
+:::
