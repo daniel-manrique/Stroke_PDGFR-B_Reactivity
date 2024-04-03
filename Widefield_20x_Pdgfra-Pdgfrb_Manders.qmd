@@ -90,7 +90,7 @@ for i in range(0, len(files), 2):  # Assuming pdgfra and pdgfrb images alternate
     image_pdgfra = imread(os.path.join(data_directory, pdgfra_file))
     image_pdgfrb = imread(os.path.join(data_directory, pdgfrb_file))
     
-    m1, m2 = calculate_manders(image_pdgfra, image_pdgfrb, threshold1=15, threshold2=10)
+    m1, m2 = calculate_manders(image_pdgfra, image_pdgfrb, threshold1=15, threshold2=15)
     
     animalid, day, region, _ = extract_metadata_from_filename(pdgfra_file)
     sample_id = pdgfra_file.split('_')[0]

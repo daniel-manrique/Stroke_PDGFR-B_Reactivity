@@ -39,7 +39,6 @@ csl: science.csl
 bibliography: References.bib
 ---
 
-
 # Preview
 
 This notebook reports the analysis of the area and Haralick features for PDGFR-β in defined ROIs of the ipsilateral hemisphere.
@@ -47,7 +46,6 @@ This notebook reports the analysis of the area and Haralick features for PDGFR-�
 **Parent dataset:** PDGFR-β (td-tomato) Z-plane ROIs imaged at 20x. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Pdgfra-Pdgfrb.zip`.
 
 **Working dataset**: The `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.csv`contains the quantification of the area covered by the detected cells after processing using CellProfiller. The pipeline is available at https://osf.io/k9zbe. Also, we load the `Data_Raw/Raw_Widefield_20x_ROIs_Pdgfrb_Haralick.csv` containing the computed haralick features using this [python code](https://github.com/elalilab/Stroke_PDGFR-B_Reactivity/blob/main/Widefield_20x_ROIs_Pdgfrb_HaralickComputation.ipynb).
-
 
 # Install and load required packages
 
@@ -123,9 +121,7 @@ Plot_theme <- theme_classic() +
       ) 
 ```
 
-
 # Analysis of area covered by PDGFR-β+ cells
-
 
 ## Load and handle the datasets
 
@@ -144,9 +140,9 @@ Pdgfrb_Area <- read.csv(file = "Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Image.c
 knitr::kable(Pdgfrb_Area [1:10, ])
 ```
 
-From the table, we are interested in the `AreaOccupied_AreaOccupied_Cells`and the `FileName_Raw`columns containing the measured area and metadata information from the image names. Next, we subset the dataset to select the columns of interest and give them meaningful names. Please note that to facilitate the reading of results, we downscale the pixel area count by thousand.  
+From the table, we are interested in the `AreaOccupied_AreaOccupied_Cells`and the `FileName_Raw`columns containing the measured area and metadata information from the image names. Next, we subset the dataset to select the columns of interest and give them meaningful names. Please note that to facilitate the reading of results, we downscale the pixel area count by thousand.
 
-When performing pre-processing, we noticed that the CellProfiller pipeline yielded 0 cell count for three images because an unknown error. We exclude this images with biased counts. 
+When performing pre-processing, we noticed that the CellProfiller pipeline yielded 0 cell count for three images because an unknown error. We exclude this images with biased counts.
 
 ```{r}
 #| label: tbl-Pdgfrb_Handle
@@ -242,8 +238,7 @@ geom_jitter(
 Pdgfrb_Area_EDV
 ```
 
-@fig-Pdgfrb_Exploratory shows the distribution of area per DPI and regions. As expected, the cortical regions present the most prominent increase in area. The differences in the fit show little variation for linear and non linear models.Given that our objective is to capture the main differences in the trends between regions we will develop a linear model.  
-
+@fig-Pdgfrb_Exploratory shows the distribution of area per DPI and regions. As expected, the cortical regions present the most prominent increase in area. The differences in the fit show little variation for linear and non linear models.Given that our objective is to capture the main differences in the trends between regions we will develop a linear model.
 
 # Statistical modeling for PDGFR-β area
 
@@ -306,6 +301,7 @@ Pdgfrb_Area_Fit1 <-
 Pdgfrb_Area_Fit1 <- 
   add_criterion(Pdgfrb_Area_Fit1, c("loo", "waic", "bayes_R2"))
 ```
+
 ## Model diagnostics
 
 To evaluate sample predictions, we perform the diagnostics for the fitted model using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
@@ -412,7 +408,8 @@ ggsave(
 
 Pdgfrb_Area_fig
 ```
-@fig-Pdgfrb_Area_CondEff shows the fit for PDGFR-β area. We can visualize an increasing trend, specially for cortex. 
+
+@fig-Pdgfrb_Area_CondEff shows the fit for PDGFR-β area. We can visualize an increasing trend, specially for cortex.
 
 ## Posterior summary
 
@@ -538,6 +535,7 @@ ggsave(
 
 Pdgfrb_Haralick_corr_fig 
 ```
+
 ### Perfrom the PCA
 
 Now, we execute the principal component analysis using the `princomp` function. Then, we print graphical and numerical summaries.We use the `fviz_eig` function from the `factoextra`package to generate the Scree plot.
@@ -558,6 +556,7 @@ Pdgfrb_Haralick_PCA <- PCA(Pdgfrb_Haralick_Variables)
 fviz_eig(Pdgfrb_Haralick_PCA, addlabels = TRUE)
 
 ```
+
 The Scree plot shows that the first component alone comprises 67.5% of the explained variance.
 
 ```{r}
@@ -573,7 +572,7 @@ summary(Pdgfrb_Haralick_PCA)
 Pdgfrb_Haralick_PCA$loadings[, 1:2]
 ```
 
-The results of `summary(Pdgfrb_Haralick_PCA)` show 10 principal components (Comp.1 - Comp.10) that represent the number of variables in our data frame. Each of this components explains the percentage of total variance in the data. 
+The results of `summary(Pdgfrb_Haralick_PCA)` show 10 principal components (Comp.1 - Comp.10) that represent the number of variables in our data frame. Each of this components explains the percentage of total variance in the data.
 
 ### Biplot of the components attributes
 
@@ -622,13 +621,14 @@ ggsave(
 
 Pdgfrb_Haralick_Biplot_fig
 ```
-Altogether, the PCA analysis suggest that all the variables have a similar loading for the coponents. This means, we cannot detect more relevant features. Given that we dealing with images that change in intensity, distribution, and density in the course of injury, we judge that the variations in the texture, uniformity, and the complexity of the patterns are features of interest. Based on this, we decided to rely in the following features:
+
+Altogether, the PCA analysis suggest that all the variables have a similar loading for the components. This means, we cannot detect more relevant features. Given that we dealing with images that change in intensity, distribution, and density in the course of injury, we judge that the variations in the texture, uniformity, and the complexity of the patterns are features of interest. Based on this, we decided to rely in the following features:
 
 **Contrast:** Given the changes in intensity and distribution, the contrast reveal the amount of local variations in the image. This features will capture the differences as the image changes intensity during injury conditions.
 
 **Entropy:** Entropy provides a measure of the randomness or complexity in the image. Considering that injury results in more complex cellular distributions or more erratic patterns, we expect a higher entropy. Conversely, if cells become more uniform or the patterns become simpler post-injury, entropy will be lower.
 
-**Inverse Difference Moment (IDM) / Homogeneity:** Given our interest in the distribution and density of cells, homogeneity reveals cells cluster or dispersion during the injurt course.
+**Inverse Difference Moment (IDM) / Homogeneity:** Given our interest in the distribution and density of cells, homogeneity reveals cells cluster or dispersion during the injury course.
 
 ### Sypder plot
 
@@ -701,7 +701,6 @@ ggsave(
 
 Pdgfrb_Haralick_Spyder_fig
 ```
-
 
 # References
 
