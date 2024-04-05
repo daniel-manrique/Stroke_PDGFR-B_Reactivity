@@ -1,0 +1,480 @@
+---
+title-block-banner: true
+title: "Point pattern analysis for Ki67/PDGFR-β in the ipsilateral hemisphere"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - Ki67
+  - PDGFR-β
+  - Brain injury
+  - Cell proliferation
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+This notebook reports the point pattern analysis for Ki67 in the ipsilateral hemisphere following cerebral ischemia.
+
+**Parent dataset:** Ki67 and PDGFR-β stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Ki67-Pdgfrb.zip`.
+
+**Working dataset**: The `Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Image.csv`data frame contains the cell detection and colocalization analysis performed on CellProfiler [@stirling2021]. The CellProfiler pipeline is available at (OSF XXX).
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+library(devtools)
+
+#install.packages(c("dplyr", "ggplot","plyr", "spatstat", "tidyverse"))
+
+library(dplyr)
+library(ggplot2)
+library(plyr)
+library(spatstat)
+library(tidyverse)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load and handle the datasets
+
+We load the `Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Ki67_Filtered.csv` and `Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Pdgfrb_Filtered.csv` and `Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Pdgfrb_Ki67_Colocalized.csv` datasets. These are heavy data sets containing information about individual cells detected in the ipsilateral hemisphere.
+
+```{r}
+#| label: tbl-Klf4_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+#| column: margin
+
+# We load the dataset in case is not present in the R environment
+Ki67_Cells <- read.csv(file = "Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Ki67_Filtered.csv", header = TRUE)
+
+Pdgfrb_Cells <- read.csv(file = "Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Pdgfrb_Filtered.csv", header = TRUE)
+
+Coloc_Cells <- read.csv(file = "Data_Raw/Widefield_10x_Pdgfrb-Ki67_Coloc/Pdgfrb_Ki67_Colocalized.csv", header = TRUE)
+
+knitr::kable(Ki67_Cells [1:10, ])
+```
+
+Given the weight of these files, they are not provided in the GitHub repository but in the OSF repository. From the tables (taking Ki67_Cells as an example), we are interested in the `FileName_Ki67_Color`column containing the identification data for the images, and `Location_Center_X` and `Location_Center_Y`signaling the xy coordinates of each Ki67+ cells. The same apply for Pdgfrb_Cells and Coloc_Cells.
+
+Next, we subset the dataset to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: tbl-Dataset_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+### For Ki67
+
+## We subset the relevant columns (cell number)
+Ki67_Data <- subset(Ki67_Cells, select = c("FileName_Ki67_Color", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Ki67_Data  <- cbind(Ki67_Data, do.call(rbind , strsplit(Ki67_Data$FileName_Ki67_Color, "[_\\.]"))[,1:2])
+
+Ki67_Data <- subset(Ki67_Data, select = -c(FileName_Ki67_Color))
+
+## We Rename the relevant columns 
+colnames(Ki67_Data) <- c("CenterX", "CenterY", "MouseID", "DPI")
+
+## We set the factors
+Ki67_Data$DPI <- factor(Ki67_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+
+write.csv(Ki67_Data, "Data_Processed/Widefield_10x_Ipsilateral_Ki67_Cells.csv", row.names = FALSE)
+
+
+### For Pdgfrb
+
+## We subset the relevant columns (cell number)
+Pdgfrb_Data <- subset(Pdgfrb_Cells, select = c("FileName_Pdgfrb_Color", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Pdgfrb_Data  <- cbind(Pdgfrb_Data, do.call(rbind , strsplit(Pdgfrb_Data$FileName_Pdgfrb_Color, "[_\\.]"))[,1:2])
+
+Pdgfrb_Data <- subset(Pdgfrb_Data, select = -c(FileName_Pdgfrb_Color))
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_Data) <- c("CenterX", "CenterY", "MouseID", "DPI")
+
+## We set the factors
+Pdgfrb_Data$DPI <- factor(Pdgfrb_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+
+write.csv(Pdgfrb_Data, "Data_Processed/Widefield_10x_Ipsilateral_Pdgfrb_Cells.csv", row.names = FALSE)
+
+### For Coloc
+
+## We subset the relevant columns (cell number)
+Coloc_Data <- subset(Coloc_Cells, select = c("FileName_Ki67_Color", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Coloc_Data  <- cbind(Coloc_Data, do.call(rbind , strsplit(Coloc_Data$FileName_Ki67_Color, "[_\\.]"))[,1:2])
+
+Coloc_Data <- subset(Coloc_Data, select = -c(FileName_Ki67_Color))
+
+## We Rename the relevant columns 
+colnames(Coloc_Data) <- c("CenterX", "CenterY", "MouseID", "DPI")
+
+## We set the factors
+Coloc_Data$DPI <- factor(Coloc_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+
+write.csv(Coloc_Data, "Data_Processed/Widefield_10x_Ipsilateral_Coloc_Cells.csv", row.names = FALSE)
+```
+
+With the data handled, we create point patterns to perform point pattern analysis (PPA). With this approach, we can estimate the spatial intensity of colocalized cells and their distribution relative to covariates. For more information on PPA, please refer to the `Widefield_10x_Pdgfrb-Gfap_Covariance`notebook.
+
+# Generate and handle point patterns
+
+We use functions from the \`spatstat' package to create point patterns based on the coordinates of individual cells. The point patterns are then stored in a hyperframe and can be loaded into R as an R object.
+
+```{r}
+#| label: tbl-Klf4_PointPatterns
+#| include: true
+#| warning: false
+#| message: false
+
+# Initialize the hyperframe as NULL at the start
+Result_Hyperframe <- NULL
+
+# Adjusted add_to_hyperframe function to dynamically build the hyperframe
+add_to_hyperframe <- function(...) {
+  if (is.null(Result_Hyperframe)) {
+    Result_Hyperframe <<- hyperframe(...)
+  } else {
+    Result_Hyperframe <<- tryCatch({
+      rbind(Result_Hyperframe, hyperframe(...))
+    }, error = function(e) {
+      cat("Error in rbind: ", e$message, "\n")
+    })
+  }
+}
+
+# Adjusted function to create point patterns
+create_point_pattern <- function(Data_Subset) {
+  xlim <- range(Data_Subset$CenterX)
+  ylim <- range(Data_Subset$CenterY)
+
+  Cells_PPP <- spatstat.geom::ppp(x = Data_Subset$CenterX, y = Data_Subset$CenterY, xrange = xlim, yrange = ylim)
+  unitname(Cells_PPP) <- list("mm", "mm", 1.936/6624)
+  Cells_PPP <- spatstat.geom::rescale(Cells_PPP)
+  
+  return(Cells_PPP)
+}
+
+# Iterate over unique MouseIDs to process and create point patterns for both Klf4 and Dapi
+mouse_ids <- unique(Ki67_Data$MouseID)
+
+for (mouse_id in mouse_ids) {
+  Subset_Ki67 <- Ki67_Data[Ki67_Data$MouseID == mouse_id, ]
+  Subset_Pdgfrb <- Pdgfrb_Data[Pdgfrb_Data$MouseID == mouse_id, ]
+  Subset_Coloc <- Coloc_Data[Coloc_Data$MouseID == mouse_id, ]
+  
+  if(nrow(Subset_Ki67) > 0 && nrow(Subset_Pdgfrb) > 0) {
+    Ki67_PPP <- create_point_pattern(Subset_Ki67)
+    Pdgfrb_PPP <- create_point_pattern(Subset_Pdgfrb)
+    Coloc_PPP <- create_point_pattern(Subset_Coloc)
+    
+    # Set the observation window for Klf4 based on Dapi's convex hull
+    Window(Ki67_PPP) <- convexhull(Pdgfrb_PPP)
+    Window(Pdgfrb_PPP) <- convexhull(Pdgfrb_PPP)
+    Window(Coloc_PPP) <- convexhull(Pdgfrb_PPP)
+    
+    dpi2_value <- unique(Subset_Ki67$DPI)[1]
+    
+    add_to_hyperframe(Ki67 = Ki67_PPP, Pdgfrb = Pdgfrb_PPP, Coloc = Coloc_PPP, ID = as.character(mouse_id), DPI = as.factor(dpi2_value), stringsAsFactors = TRUE)
+  } else {
+    message(sprintf("Skipping MouseID %s due to insufficient data.\n", mouse_id))
+  }
+}
+
+# Save the Result_Hyperframe
+Result_Hyperframe$DPI <- factor(Result_Hyperframe$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+
+saveRDS(Result_Hyperframe, "PointPatterns/Widefield_10x_Ipsilateral_Ki67-Pdgfrb.rds")
+```
+
+The point patterns are stored as an R-object. In the next chunk, we load the point patterns and add density kernels. Please check the `Widefield_10x_Pdgfrb-Gfap_Covariance`notebook for more information in this regard.
+
+# Calculate density kernels
+
+We use the `density` function to calculate density kernels with a sigma of 0.02.
+
+```{r}
+#| label: tbl-Klf4_Densitykernels
+#| include: true
+#| warning: false
+#| message: false
+
+# Load the point patterns
+PointPatterns <- readRDS("PointPatterns/Widefield_10x_Ipsilateral_Ki67-Pdgfrb.rds")
+
+# Add density kernels to the hyperframe
+PointPatterns$Ki67_Density <- with (PointPatterns, density(Ki67, sigma = 0.02))
+PointPatterns$Pdgfrb_Density <- with (PointPatterns, density(Pdgfrb, sigma = 0.02))
+PointPatterns$Coloc_Density <- with (PointPatterns, density(Coloc, sigma = 0.02))
+```
+
+## Plot density kernels
+
+We plot some examples of the density kernels. Please not that the coordinates are y-fliped for unknown reason to us.
+
+```{r}
+#| label: fig-Klf4_Plotkernels
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Example density kernels for KLF4
+#| column: screen-inset-shaded
+#| layout-nrow: 1
+
+Pdgfrb_Colmap <- colourmap(topo.colors(256), range = c(0, 80000))
+
+par(mfrow = c(2,5), mar=c(1,1,1,1), oma=c(1,1,1,1))
+
+## For Pdgfrb (density) and Ki67 (dots) 
+
+plot(PointPatterns$Pdgfrb_Density$`138`, col = Pdgfrb_Colmap, main = "0 DPI") 
+plot(PointPatterns$Ki67$`138`, add = TRUE, pch = 16, cex= 0.4, col = "black") 
+plot(PointPatterns$Coloc$`138`, add = TRUE, pch = 16, cex= 0.4, col = "red")
+
+plot(PointPatterns$Pdgfrb_Density$`140`, col = Pdgfrb_Colmap, main = "3 DPI")
+plot(PointPatterns$Ki67$`140`, add = TRUE, pch = 16, cex= 0.4, col = "black") 
+plot(PointPatterns$Coloc$`140`, add = TRUE, pch = 16, cex= 0.4, col = "red")
+
+plot(PointPatterns$Pdgfrb_Density$`130`, col = Pdgfrb_Colmap, main = "7 DPI")
+plot(PointPatterns$Ki67$`130`, add = TRUE, pch = 16, cex= 0.4, col = "black")
+plot(PointPatterns$Coloc$`130`, add = TRUE, pch = 16, cex= 0.4, col = "red")
+
+plot(PointPatterns$Pdgfrb_Density$`122`, col = Pdgfrb_Colmap, main = "14 DPI")
+plot(PointPatterns$Ki67$`122`, add = TRUE, pch = 16, cex= 0.4, col = "black") 
+plot(PointPatterns$Coloc$`122`, add = TRUE, pch = 16, cex= 0.4, col = "red")
+
+plot(PointPatterns$Pdgfrb_Density$`113`, col = Pdgfrb_Colmap, main = "30 DPI")
+plot(PointPatterns$Ki67$`113`, add = TRUE, pch = 16, cex= 0.4, col = "black") 
+plot(PointPatterns$Coloc$`113`, add = TRUE, pch = 16, cex= 0.4, col = "red")
+
+```
+
+@fig-Klf4_Plotkernels shows examples per DPI.
+
+# Modeling point pattern process
+
+Now, we use the `mppm` function from `spatstat` [@spatstat-3]to fit a **log-linear model** for replicated point patterns. This model allow us to quantify Ki67 allocation changes conditional on the spatial intensity (density) of PDGFR-β in the ischemic hemisphere. We the PDGFR-β spatial intensity as predictor. The model specification is as follows:
+
+$$
+Ki67_i(x) \sim \text{Poisson}(\lambda(x, \text{DPI}_i)) 
+$$
+
+where $i$ indexes the point pattern (corresponding to a unique DPI), and $x$ represents the spatial intensity of PDGFR-β. The intensity function $\lambda(x, \text{DPI}_i)$ is modeled as:
+
+$$
+\log(\lambda(x, \text{DPI}_i)) = \beta_0 + \beta_1 x + u_{0i} + u_{1i}x
+$$ Where $\beta_0$ and $\beta_1$ are fixed effects, representing the baseline log intensity of Ki67 expression and the effect of the PDGFR-β spatial intensity, respectively.$u_{0i}$ and $u_{1i}$ are random effects for the intercept and slope, varying by DPI, to capture the variability in Ki67 expression its spatial variation across different injury stages.
+
+## Fit the mppm model
+
+We fit the model using the `mppm` function for replicated point patterns:
+
+```{r}
+#| label: Ki67_mppm
+#| include: true
+#| warning: false
+#| message: false
+#| fig-height: 5
+#| fig-width: 9
+
+Ki67_mppm <- mppm(Ki67 ~ Pdgfrb_Density, random = ~ Pdgfrb_Density | DPI, data = PointPatterns)
+
+summary(Ki67_mppm)
+```
+
+The results of this Poisson regression are presented in the log scale. Here, we see the Intercept (8.7), the baseline of Ki67 log-spatial intensity at 0 DPI.The slope (7.2) indicates that the spatial intensity of Ki67 increases with PDGFR-β spatial intensity. Now, the random effects account for variations that occur at different injury stages. We see that 3D is -1.45, indicating a lower baseline intensity for Ki67 at this stage, while at 14D we see a higher baseline intensity (0.80). The slopes in the random intercepts indicate the adjusted rate change with PDGFR-β spatial intensity. At 0D, a negative adjustment (-2.12) denotes that the decrease in Ki67 intensity is less pronounced or even reversed at this stage. On the other hand, the negative adjustment at 14D (-5.16) means the decrease is more pronounced.
+
+Overall, these results indicate that Ki67 is expressed in regions populated by (reactive) PDGFR-β cells, specially at 3 and 7 DPI. We generate a representative visualization using `rhohat` to visualize this trend.
+
+First, we subset the point patterns
+
+```{r}
+#| label: Ki67_Subset
+#| include: true
+#| warning: false
+#| message: false
+
+PointPatterns_7D <- subset(PointPatterns, DPI=="7D", select = 1:8) 
+PointPatterns_30D <- subset(PointPatterns, DPI=="30D", select = 1:8) 
+```
+
+Now, we calculate the relative distribution of Ki67 conditional of the spatial intensity of PDGFR-β+ cells.
+
+```{r}
+#| label: Ki67_Rhohat
+#| include: true
+#| warning: false
+#| message: false
+
+# For 7 DPI
+Ki67_7D <- with(PointPatterns_7D, spatstat.explore::rhohat.ppp(Ki67, Pdgfrb_Density, do.CI = FALSE))
+Ki67_7D <- pool(Ki67_7D)
+
+# For 30 DPI
+Ki67_30D <- with(PointPatterns_30D, spatstat.explore::rhohat.ppp(Ki67, Pdgfrb_Density, do.CI = FALSE))
+Ki67_30D <- pool(Ki67_30D)
+```
+
+Finally, we plot the `rhohat`.
+
+### 8.2.3 Plot the rhohat
+
+Now, we plot the calculated relative distribution.
+
+```{r}
+#| label: Ki67_Rhohat_Plot
+#| include: true
+#| warning: false
+#| message: false
+
+## For 7D
+
+png("Plots/Widefield_10x_Ki67-Pdgfrb/Ki67_Pdgfrb_Rhohat_7D.png", width = 700, height = 350)
+par(mar=c(7,8,2,2))
+par(las=1)
+plot(Ki67_7D,
+      shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k", "18k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k", "18k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+title(xlab = "PDGFR-β (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Ki67)", mgp = c(5, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+## For 30D
+
+png("Plots/Widefield_10x_Ki67-Pdgfrb/Ki67_Pdgfrb_Rhohat_30D.png", width = 700, height = 350)
+par(mar=c(7,8,2,2))
+par(las=1)
+plot(Ki67_30D,
+      shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 30000, 5000), labels = c("0",  "5k", "10k", "15k", "20k", "25k", "30k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k", "18k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+title(xlab = "PDGFR-β (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(ylab = "p(Ki67)", mgp = c(5, 1, 0), cex.lab = 3) 
+
+dev.off()
+```
+
+The images are saved in a dedicated folder and displayed in the research article.
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+utils::sessionInfo()
+```
