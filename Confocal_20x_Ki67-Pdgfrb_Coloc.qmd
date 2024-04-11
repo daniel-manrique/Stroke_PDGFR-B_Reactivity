@@ -1,0 +1,543 @@
+---
+title-block-banner: true
+title: "Analysis of Ki67/PDGFR-β colocalization in defined ROIs of the ipsilateral hemisphere"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - Ki67
+  - PDGFR-β
+  - Brain injury
+  - Cell proliferation
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+This notebook reports the analysis of Ki67/PDGFR-β colocalization in defined ROIs of the ipsilateral hemisphere following cerebral ischemia.
+
+**Parent dataset:** Ki67, PDGFR-β, and CD31 stained ischemic hemispheres imaged at 20x using confocal microscopy. Samples are grouped at 0 (Sham), 3, and 7 days post-ischemia (DPI). The raw images and pre-processing scripts to generate the analyzed Z-projected images are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Confocal_20x_ROIs_Ki67-Pdgfrb-CD31.zip`.
+
+**Working dataset**: The `Data_Raw/Confocal_20x_ROIs_Ki67-Pdgfrb-CD31/Image.csv`data frame contains the cell detection and colocalization analysis performed on CellProfiler [@stirling2021]. The CellProfiler pipeline is available at (OSF XXX).
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","modelbased", "modelr", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(modelbased)
+library(modelr)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots.
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load the data set
+
+We load the dataset and handle it the subset the columns of interest.
+
+```{r}
+#| label: Ki67-Pdgfrb_Load 
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+# We load the dataset in case is not present in the R environment
+Ki67_Cells <- read.csv(file = "Data_Raw/Confocal_20x_ROIs_Ki67-Pdgfrb-CD31/Image.csv", header = TRUE)
+
+## We subset the relevant columns (cell number)
+Ki67_Data <- subset(Ki67_Cells, select = c("FileName_CD31_Raw", "Count_All_Pdgfrb_Ki67_Colocalized","Count_Vascular_Pdgfrb_Ki61_Resized", "Count_Ki67_Filtered", "Count_Pdgfrb_Filled"))
+
+## And extract metadata from the image name
+Ki67_Data  <- cbind(Ki67_Data, do.call(rbind , strsplit(Ki67_Data$FileName_CD31_Raw, "[_\\.]"))[,1:4])
+
+Ki67_Data <- subset(Ki67_Data, select = -c(FileName_CD31_Raw))
+
+## We Rename the relevant columns 
+colnames(Ki67_Data) <- c("Total_Ki67_Pdgfrb", "Vascular_Ki67_Pdgfrb", "Count_Ki67_Filtered","Count_Pdgfrb_Filled", "MouseID", "DPI", "Condition", "Region")
+
+## We set the factors
+Ki67_Data$DPI <- factor(Ki67_Data$DPI, levels = c("3D", "7D"))
+Ki67_Data$Region <- factor(Ki67_Data$Region, levels = c("Peri", "Str", "Ctx"))
+
+
+# Create an additional DPI variable (numeric)
+
+DPI_mapping <- c("3D" = "3", "7D" = "7")
+Ki67_Data$DPI_Cont <- as.numeric(DPI_mapping[as.character(Ki67_Data$DPI)])
+```
+
+The dataset available at 10.5281/zenodo.10553084 includes images at 0D (sham animals) that were used to train the Pixel classification in ilastik [@berg2019]. There are not Ki67/PDGFR-β colocalized cells at 0 DPI. Also, includes images at 14D and 30D that were taken just for visualization and reference but will not be included in the analysis. 
+
+
+# Exploratory data visualization
+
+We perform the exploratory visualization for the dataset. We'll focus on the total colocalization of Ki67/PDGFR-β and the colocalization in vascular PDGFR-β cells.
+
+```{r}
+#| label: fig-Ki67_Coloc_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Exploratory data visualization 
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+Ki67_Coloc_Sctr <- 
+  ggplot(
+    data  = Ki67_Data, 
+    aes(x = DPI_Cont, 
+        y = Total_Ki67_Pdgfrb)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  aes(color = Region)) +
+  
+  scale_y_continuous(name= expression("Total PDGFR-β/Ki67+ cells")) +
+  scale_x_continuous(name="DPI",
+                     breaks=c(0, 3, 7)) +
+  Plot_theme
+
+
+Ki67_Coloc_Sctr2 <- 
+  ggplot(
+    data  = Ki67_Data, 
+    aes(x = DPI_Cont, 
+        y = Vascular_Ki67_Pdgfrb,
+        color = Region)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  aes(color = Region)) +
+  scale_y_continuous(name= expression("Vascular PDGFR-β/Ki67+ cells")) +
+  scale_x_continuous(name="DPI",
+                     breaks=c(0, 3, 7)) +
+  Plot_theme
+
+Ki67_Coloc_Sctr | Ki67_Coloc_Sctr
+```
+From the graphs above, we can envisage that most Ki67/PDGFR-β are of perivascular nature. As we only have two time points, we will model them as categorical variables. 
+
+Given that our objective is to find out the proportion of perivascular PDGFR-β colicalizing with Ki67, we'll facilitate the modeling by calculating a ratio between `Vascular_Ki67_Pdgfrb` / `Total_Ki67_Pdgfrb`. This will ensure that when the `Total_Ki67_Pdgfrb` is 0, the value for `Vascular_Ki67_Pdgfrb` is also 0. 
+
+```{r}
+#| label: fig-Ki67_Ratio
+#| include: true
+#| warning: false
+#| message: false
+
+Ki67_Data$Ratio_Total_Vascular <- Ki67_Data$Vascular_Ki67_Pdgfrb / Ki67_Data$Total_Ki67_Pdgfrb
+Ki67_Data$Ratio_Total_Vascular[is.nan(Ki67_Data$Ratio_Total_Vascular)] <- 0
+```
+
+
+
+# Statistical modeling
+
+To model the ratio of pervivascular PDGFR-β colocalized with Ki67 across regions and DPIs, we use a hurdle_lognormal distribution. With this approach, we model the extinsive number of zeros and account for overdispersion. The model takes the following formulation:
+
+Hurdle Component for Zero vs. Positive Outcomes:
+$$
+\text{logit}(Pr(Y > 0)) = \alpha_0 + \alpha_1 \cdot DPI + \alpha_2 \cdot Region + \alpha_3 \cdot (DPI \times Region)
+$$
+and the continuous component for positive outcomes:
+$$
+\log(Y) \sim Normal(\mu, \sigma) \quad \text{for} \quad Y > 0
+$$
+where $\mu$ (the mean on the log scale) is modeled as:
+
+$$
+\mu = \beta_0 + \beta_1 \cdot DPI + \beta_2 \cdot Region + \beta_3 \cdot (DPI \times Region)
+$$
+
+The model uses the default `brms` flat priors.
+
+```{r}
+#| label: Ki67_Coloc_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Ki67_Mdl1 <- bf(Ratio_Total_Vascular ~ DPI * Region)
+
+get_prior(Ki67_Mdl1 , Ki67_Data, family = binomial())
+
+# Fit model 1
+Ki67_Fit1 <- 
+  brm(
+    data    = Ki67_Data,
+    family  = hurdle_lognormal(), 
+    formula = Ki67_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Ki67_Pdgfrb_Coloc/Ki67_Pdgfrb_ROIs_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Ki67_Fit1 <- 
+  add_criterion(Ki67_Fit1, c("loo", "waic", "bayes_R2"))
+```
+
+# Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: Ki67_Pdgfrb_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 5
+ 
+set.seed(8807)
+
+Ki67_Fit1_pp <- 
+  brms::pp_check(Ki67_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Cells ~ DPI * Region") +
+  Plot_theme  
+  
+Ki67_Fit1_pp
+```
+
+There are no significant deviations from the data. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Ki67_Pdgfrb_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Ki67_Fit1)
+```
+
+# Model results
+
+## Visualization of conditional effects
+
+```{r}
+#| label: fig-Ki67_Pdgfrb
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for the percentage of ki67/PDGFR-β
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+
+Ki67_Data %>%
+  data_grid(DPI, Region) %>%
+  add_predicted_draws(Ki67_Fit1) %>%
+  ggplot(aes(y = DPI, x = .prediction, color = Region)) +
+  stat_halfeye(aes(color=Region)) +
+  stat_interval(.width = c(.50, .80, .95, .99)) +
+  geom_point(aes(x = Ratio_Total_Vascular), data = Ki67_Data) +
+ 
+  #scale_color_brewer()
+
+
+
+
+
+
+
+
+
+
+# We convert the estimates to a data frame
+Ki67_Pdgfrb_DPI <- 
+  conditional_effects(Ki67_Pdgfrb_Fit1)
+
+Ki67_Pdgfrb_DPIdf <- 
+  as.data.frame(Ki67_Pdgfrb_DPI$DPI)
+
+Ki67_Pdgfrb_pred <- 
+  Ki67_Data %>%
+  data_grid(DPI_Cont, n = 10) %>%
+  add_predicted_draws(
+    Ki67_Pdgfrb_Fit1, 
+    ndraws = 50)
+
+Ki67_Pdgfrb_Fig <-  
+  ggplot(
+    data  = Ki67_Pdgfrb_DPIdf,
+    aes(x = DPI_Cont,
+        y = estimate__)
+    )+
+   geom_jitter(
+    data  = Ki67_Data, 
+    aes(x = DPI_Cont, y=Percentage_Pdgfrb),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  
+  scale_y_continuous(name= expression("% of PDGFR-β/Ki67"),
+                     limits = c(0, 15)) +
+  scale_x_continuous(name="DPI",
+                     breaks = c(0, 3, 7, 14, 30)) +
+  Plot_theme 
+ 
+  ggsave(
+  plot     = Ki67_Pdgfrb_Fig, 
+  filename = "Plots/Widefield_10x_Ki67-Pdgfrb_Coloc/Ki67_Pdgfrb_Fig.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+ Ki67_Pdgfrb_Fig
+```
+
+@fig-Ki67_Coloc_CE shows an increasing trend in the colocalization of Ki67/PDGFR-β peaking during the first week post-ischemia.
+
+## Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Ki67_Pdgfrb_Coloc_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Ki67_Pdgfrb_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+```
+
+## Estimate derivative
+
+We estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
+
+In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
+
+$$ 
+f'(x) = \lim\_{{\Delta x \to 0}} \frac{f(x + \Delta x) - f(x)}{\Delta x} 
+$$ {#eq-derivative}
+
+For a Bayesian model where $y = f(x)$, the derivative $\frac{dy}{dx}$ or $f'(x)$ represents the rate of change in the response variable $y$ for a unit change in the predictor variable $x$. If the model is non-linear, this derivative is a function of $x$ itself, allowing us to visualize how this rate of change varies across different values of $x$.
+
+First, we estimate point-to point derivatives:
+
+```{r}
+#| label: Pdgfra_Relation
+#| include: true
+#| warning: false
+#| message: false
+
+Ki67_Pdgfrb_est <- 
+  estimate_relation(
+    Ki67_Pdgfrb_Fit1, 
+    at = "DPI_Cont", 
+    ci = c(0.95))
+
+Ki67_Pdgfrb_est
+
+estimate_smooth(Ki67_Pdgfrb_est, x = "DPI_Cont")
+```
+
+We see a sustained increase (slope = 2.06) for the colocalization of Ki67/PDGFR-β up to 3 DPI (Change of 6.87). This is followed by a decrease in slope (-0.23) up to 30 DPI (change of -6.10).
+
+## Visualize derivatives
+
+We can plot the derivative:
+
+```{r}
+#| label: fig-Pdgfra_Slopes
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Effect size od DPI for the percentage of ki67/PDGFR-β
+#| fig-height: 5
+#| fig-width: 5
+
+Ki67_Pdgfrb_deriv <- 
+  estimate_slopes(
+    Ki67_Pdgfrb_Fit1,
+    trend = "DPI_Cont",
+     at = "DPI_Cont",
+    length = 30
+    )
+
+# Visualize
+Ki67_Pdgfrb_deriv_Fig <- 
+  plot(Ki67_Pdgfrb_deriv) + 
+  labs(x = "DPI_Cont", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Ki67_Pdgfrb_deriv_Fig, 
+  filename = "Plots/Ki67_Pdgfrb_Coloc/Ki67_Pdgfrb_deriv.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Ki67_Pdgfrb_deriv_Fig 
+```
+
+@fig-Pdgfra_Slopes shows graphically the effects of DPI in the log scale.
+
+# References
+
+::: {#refs}
+:::
