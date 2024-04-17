@@ -405,7 +405,7 @@ Ki67_30D <- pool(Ki67_30D)
 
 Finally, we plot the `rhohat`.
 
-### 8.2.3 Plot the rhohat
+## Plot the rhohat
 
 Now, we plot the calculated relative distribution.
 
