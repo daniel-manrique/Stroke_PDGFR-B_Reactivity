@@ -51,7 +51,7 @@ In this notebook we perform analysis for brain shrinkage following MCAO.Given th
 
 **Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the [Zenodo repository](10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
-**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using a FIJI [@schindelin2012] [script](https://osf.io/gbvsc).
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using a FIJI [@schindelin2012] [script](https://osf.io/gbvsc). The data handling was performed previously as specified [here](https://github.com/elalilab/Stroke_PDGFR-B_Reactivity/blob/main/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Handling.qmd).
 
 # Install and load required packages
 
@@ -505,7 +505,7 @@ Shrinkage_Mdl3_pp <-
   brms::pp_check(Shrinkage_Fit3, 
                  ndraws = 100) +
   labs(title = "Posterior predictive checks (model 3)",
-  subtitle = "Area ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
+  subtitle = "Area ~ s(DPI, K=5), sigma ~ DPI") +
   scale_y_continuous(limits=c(0, 0.15)) +
   Plot_theme 
  
@@ -691,7 +691,8 @@ describe_posterior(
 
 modelsummary(Shrinkage_Fit3, 
              shape = term ~ model + statistic,
-             centrality = "mean", 
+             centrali2ty = "mean", 
+             title = "Hemispheric area (brain shrinkage) following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.html",
@@ -737,7 +738,7 @@ Shrinkage_est <-
 Shrinkage_est
 ```
 
-Here we see the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function. Here, we use the `gtsummary` package [@gtsummary-2; @gtsummary-2] to save the results tables as .html and .tex files. 
+Here we see the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function. Here, we use the `gtsummary` package [@gtsummary; @gtsummary-2] to save the results tables as .html and .tex files. 
 
 ```{r}
 #| label: tbl-Shrinkage_EstimateSmooth
