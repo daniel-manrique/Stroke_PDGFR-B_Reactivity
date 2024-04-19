@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Klf4 expression in defined ROIs"
+title: "Analysis of Klf4/PDGFR-β colocalization in defined ROIs"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
