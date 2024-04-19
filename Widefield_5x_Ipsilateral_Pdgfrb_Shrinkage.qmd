@@ -1,13 +1,20 @@
 ---
 title-block-banner: true
-title: "Analysis of brain shrinkage (Widefield 5x images)"
+title: "Analysis of hemispheric shrinkage following cerebral ischemia"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
 author: 
   - name: "Daniel Manrique-Castano"
     orcid: 0000-0002-1912-1764
-    affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
 keywords: 
   - Brain shrinkage
   - Brain injury
@@ -35,16 +42,16 @@ knitr:
     message: false
 
 csl: science.csl
-bibliography: Widefield_5x_Shrinkage.bib
+bibliography: references.bib
 ---
 
 # Preview
 
 In this notebook we perform analysis for brain shrinkage following MCAO.Given the broad knowledge on the injury course, we expect an initial inflammatory phase (3-7 DPI) followed by brain shrinkage in the chronic stage (14-30 DPI).
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the [Zenodo repository](10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
-**Working dataset**: The `ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using FIJI [@schindelin2012].
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_TdTom-Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using a FIJI [@schindelin2012] [script](https://osf.io/gbvsc).
 
 # Install and load required packages
 
@@ -57,10 +64,9 @@ Install and load the required packages. Please uncomment (delete #) in the line 
 #| message: false
 
 #install.packages("devtools")
-library(devtools)
+#library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","modelbased", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse"))
-#devtools::install_github('m-clark/lazerhawk')
+#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","gtsummary", "modelbased", "modelr","modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse"))
 
 library(bayesplot)
 library(bayestestR)
@@ -70,13 +76,14 @@ library(dplyr)
 library(easystats)
 library(distributional)
 library(ggplot2)
+library(gtsummary)
 library(modelbased)
 library(modelr)
+library(modelsummary)
 library(patchwork)
 library(poorman)
 library(tidybayes)
 library(tidyverse)
-library(lazerhawk)
 ```
 
 # Create visual themes
@@ -129,13 +136,11 @@ First, we print the table to recognize the column names and verify the content (
 #| tbl-cap: "Data set for the analysis of brain shrinkage"
 
 # We load the dataset in case is not present in the R environment
-Ipsi_Summary <- read.csv(file = "ProData/Wide5x_Ipsi_Pdgfrb_Gfap_Inten.csv", header = TRUE)
-
+Ipsi_Summary <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_TdTom-Gfap_Inten.csv", header = TRUE)
 ## Keep relevant columns
 Ipsi_Summary  <- subset(Ipsi_Summary, select = c("MouseID", "DPI", "Condition", "Tissue_Area"))
 
-knitr::kable(Ipsi_Summary[1:10, ])
-
+gt::gt(Ipsi_Summary[1:10,])
 ```
 
 From the full dataset, we are only interested in the `DPI` (Days post-ischemia) and `Tissue_Area` variables. Now, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
@@ -212,7 +217,7 @@ The scatter plot display the raw data points grouped by DPI. We can visualize th
 
 # Statistical modeling for brain shrinkage
 
-We use the `brms` package [@brms; @brms-2] to perform Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space.
+We use the `brms` package [@brms; @burkner2017] to perform Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space.
 
 We fit the following models for brain shrinkage:
 
@@ -255,7 +260,7 @@ $$
 \text{Intercept} \sim t\_{3}(15, 5), \text{lb}=0 \\
 \sigma \sim t\_{3}(0, 4), \text{class} = b, \text{lb}=0 
 \end{align}
-$$ 
+$$
 
 **The student distribution**:
 
@@ -309,7 +314,7 @@ Shrinkage_Fit1 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/BrainShrinkage/Shrinkage_Fit1.rds",
+    file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit1.rds",
     file_refit = "never") 
 
 # Add criteria for comparison
@@ -336,7 +341,7 @@ Shrinkage_Fit2 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/BrainShrinkage/Shrinkage_Fit2.rds",
+    file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit2.rds",
     file_refit = "never")
 
 # Add criteria for comparison
@@ -372,7 +377,7 @@ Shrinkage_Fit3 <-
   iter= 5000, 
   seed = 8807,
   control = list(adapt_delta = 0.99, max_treedepth = 15),
-  file    = "Models/BrainShrinkage/Shrinkage_Fit3.rds",
+  file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3.rds",
   file_refit = "never")
 
 # Add criteria for comparison
@@ -419,8 +424,8 @@ The output shows that model 3 is the less penalized and has a similar explained 
 #| warning: false
 #| message: false
 #| fig-cap: Model camparison by WAIC
-#| fig-height: 3
-#| fig-width: 4
+#| fig-height: 4
+#| fig-width: 6
 
 Shrinkage_W <- 
 loo_compare(
@@ -499,12 +504,10 @@ color_scheme_set("darkgray")
 Shrinkage_Mdl3_pp <- 
   brms::pp_check(Shrinkage_Fit3, 
                  ndraws = 100) +
-  geom_density(lwd = 2) +
   labs(title = "Posterior predictive checks (model 3)",
   subtitle = "Area ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
   scale_y_continuous(limits=c(0, 0.15)) +
   Plot_theme 
-  
  
 Shrinkage_Mdl3_pp
 ```
@@ -615,7 +618,7 @@ Shrinkage_Line_fig <-
  
   ggsave(
   plot     = Shrinkage_Line_fig , 
-  filename = "Plots/Shrinkage_Line_fig .png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Line.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -657,7 +660,7 @@ Shrinkage_Sigma_fig <-
   Plot_theme
           
 ggsave(plot     = Shrinkage_Sigma_fig, 
-       filename = "Plots/Shrinkage_Sigma.png", 
+       filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Sigma.png", 
        width    = 9, 
        height   = 9, 
        units    = "cm")
@@ -669,7 +672,7 @@ Shrinkage_Sigma_fig
 
 ## Posterior summary
 
-We plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+We plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019] and save .html and .tex tables using the `modelsummary`package [@modelsummary-2; @modelsummary].
 
 ```{r}
 #| label: tbl-Shrinkage_DescribePosterior
@@ -684,7 +687,23 @@ describe_posterior(
   effects = "all",
   test = c("p_direction"),
   component = "all",
-  centrality = "median")
+  centrality = "mean")
+
+modelsummary(Shrinkage_Fit3, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Table.html",
+             )
+
+modelsummary(Shrinkage_Fit3, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/tex/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Table.tex",
+             )
 ```
 
 The table displays the regression coefficients. In all cases, the coefficients for splines models are not straightforward to interpret. For this reason, we use the `estimate_relation` and `estimate_smooth` functions from the `modelbased` package [@modelbased] to transform the splines into "linear" regression segments that are easy to interpret.
@@ -718,7 +737,7 @@ Shrinkage_est <-
 Shrinkage_est
 ```
 
-Here we see the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function.
+Here we see the different "fragments" from the curve with predicted point estimates and their uncertainty. We summarize further using the `estimate_smooth`function. Here, we use the `gtsummary` package [@gtsummary-2; @gtsummary-2] to save the results tables as .html and .tex files. 
 
 ```{r}
 #| label: tbl-Shrinkage_EstimateSmooth
@@ -728,7 +747,14 @@ Here we see the different "fragments" from the curve with predicted point estima
 #| tbl-cap:  Summarized derivatives for brain shrinkage (Shrinkage_Fit3)
 #| tbl-cap-location: bottom
 
-estimate_smooth(Shrinkage_est, x = "DPI")
+Shrinkage_Derivative <- estimate_smooth(Shrinkage_est, x = "DPI")
+Shrinkage_Derivative 
+
+gt::gt(round(Shrinkage_Derivative, digits = 2)) %>%
+gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.html")
+
+gt::gt(round(Shrinkage_Derivative, digits = 2)) %>%
+gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.tex")
 ```
 
 The table shows that the model does not capture the swelling phase at 3 DPI. This is likely due to the limited number of nodes for the smooth term. However, the posterior distribution shows a decrease of \~ 7.91 in the hemispheric region (slope of -0.34) from 0 to \~ 23 DPI. This reflects a strong hemispheric shrinkage during the first 3 weeks after ischemia. Later, the hemispheric area stabilizes (0.17, slope 0.03) up to 30 DPI.
@@ -767,7 +793,7 @@ Shrinkage_deriv_Fig <-
 
 ggsave(
   plot     = Shrinkage_deriv_Fig, 
-  filename = "Plots/Shrinkage_deriv_Fig.png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -781,3 +807,7 @@ Shrinkage_deriv_Fig
 
 ::: {#refs}
 :::
+
+```{r}
+sessionInfo()
+```
