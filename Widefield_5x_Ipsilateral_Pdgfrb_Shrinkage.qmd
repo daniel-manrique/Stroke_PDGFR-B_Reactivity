@@ -51,7 +51,7 @@ In this notebook we perform analysis for brain shrinkage following MCAO.Given th
 
 **Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the [Zenodo repository](10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
-**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_TdTom-Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using a FIJI [@schindelin2012] [script](https://osf.io/gbvsc).
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Inten.csv`data frame containing the area of the ipsilateral hemisphere in mm2 (`Tissue_Area`). The measurement was performed using a FIJI [@schindelin2012] [script](https://osf.io/gbvsc).
 
 # Install and load required packages
 
@@ -136,7 +136,7 @@ First, we print the table to recognize the column names and verify the content (
 #| tbl-cap: "Data set for the analysis of brain shrinkage"
 
 # We load the dataset in case is not present in the R environment
-Ipsi_Summary <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_TdTom-Gfap_Inten.csv", header = TRUE)
+Ipsi_Summary <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Inten.csv", header = TRUE)
 ## Keep relevant columns
 Ipsi_Summary  <- subset(Ipsi_Summary, select = c("MouseID", "DPI", "Condition", "Tissue_Area"))
 
@@ -314,7 +314,7 @@ Shrinkage_Fit1 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit1.rds",
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit1.rds",
     file_refit = "never") 
 
 # Add criteria for comparison
@@ -341,7 +341,7 @@ Shrinkage_Fit2 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit2.rds",
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit2.rds",
     file_refit = "never")
 
 # Add criteria for comparison
@@ -377,7 +377,7 @@ Shrinkage_Fit3 <-
   iter= 5000, 
   seed = 8807,
   control = list(adapt_delta = 0.99, max_treedepth = 15),
-  file    = "Models/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3.rds",
+  file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3.rds",
   file_refit = "never")
 
 # Add criteria for comparison
@@ -618,7 +618,7 @@ Shrinkage_Line_fig <-
  
   ggsave(
   plot     = Shrinkage_Line_fig , 
-  filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Line.png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Line.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -660,7 +660,7 @@ Shrinkage_Sigma_fig <-
   Plot_theme
           
 ggsave(plot     = Shrinkage_Sigma_fig, 
-       filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Sigma.png", 
+       filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Sigma.png", 
        width    = 9, 
        height   = 9, 
        units    = "cm")
@@ -694,7 +694,7 @@ modelsummary(Shrinkage_Fit3,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Table.html",
+             output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.html",
              )
 
 modelsummary(Shrinkage_Fit3, 
@@ -702,7 +702,7 @@ modelsummary(Shrinkage_Fit3,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/tex/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Table.tex",
+             output = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.tex",
              )
 ```
 
@@ -751,10 +751,10 @@ Shrinkage_Derivative <- estimate_smooth(Shrinkage_est, x = "DPI")
 Shrinkage_Derivative 
 
 gt::gt(round(Shrinkage_Derivative, digits = 2)) %>%
-gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.html")
+gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Deriv.html")
 
 gt::gt(round(Shrinkage_Derivative, digits = 2)) %>%
-gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.tex")
+gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Deriv.tex")
 ```
 
 The table shows that the model does not capture the swelling phase at 3 DPI. This is likely due to the limited number of nodes for the smooth term. However, the posterior distribution shows a decrease of \~ 7.91 in the hemispheric region (slope of -0.34) from 0 to \~ 23 DPI. This reflects a strong hemispheric shrinkage during the first 3 weeks after ischemia. Later, the hemispheric area stabilizes (0.17, slope 0.03) up to 30 DPI.
@@ -793,7 +793,7 @@ Shrinkage_deriv_Fig <-
 
 ggsave(
   plot     = Shrinkage_deriv_Fig, 
-  filename = "Plots/Widefield_5x_Ipsilateral_TdTom_Shrinkage/Widefield_5x_Ipsilateral_TdTom_Shrinkage_Fit3_Deriv.png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Deriv.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -802,6 +802,7 @@ Shrinkage_deriv_Fig
 ```
 
 @fig-Shrinkage_EstimateSlopes shows a substantial contribution of DPI in hemispheric area (blue) during the first three weeks post-ischemia and negligible effects after.
+
 
 # References
 
