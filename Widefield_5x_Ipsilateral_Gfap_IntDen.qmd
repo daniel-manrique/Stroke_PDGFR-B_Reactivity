@@ -1,0 +1,918 @@
+---
+title-block-banner: true
+title: "Analysis of GFAP reactivity (Integrated density) in the ipsilateral hemisphere"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - GFAP analysis
+  - Scar formation
+  - Brain injury
+  - Bayesian modeling 
+
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+In this notebook, we perform analysis of GFAP expression following MCAO.
+
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
+
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv`data frame containing the integrated density of GFAP measured in the ipsilateral hemisphere (`Gfap_IntDen`) using FIJI [@schindelin2012]. We perform scientific inference on this variable as a basis to understand astrocyte reactivity in our model. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","modelbased", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(broom.mixed)
+library(dplyr)
+library(easystats)
+library(distributional)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We use this visual theme to add aesthetics to our plots.
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Exploratory data visualization
+
+Initially, we print the table to recognize the names of the columns and verify the content (not good rendering in pdf). From the original data set, we are interested in the grouping variables and the `Gfap_IntDen` variable. The rest of the variables serve other purposes in different notebooks.  
+
+```{r}
+#| label: tbl-Gfap_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set for the analysis of GFAP expression"
+
+# We load the dataset in case is not present in the R environment
+Gfap_Summary <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv", header = TRUE)
+
+## Keep relevant columns
+Gfap_Summary  <- subset(Gfap_Summary, select = c("MouseID", "DPI", "Condition", "Tissue_Area", "Gfap_IntDen"))
+
+gt::gt(Gfap_Summary[1:10,])
+```
+
+Our variable of interest `Gfap_IntDen` is the product of the stained area and the mean intensity as calculated in FIJI using the script available at https://osf.io/mqukx. In this case, the units can be considered arbitrary and its interpretation is useful only relative to others. Knowing the GFAP dynamics following injury, we expect a progressive increase of this marker. We also keep the `Tissue_Area` variable to fit a model relating the two phenomena. 
+
+Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
+
+```{r}
+#| label: fig-GfapIntDen_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for GFAP expression
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+
+# Density plot
+################
+
+Gfap_IntDen_Dens <- 
+  ggplot(
+    data  = Gfap_Summary, 
+    aes(x = Gfap_IntDen)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="GFAP (integrated density)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+
+# Scatter Plot
+#################
+
+Gfap_IntDen_Sctr <- 
+  ggplot(
+    data  = Gfap_Summary, 
+    aes(x = DPI, 
+        y = Gfap_IntDen)
+    ) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+scale_y_continuous(name = "GFAP (integrated density)") +
+scale_x_continuous(
+  name   ="Days post-ischemia (DPI) ",
+  breaks =c(0, 3,7,14,30)
+  ) +
+Plot_theme
+
+#Plot the result
+Gfap_IntDen_Dens |  Gfap_IntDen_Sctr 
+```
+
+@fig-GfapIntDen_Expl shows a range of \~ 0-1250 for GFAP integrated density. Without considering days post ischemia (DPI), the response variable shows a single peak far from a normal distribution. The scatter plot indicates there is a low linear correlation for GFAP reactivity over DPI. It is worth noting that the fitted line misses the intercept. Otherwise, 2 and 3 degree polynomials seem to better capture the GFAP dynamics.
+
+# Statistical modeling for GFAP reactivity
+
+We use the `brms` package [@brms; @burkner2017] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space.
+
+We fit the following models to analyze the expression of GFAP:
+
+-   **Gfap_IntDen_Mdl1:** We use `DPI` as a linear predictor for GFAP integrated density with the notation:
+
+$$
+IntDen_{i} = \alpha + \beta_{1} DPI_{i} + \epsilon_{i}
+$$
+
+This model follows the following pirors:
+
+$$
+\begin{align}
+\beta_{1} \sim Normal(0, 1) \\
+\alpha \sim Student-t(3, 500, 300) \\
+\sigma \sim Student-t(3, 0, 100), \sigma > 0 \\
+\end{align}
+$$
+
+-   **Gfap_IntDen_Mdl2:** We use smooth terms (splines) to model the influence of `DPI`:
+
+$$
+IntDen_{i} = f_{s(DPI)}(DPI_{i})
+$$
+This model uses the same priors as model 1.
+
+-   **Gfap_IntDen_Mdl3:**  We fit a splines model with heteroscedasticity (sigma as additional response variable) keeping `DPI` the unique predictor.
+
+$$
+\begin{align}
+IntDen_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i} \\
+sigma_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}
+\end{align}
+$$
+
+This model uses the following used-defined priors:
+
+$$
+\begin{align}
+b \sim \mathcal{N}(100, 50) \\
+\text{Intercept} \sim t_{3}(500, 300), \text{lb}=0 \\
+\sigma \sim t_{3}(0, 100), \text{class} = b, \text{lb}=0
+\end{align}
+$$
+
+-   **Gfap_IntDen_Mdl4** Finally, we investigate the correlation between brain shrinkage and GFAP integrated density. We do so by fitting a spline model with interaction using the `t2` function, which denote a tensor product smooth of the predictor variables `DPI` and `Tissue_Area` to model the response variable (`Gfap_IntDen`).
+
+$$ 
+IntDen = \beta_0 + \sum_{i=1}^{k_1} \sum_{j=1}^{k_2} \beta_{ij} B_{1i}(DPI) B_{2j}(Tissue\_Area) + \epsilon
+$$ 
+Where: - $ \beta_0$ is the intercept. - $B_{1i}(DPI)$ and $B\_{2j}(Tissue_Area)$ are basis functions for the `DPI` and `Tissue_Area` predictors. - $ k_1$ and $ k_2 $ are the number of basis functions for `DPI` and `Tissue_Area`, respectively. - $\beta_{ij}$ are the coefficients for the tensor product of the $i^{th}$ basis function of `DPI` and the $j^{th}$ basis function of `Tissue_Area`. Finally, $\epsilon$ is the residual error.
+
+This model uses the brms-default flat priors.
+
+## Fit the models for GFAP integrated density
+
+```{r}
+#| label: GfapIntDen_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+set.seed(8807)
+
+# Model 1: DPI as a linear predictor
+########################################
+
+Gfap_IntDen_Mdl1 <- bf(Gfap_IntDen ~ DPI)
+
+get_prior(Gfap_IntDen_Mdl1, Gfap_Summary)
+
+Gfap_IntDen_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(normal(100,50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = sigma, lb=0))
+
+# Fit model 1
+Gfap_IntDen_Fit1 <- 
+  brm(
+    data    = Gfap_Summary,
+    formula = Gfap_IntDen_Mdl1,
+    prior   = Gfap_IntDen_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit1 <- 
+  add_criterion(Gfap_IntDen_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2: Model with splines / DPI
+########################################################
+
+Gfap_IntDen_Mdl2 <- bf(Gfap_IntDen ~ s(DPI, k = 5))
+
+get_prior(Gfap_IntDen_Mdl2, Gfap_Summary)
+
+# Fit model 2
+Gfap_IntDen_Fit2 <- 
+  brm(
+    data    = Gfap_Summary,
+    formula = Gfap_IntDen_Mdl2,
+    prior   = Gfap_IntDen_Prior1,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit2 <- 
+  add_criterion(Gfap_IntDen_Fit2, c("loo", "waic", "bayes_R2"))
+
+
+# Model 3: Model with splines / DPI and sigma
+########################################################
+
+Gfap_IntDen_Mdl3 <- 
+  bf(Gfap_IntDen ~ s(DPI, k=5),
+     sigma ~  s(DPI, k=5)
+     )
+
+get_prior(Gfap_IntDen_Mdl3, Gfap_Summary)
+
+Gfap_IntDen_Prior2 <- 
+  c(prior(normal(0, 1), class = b),
+    prior(student_t(1, 100, 50), class = Intercept, lb= 0),
+    prior(student_t(1, 0, 50), class = b, dpar=sigma, lb=0))
+
+# Fit model 3
+Gfap_IntDen_Fit3 <- 
+  brm(
+    data    = Gfap_Summary,
+    formula = Gfap_IntDen_Mdl3,
+    prior   = Gfap_IntDen_Prior2,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 5000, 
+    iter    = 10000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.999, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit3.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit3 <- 
+  add_criterion(Gfap_IntDen_Fit3, c("loo", "waic", "bayes_R2"))
+
+
+# Model 4: Interaction between DPI and hemispheric area
+########################################################
+
+Gfap_IntDen_Mdl4 <- 
+  bf(Gfap_IntDen ~ t2(DPI,Tissue_Area))
+
+get_prior(Gfap_IntDen_Mdl4, Gfap_Summary)
+
+# Fit model 4
+Gfap_IntDen_Fit4 <- 
+  brm(
+    data    = Gfap_Summary,
+    formula = Gfap_IntDen_Mdl4,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit4.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_IntDen_Fit4 <- 
+  add_criterion(Gfap_IntDen_Fit4, c("loo", "waic", "bayes_R2"))
+```
+
+The models are stored as `.RDS` objects in `Models/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen` If the file is available in the specified folder, executing the the fit will load the object. For refit, erase the file.
+
+## Model comparison
+
+We perform model comparison by out-of-sample prediction error using the WAIC criteria. By considering both the log-likelihood of the observed data and the effective number of parameters, WAIC provides a balance between model fit and complexity. This approach inherently accounts for the posterior distribution of the parameters rather than relying on specific point estimates. Please note we exclude model 4 (Mdl4) from this comparison because it fulfills another purposes.
+
+Given a data set and a Bayesian model, the WAIC is computed as:
+
+$$
+\text{WAIC} = -2 \times \left( \text{LLPD} - p_{\text{WAIC}} \right)
+$$
+
+Where: $\text{LLPD}$ is the log point wise predictive density, calculated as the average log likelihood for each observed data point across the posterior samples. $\text{WAIC}$ is the effective number of parameters, computed as the difference between the average of the log likelihoods and the log likelihood of the averages across posterior samples.
+
+We use the `compare_performance` function from the `performance` package (part of the `easystats` environment) [@performance; @easystats; @makowski2019] to display the models comparison parameters, including, WAIC.
+
+First, we visualize the results as a table:
+
+```{r}
+#| label: GfapIntDen_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Gfap_IntDen_Comp <- 
+  compare_performance(
+    Gfap_IntDen_Fit1, 
+    Gfap_IntDen_Fit2, 
+    Gfap_IntDen_Fit3, 
+    metrics = "all"
+    )
+Gfap_IntDen_Comp
+```
+The output depicts that model 3 is the less penalized and has a stronger explained variance (R2 = 0.51). Please note that an estimation for sigma is absent in this model as it was included as a response variable. The preceding offer sufficient grounds to select model 3 (Mdl3) as our best alternative for scientific inference.
+
+We can appreciate the same results using `loo_compare`:
+
+```{r}
+#| label: fig-GfapIntDen_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model camparison by WAIC
+#| fig-height: 4
+#| fig-width: 5
+
+
+Gfap_IntDen_W <- 
+loo_compare(
+  Gfap_IntDen_Fit1, 
+  Gfap_IntDen_Fit2, 
+  Gfap_IntDen_Fit3,
+  criterion = "waic")
+
+# Generate WAIC graph
+Gfap_IntDen_WAIC <- 
+  Gfap_IntDen_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Gfap_IntDen_Fit1", 
+             "Gfap_IntDen_Fit2", 
+             "Gfap_IntDen_Fit3", 
+             "Gfap_IntDen_Fit4"),
+    labels=c("Mdl1", 
+             "Mdl2", 
+             "Mdl3", 
+             "Mdl4")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+Gfap_IntDen_WAIC
+```
+## Model diagnostics
+
+To evaluate sample predictions, we perform the diagnostics for model 3 (Mdl3) using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-GfapIntDen_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for GFAP expression
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# Model 3
+Gfap_IntDen_Mdl3_pp <- 
+  brms::pp_check(Gfap_IntDen_Fit3, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks (model 3)",
+  subtitle = "Formula: Gfap_IntDen ~ s(DPI, K=5), sigma ~ s(DPI, K=5)") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme  
+  
+Gfap_IntDen_Mdl3_pp
+```
+
+@fig-GfapIntDen_Diagnostics shows that the model predictions (y\~) do not deviate substantially from the data (𝘺). We can use `shinystan` to further explore the model:
+
+```{r}
+#| label: GfapIntDen_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Gfap_IntDen_Fit3)
+```
+
+# Model results
+
+## Visualizing the results
+
+After validating the model, we plot the full posterior distributions:
+
+```{r}
+#| label: fig-GfapIntDen_fit
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior for GFAP IntDen
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+# We define the predictor grid
+nd <- Gfap_Summary %>% 
+  distinct(DPI)
+
+# compute and save the fitted draws
+Gfap_Post <- fitted(
+  Gfap_IntDen_Fit3, 
+  newdata = nd,
+  # this line returns the full set of HMC draws
+  summary = FALSE) %>% 
+  data.frame() %>% 
+  set_names(nd %>% pull(DPI)) 
+  
+Gfap_Post %>% 
+  # convert to the long format
+  pivot_longer(everything()) %>% 
+  mutate(name = fct_relevel(name, "0", "3", "7", "14", "30")) %>% 
+  
+  ggplot(aes(x = value, y = factor(name))) +
+  # adjust the point and interval summary settings as desired
+  stat_halfeye(aes(fill = after_stat(level)), .width = c(0.50,0.80,0.90)) +
+  scale_fill_brewer() +
+  scale_y_discrete(name = "DPI") +
+  scale_x_continuous(name = "GFAP (IntDen)",
+                     limits = c(0, 1200)) +
+  Plot_theme
+```
+We see an increasing trend up to 14 DPI. We consider it pertinent to further evaluate the causes of the decrease to 30 DPI.
+
+We visualize further the data using the `conditional_effects` function from `brms`. We add graph aesthetics using ggplot.
+
+The `conditional_effects` function display the effects of predictors for brms-fitted models. It computes conditional effects of specified predictors while marginalizing over the remaining predictors. Thereby, it allows to visualization of single variable effects to make the data more interpretable. Mathematically, let $y = f(x_1, x_2, \ldots, x_n)$ denote the modeled relationship between the variable $ y $ and the predictor variables $ x_1, x_2, \ldots, x_n $. The `conditional_effects` function calculates the conditional expectations $E[y | x_i]$ for a given $ x_i $, marginalizing over other predictors. Formally, it can be represented in this manner:
+
+$$
+ E[y | x_i] = \int f(x_1, x_2, \ldots, x_n) p(x_1, x_2, \ldots, x_{i-1}, x_{i+1}, \ldots, x_n) dx_1 dx_2 \ldots dx_{i-1} dx_{i+1} \ldots dx_n
+$$
+In our case, we use the function to visualize the effect of DPI on GFAP IntDen and sigma.
+```{r}
+#| label: fig-Gfap_IntDen_Sigma_CE
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for Gfap_IntDen and (sigma)
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+
+# Conditional effects for Gfap_IntDen
+#####################################
+
+# We convert the estimates to a data frame
+Gfap_IntDen_DPI <- 
+  conditional_effects(Gfap_IntDen_Fit3)
+
+Gfap_IntDen_DPIdf <- 
+  as.data.frame(Gfap_IntDen_DPI$DPI)
+
+Gfap_IntDen_pred <- 
+  Gfap_Summary %>%
+  data_grid(DPI, n = 10) %>%
+  add_predicted_draws(
+    Gfap_IntDen_Fit3, 
+    ndraws = 50)
+
+Gfap_IntDen_DPI_Fig <-  
+  ggplot(
+    data  = Gfap_IntDen_DPIdf,
+    aes(x = DPI,
+        y = estimate__)
+    )+
+  geom_jitter(
+    data  = Gfap_Summary, 
+    aes(x = DPI, y=Gfap_IntDen),
+    width = 0.5, 
+    color = "black", 
+    shape = 18, 
+    size  = 2.5, 
+    alpha = 2/3) +
+  geom_ribbon(
+    aes(ymin  = lower__, 
+        ymax  = upper__),
+        alpha = 0.2)+
+  geom_line(
+    size     = 1,
+    position = position_dodge(0.05), 
+    color    = "blue") +
+  scale_y_continuous(
+    name = "GFAP (IntDen)",
+    limits = c(0, 1500),
+    breaks = seq(0, 1500, 500)
+    ) +
+  
+  scale_x_continuous(name="DPI") +
+  Plot_theme
+
+ggsave(
+  plot     = Gfap_IntDen_DPI_Fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+
+
+# Conditional smooths for sigma
+###############################
+
+Gfap_IntDen_Smooths <- 
+  conditional_smooths(Gfap_IntDen_Fit3)
+
+Gfap_IntDen_Sigma_df <- 
+  as.data.frame(Gfap_IntDen_Smooths$`sigma: s(DPI,k=5)`)
+
+Gfap_IntDen_Sigma_fig <-  
+  ggplot(Gfap_IntDen_Sigma_df,
+         aes(x = DPI,y = estimate__))+
+  geom_ribbon(
+    aes(ymin  =lower__, 
+        ymax = upper__), 
+    alpha = 0.2)+
+  geom_line(size  = 1,
+            color ="blue",
+            position = position_dodge(0.05)) +
+  scale_y_continuous(name= expression("GFAP (log)"[sigma])) +
+  scale_x_continuous(name="DPI") +
+  Plot_theme
+          
+ggsave(plot     = Gfap_IntDen_Sigma_fig, 
+       filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_Sigma_IntDen.png", 
+       width    = 9, 
+       height   = 9, 
+       units    = "cm")
+
+Gfap_IntDen_DPI_Fig | Gfap_IntDen_Sigma_fig
+```
+@fig-Gfap_IntDen_Sigma_CE shows the splines for GFAP integrated density and sigma. We can see an increasing trend in the integrated density of GFAP until the second week after injury, followed by a slight decrease at 30 DPI. We speculate that the latter could be caused by brain shrinkage. The estimates for sigma show a strong increase in variance at 7 DPI, which is maintained until chronic stages. Please note that the values shown for sigma are not in actual scale, but internally transformed by default in `brms` models.
+
+## Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: GfapIntDen_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Gfap_IntDen_Fit3,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Gfap_IntDen_Fit3, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "GFAP integrated density following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit3_Table.html",
+             )
+
+Gfap_IntDen_Fit3_Table <- modelsummary(Gfap_IntDen_Fit3, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Gfap_IntDen_Fit3_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit3_Table.tex")
+```
+The table displays the regression coefficients. In all cases, the coefficients for splines models are not straightforward to interpret. For this reason, we use the `estimate_relation` and `estimate_smooth` functions from the `modelbased` package [@modelbased] to transform the splines into "linear" regression segments that are easy to interpret.
+
+## Estimate derivative
+
+We estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
+
+In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
+
+$$ 
+f'(x) = \lim\_{{\Delta x \to 0}} \frac{f(x + \Delta x) - f(x)}{\Delta x} 
+$$ {#eq-derivative}
+
+For a Bayesian model where $y = f(x)$, the derivative $\frac{dy}{dx}$ or $f'(x)$ represents the rate of change in the response variable $y$ for a unit change in the predictor variable $x$. If the model is non-linear, this derivative is a function of $x$ itself, allowing us to visualize how this rate of change varies across different values of $x$.
+
+First, we estimate point-to point derivatives:
+
+```{r}
+#| label: GfapIntDen_EstimateRelation
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Gfap_IntDen_est <- 
+  estimate_relation(
+    Gfap_IntDen_Fit3, 
+    at = "DPI", 
+    ci = c(0.95))
+
+Gfap_IntDen_est
+```
+The result show the different "fragments" from the curve with predicted point estimates and their uncertainty. This table is more informative that the raw posterior summary from splines.
+
+To summarize further, we can use `estimate_smooth`function.
+
+```{r}
+#| label: GfapIntDen_EstimateSmooth
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+ 
+Gfap_IntDen_Derivative <- estimate_smooth(Gfap_IntDen_est, x = "DPI")
+Gfap_IntDen_Derivative 
+
+gt::gt(round(Gfap_IntDen_Derivative, digits = 2)) %>%
+gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit3_Deriv.html")
+
+gt::gt(round(Gfap_IntDen_Derivative, digits = 2)) %>%
+gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit3_Deriv.tex")
+```
+
+Our model predicts a sustained increase (slope = 50.1) of GFAP integrated density up to \~ 16 DPI (Change of 835, 95%CI = 692 - 1223). This is followed by a decrease (slope -36) up to 30 DPI. We do not rule out that this decrease can be mediate by brain shrinkage.
+
+## Visualize derivatives
+
+We visualize the derivatives:
+
+```{r}
+#| label: fig-GfapIntDen_EstimateSlopes
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Derivatives for GFAP expression
+#| fig-height: 4
+#| fig-width: 5
+
+Gfap_IntDen_deriv <- 
+  estimate_slopes(
+    Gfap_IntDen_Fit3,
+    trend = "DPI",
+     at = "DPI",
+    length = 30
+    )
+
+# Visualize
+Gfap_IntDen_deriv_Fig <- 
+  plot(Gfap_IntDen_deriv) + 
+  labs(x = "DPI", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Gfap_IntDen_deriv_Fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen_Deriv.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Gfap_IntDen_deriv_Fig 
+```
+
+@fig-GfapIntDen_EstimateSlopes shows the pronounced effects of DPI in GFAP expression, with a transition phase around the end of the second week post injury.
+
+# GFAP relation to hemispheric area
+
+Previously, we fitted a forth model (Gfap_IntDen \~ t2(DPI,Tissue_Area)) to investigate the relation between GFAP integrated density and hemispheric area.
+
+## Model diagnostics
+
+We begin by evaluating the sample predictions using `pp_check` for model 4 (Mdl4). In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-GfapIntDen_Hem_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for GFAP expression / hemispheric area
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# Model 3
+Gfap_IntDen_Mdl4_pp <- 
+  brms::pp_check(Gfap_IntDen_Fit4, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks (model 4)",
+  subtitle = "Formula: Gfap_IntDen ~ t2(DPI,Tissue_Area)") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme  
+  
+Gfap_IntDen_Mdl4_pp
+```
+We can witness that this model does not imply major deviations from the observed data. Subsequently, we visualize the results using the `conditional_smooths` function from `brms`.
+
+## Visualizaing the results
+
+```{r}
+#| label: fig-GfapIntDen_Hemis
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: GFAP relation with hemispheric area
+#| fig-width: 5
+#| fig-height: 5
+
+set.seed(8807)
+
+# We convert the estimates to a data frame (uncomment next line to execute)
+Gfap_IntDen_Area <-  conditional_smooths(Gfap_IntDen_Fit4)
+
+Gfap_IntDen_Area_Fig  <- 
+  plot(Gfap_IntDen_Area, 
+       plot = FALSE)[[1]] +
+  
+  scale_y_continuous(name = expression ("Hemispheric area (mm)"^2)) +
+  scale_x_continuous(name="DPI") +
+  guides(colour = guide_colourbar(direction = "horizontal")) +
+  guides(colour = guide_colourbar(barheight = unit(2, "cm"))) +
+  scale_color_gradientn(
+    name = "IntDen", 
+    colors = viridis(6)) +
+  Plot_theme +
+  theme(
+    legend.position = c(0.17, 0.8))
+  
+ggsave(
+  plot     = Gfap_IntDen_Area_Fig , 
+  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap_IntDen-Area.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Gfap_IntDen_Area_Fig
+```
+
+@fig-GfapIntDen_Hemis predicts that GFAP integrated intensity will be higher at \~30 DPI with an hemispheric area of 15-20 mm\^2. However, the observations depict that at this time point the hemispheric area is below 10 mm\^2. In this way, the model suggest that the astroglial reactivity is constrained by brain shrinkage.
+
+# References
+
+::: {#refs}
+:::
+
+
+```{r}
+sessionInfo()
+```
