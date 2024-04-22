@@ -216,9 +216,9 @@ Pdgfrb_IntDen_Dens |  Pdgfrb_IntDen_Sctr
 ```
 @fig-Pdgfrb_IntDen_Expl shows a range of \~ 0 - 1500. Without accounting for days-post ischemia (DPI), the response variable exhibits a single peak far from normal distributions. On the other hand, the scatter shows that there are no substantial differences between the fitted lines. Still, non-linear models capture between the deviation at 15 DPI.
 
-# Statistical modeling for Pdgfr-β reactivity
+# Statistical modeling for PDGFR-β reactivity
 
-We use the `brms` package [@brms; @brms-2] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
+We use the `brms` package [@brms; @burkner2017] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
 
 -   **Pdgfrb_IntDen_Mdl1:** We use `DPI` as a linear predictor for PDGFR-β integrated density. The model takes the following notation:
 
@@ -422,8 +422,8 @@ We compare the models using the `loo` function and plot it as a graph:
 #| message: false
 #| results: false
 #| fig-cap: Model camparison by WAIC
-#| fig-height: 3
-#| fig-width: 4
+#| fig-height: 4
+#| fig-width: 5
 
 Pdgfrb_IntDen_W <- 
 loo_compare(
@@ -761,7 +761,7 @@ Finally, we plot the derivatives:
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Derivatives for PDGFR-𝛽 expression
+#| fig-cap: Derivatives for PDGFR-β expression
 #| fig-height: 4
 #| fig-width: 5
 
@@ -785,7 +785,7 @@ Pdgfrb_IntDen_deriv_Fig <-
 
 ggsave(
   plot     = Pdgfrb_IntDen_deriv_Fig, 
-  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen_Deriv.png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Deriv.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -833,14 +833,14 @@ We can appreciate that the fitted model does not imply major deviations from the
 
 Now, we plot the results using the `conditional_smooths` function from `brms`.
 ```{r}
-#| label: PdgfrbIntDen_Hemis
+#| label: fig-PdgfrbIntDen_Hemis
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
 #| fig-cap: PDGFR-β relation to hemispheric area
-#| fig-width: 3
-#| fig-height: 3
+#| fig-width: 5
+#| fig-height: 4
 
 set.seed(8807)
 
@@ -864,7 +864,7 @@ Pdgfrb_IntDen_Area_Fig  <-
   
 ggsave(
   plot     = Pdgfrb_IntDen_Area_Fig , 
-  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen-Area.png", 
+  filename = "Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_IntDen/Widefield_5x_Ipsilateral_Pdgfrb_IntDen-Area.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -872,7 +872,7 @@ ggsave(
 Pdgfrb_IntDen_Area_Fig
 ```
 
-@PdgfrbIntDen_Hemis estimates that PDGFR-𝛽 reactivity increases with DPI and brain shrinkage. This might imply that brain shrinkage is associated with PDGFR-𝛽 expression, an aspect that can be further explored with causal inference in our stroke model.
+@fig-PdgfrbIntDen_Hemis estimates that PDGFR-β reactivity increases with DPI and brain shrinkage. This might imply that brain shrinkage is associated with PDGFR-β expression, an aspect that can be further explored with causal inference in our stroke model.
 
 # References
 

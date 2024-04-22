@@ -672,7 +672,7 @@ Shrinkage_Sigma_fig
 
 ## Posterior summary
 
-We plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019] and save .html and .tex tables using the `modelsummary`package [@modelsummary-2; @modelsummary].
+We plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019] and save .html and .tex tables using the `modelsummary` [@modelsummary-2; @modelsummary] and `gtsummary` packages [@gtsummary; @gtsummary-2].
 
 ```{r}
 #| label: tbl-Shrinkage_DescribePosterior
@@ -698,13 +698,14 @@ modelsummary(Shrinkage_Fit3,
              output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.html",
              )
 
-modelsummary(Shrinkage_Fit3, 
+Shrinkage_Fit3_Table <- modelsummary(Shrinkage_Fit3, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.tex",
-             )
+             output = "gt")
+gt::gtsave (Shrinkage_Fit3_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Table.tex")
+
 ```
 
 The table displays the regression coefficients. In all cases, the coefficients for splines models are not straightforward to interpret. For this reason, we use the `estimate_relation` and `estimate_smooth` functions from the `modelbased` package [@modelbased] to transform the splines into "linear" regression segments that are easy to interpret.
@@ -756,6 +757,7 @@ gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit
 
 gt::gt(round(Shrinkage_Derivative, digits = 2)) %>%
 gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_Shrinkage_Fit3_Deriv.tex")
+
 ```
 
 The table shows that the model does not capture the swelling phase at 3 DPI. This is likely due to the limited number of nodes for the smooth term. However, the posterior distribution shows a decrease of \~ 7.91 in the hemispheric region (slope of -0.34) from 0 to \~ 23 DPI. This reflects a strong hemispheric shrinkage during the first 3 weeks after ischemia. Later, the hemispheric area stabilizes (0.17, slope 0.03) up to 30 DPI.
