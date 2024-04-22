@@ -68,7 +68,7 @@ Install and load all required packages. Please uncomment (delete #) the line cod
 #install.packages("devtools")
 #library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","modelbased", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsumary", "modelbased", "modelr","modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
 
 
 library(bayesplot)
@@ -77,6 +77,7 @@ library(brms)
 library(dplyr)
 library(easystats)
 library(ggplot2)
+library(gtsummary)
 library(modelbased)
 library(modelr)
 library(modelsummary)
@@ -691,13 +692,13 @@ modelsummary(Pdgfrb_IntDen_Fit3,
              output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.html",
              )
 
-Shrinkage_Fit3_Table <- modelsummary(Pdgfrb_IntDen_Fit3, 
+Pdgfrb_IntDen_Fit3_Table <- modelsummary(Pdgfrb_IntDen_Fit3, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Shrinkage_Fit3_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.tex")
+gt::gtsave (Pdgfrb_IntDen, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.tex")
 ```
 
 ## Estimate derivative
