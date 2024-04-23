@@ -1,0 +1,325 @@
+---
+title-block-banner: true
+title: "Point pattern analysis (PPA) of PDGFR-β and GFAP - Striatal lesions"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - Point patterns analysis
+  - Cell covariance
+  - Brain injury
+  - Bayesian modeling 
+  
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+# Preview
+
+In this notebook we analyse point patterns generated from PDGFR-β and GFAP cells in brains with striatal injures. We performed automatic cell detection and classification using QuPath [@bankhead2017], and created point patterns the R-package `spatstat`[@baddeley2005; @spatstat]. The point patterns were saved as `.rds` object files.
+
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_Neg) and PDGFR-β^high^ (Pdgfrb_Pos) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/ty4z5.
+
+**Working dataset:** PDGFR-β and GFAP point patterns derived from the ischemic hemispheres of animals with striatal injury and saved as a hyperframe .rds R-object.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages(c("ggplot2", "spatstat")
+
+library(ggplot2)
+library(spatstat)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load the dataset
+
+In this notebook we analyze the covariance between PDGFR-β and GFAP cells in brain with striatal injury using function from the `spatstat` package [@spatstat; @baddeley2005]. First, we load the point patterns:
+
+```{r}
+#| label: PPP_Pdgfrb_Load 
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+PointPatterns_Str <- readRDS("PointPatterns/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Str_PPP.rds")
+
+# We assign the animal ID to row names
+PointPatterns_Str <- `row.names<-.hyperframe`(PointPatterns_Str, PointPatterns_Str$ID)
+
+PointPatterns_Str
+```
+
+
+The hyperframe contain the following columns:
+
+-   **"blank" (RowID):** This is a column with no name which contains the rows IDs, labeled as the unique animal ID.
+
+-   **Pdgfr_High:** Point patterns for PDGFR-β_high (reactive) cells.
+
+-   **Pdgfr_Low:** Point patterns for PDGFR-β_low (non-reactive) cells.
+
+-   **Gfap:** Point patterns for GFAP+ cells.
+
+-   **ID:** Unique animal ID
+
+-   **DPI:** Days post ischemia (0, 3, 7, 14 or 30 days)
+
+-   **Condition:** It states whether the animal was submitted to cerebral ischemia (MCAO) or to sham surgery.
+
+# Create density kernels
+
+We generate density kernels and add them to the hyperframe. For additional details on this procedure, please refer the the `Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Covariance` notebook processing the data from cortico-striatal lesions. 
+
+```{r}
+#| label: PPP_Pdgfrbb_Str_Density
+#| include: true
+#| warning: false
+#| message: false
+
+PointPatterns_Str$Pdgfrb_Low_Density <- with (PointPatterns_Str, density(Pdgfrb_Low, sigma = 0.2))
+
+PointPatterns_Str$Pdgfrb_High_Density <- with (PointPatterns_Str, density(Pdgfrb_High, sigma = 0.2))
+
+PointPatterns_Str$Gfap_Density <- with (PointPatterns_Str, density(Gfap, sigma = 0.2))
+```
+
+# Plot density kernels
+
+We use the default R plotting functions to visualize examples of the generated density kernels for PDGFR-β^low^ and PDGFR-β^high^.
+```{r}
+#| label: PPP_PDGFR_DensityPlots
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Example density kernels for PDGFR-β^low^ and PDGFR-β^high^
+#| fig-height: 5
+#| fig-width: 9
+
+Pdgfrb_Low_Colmap <- colourmap(topo.colors(256), range = c(0, 200))
+Pdgfrb_High_Colmap <- colourmap(topo.colors(256), range = c(0, 200))
+
+par(mfrow = c(2,5), mar=c(1,1,1,1), oma=c(1,1,1,1))
+
+## For Pdgfrb_Low
+
+plot(PointPatterns_Str$Pdgfrb_Low_Density$Td94, col = Pdgfrb_Low_Colmap, main = "14 DPI")  
+plot(PointPatterns_Str$Pdgfrb_Low_Density$Td102, col = Pdgfrb_Low_Colmap, main = "30 DPI")  
+
+## For Pdgfrb_High
+
+plot(PointPatterns_Str$Pdgfrb_High_Density$Td94, col = Pdgfrb_High_Colmap, main = "")
+plot(PointPatterns_Str$Pdgfrb_High_Density$Td102, col = Pdgfrb_High_Colmap, main = "")  
+```
+
+We can appreciate that the response of reactive PDGFR-β cells is highly reduced in striatal lesions compared to cortico-striatal lesions.
+
+# Calculate relative distribution of PDGFR-β cells to astrocytes
+
+To calculate the relative distribution between PDGFR-β^high^/PDGFR-β^low^ and GFAP, we subset the hyperframe per DPI, given the limited functionality of the `rhohat` function in `spatstat`.
+
+```{r}
+#| label: PPP_Pdgfrb_DensityPlots
+#| include: true
+#| warning: false
+#| message: false
+
+PointPatterns_Str$DPI <- factor(PointPatterns_Str$DPI , levels = c("14D", "30D")) 
+
+# Add distance maps for microglia and neurons before subset
+
+PointPatterns_Str_14D <- subset(PointPatterns_Str, DPI=="14D", select = 1:9)
+PointPatterns_Str_30D <- subset(PointPatterns_Str, DPI=="30D", select = 1:9)
+```
+
+Next, we calculate the relative distribution of PDGFR-β^high^ cells to astrocytes using the `rhohat` function from `spatstat`. We explicitly utilize `do.CI = FALSE` to further pool the individual calculations. Also, we exclude SHAM animals from this estimation.
+
+```{r}
+#| label: PPP_Pdgfr_RhohatAstrocytes
+#| include: true
+#| warning: false
+#| message: false
+
+## For 14D
+Pdgfrb_Str_Rhohat_14D <- with(PointPatterns_Str_14D, spatstat.explore::rhohat.ppp(Pdgfrb_High, Gfap_Density, do.CI = FALSE))
+Pdgfrb_Str_Rhohat_14D <- pool(Pdgfrb_Str_Rhohat_14D)
+
+## For 30D
+Pdgfrb_Str_Rhohat_30D <- with(PointPatterns_Str_30D, spatstat.explore::rhohat.ppp(Pdgfrb_High, Gfap_Density, do.CI = FALSE))
+Pdgfrb_Str_Rhohat_30D <- pool(Pdgfrb_Str_Rhohat_30D)
+```
+
+# Plot rhohat to astrocytes
+
+We save the pooled rhohat plots:
+
+```{r}
+#| label: PPP_Pdgfrb_RhohatAstrocytesPlot
+#| include: true
+#| warning: false
+#| message: false
+
+png("Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Covariance/Widefield_5x_Ipsilateral_Gfap_Str_Rhohat_14D.png", width = 700, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfrb_Str_Rhohat_14D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 80),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 500, 100), labels = c("0", "100", "200", "300", "400", "500"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 80, 20), labels = c("0", "20", "40", "60", "80"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "GFAP (intensity)", mgp = c(4.5, 2, 0), cex.lab = 3)   
+title(ylab = expression("(p)PDGFR-β"^high), mgp = c(5, 1, 0), cex.lab = 3) 
+
+dev.off()
+
+
+png("Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Covariance/Widefield_5x_Ipsilateral_Gfap_Str_Rhohat_30D.png", width = 700, height = 500)
+par(mar=c(7,10,2,2))
+plot(Pdgfrb_Str_Rhohat_30D, 
+     shade = c("lorho", "hirho"),
+     main=NULL, 
+     las=1, 
+     legendargs=list(xpd=TRUE),
+     lwd = 6, 
+     legend=FALSE, 
+     xlab = "",
+     ylab = "", 
+     ylim = c(0, 120),
+     xaxt = "n",
+     yaxt = "n")
+
+axis(1, at = seq(0, 400, 100), labels = c("0", "100", "200", "300", "400"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
+
+axis(2, at = seq(0, 120, 30), labels = c("0", "30", "60", "90", "120"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5, las = 2)
+
+title(xlab = "GFAP (intensity)", mgp = c(4.5, 2, 0), cex.lab = 3)   
+title(ylab = expression("(p)PDGFR-β"^high), mgp = c(5, 1, 0), cex.lab = 3) 
+
+dev.off()
+```
+
+# Point Process model
+
+We fit a spatial model for replicated point patterns using the `mppm` function from `spatstat`. We regress `Pdgfr_High` on nested GFAP density within DPI. The model takes the notation:
+
+$$
+λ(u) = \exp(µ + α_{DPI(u)} + \beta Z (u) + γ{DPI(u)}Z(u))
+$$
+
+The parameters α are the influence of different DPI, while parameter β account for the effect of a unit increase in GFAP density. The term $γ{DPI(u)}Z(u))$ stipulates the effect of a unit increase in GFAP density depending on DPI.
+
+```{r}
+#| label: PPP_Pdgfrb-Gfap_Mppm
+#| include: true
+#| warning: false
+#| message: false
+
+Pdgfrb_Mdl1 <- mppm(Pdgfrb_High ~ DPI/Gfap_Density, data = PointPatterns_Str)
+
+Pdgfrb_Mdl1_Coeff <- coef (Pdgfrb_Mdl1)
+```
+
+The model shows (on the log scale) that the intensity of the dot pattern increases at 7 (2.014) and 14 (2.494) DPI compared to 3 DPI, controlling for GFAP density. The difference is smaller at 30 DPI (1.49). In addition, the interaction terms show a negative trend (-0.0016) in PDGFR-β^high^ spatial intensity for each unit increase in GFAP density at 3 DPI. This negative trend continues at 7 (-0.0017) and 14 (-0.00066) DPI until it is reversed at 30 DPI (0.0017). The data at 14 and 30 DPI show a progressive mixing of the cell populations.
+
+
+# References
+
+::: {#refs}
+:::
+
+
+```{r}
+sessionInfo()
+```
+

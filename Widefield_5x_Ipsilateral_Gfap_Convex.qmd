@@ -66,7 +66,7 @@ Install and load all required packages. Please uncomment (delete #) the line cod
 #install.packages("devtools")
 #library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse"))
 
 library(bayesplot)
 library(bayestestR)
@@ -370,8 +370,8 @@ We explore it in graphical terms:
 #| message: false
 #| results: false
 #| fig-cap: Model camparison by WAIC
-#| fig-height: 3
-#| fig-width: 4
+#| fig-height: 4
+#| fig-width: 5
 
 Gfap_Convex_W <- 
 loo_compare(

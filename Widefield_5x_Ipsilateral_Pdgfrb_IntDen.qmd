@@ -698,7 +698,7 @@ Pdgfrb_IntDen_Fit3_Table <- modelsummary(Pdgfrb_IntDen_Fit3,
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Pdgfrb_IntDen, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.tex")
+gt::gtsave (Pdgfrb_IntDen_Fit3_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.tex")
 ```
 
 ## Estimate derivative

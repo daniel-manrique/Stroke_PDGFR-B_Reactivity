@@ -1,0 +1,534 @@
+---
+title-block-banner: true
+title: "Analysis of PDGFR-β-low and PDGFR-β high+ cells"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - PDGFR-β
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+In this notebook, we analyze the proportion and distribution of PDGFR-β_Low and PDGFR-β_High+ cells with automatic cell detection and classification using QuPath [@bankhead2017]. We also create point patterns using the coordinates of detecting cells to perform Point Pattern analysis. 
+
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_NonReact) and PDGFR-β^high^ (Pdgfrb_React) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/8ehyu.
+
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv`data frame containing the number of PDGFR-β^low^ (Pdgfrb_NonReact) and PDGFR-β^high^ (Pdgfrb_React) cells in the ischemic hemisphere. Here, we analyze the proportion and distribution of these populations.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","broom.mixed", "dplyr", "easystats", "distributional", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse"))
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(broom.mixed)
+library(dplyr)
+library(easystats)
+library(distributional)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(tidybayes)
+library(tidyverse)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+
+# Exploratory data visualization
+
+We load the `Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv` dataset to very its content.
+
+```{r}
+#| label: tbl-Pdgfrb_LowHigh_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Pdgfrb_Summary <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv", header = TRUE)
+
+gt::gt(Pdgfrb_Summary[1:10,])
+```
+
+From this table, we focus on `DPI` (Days post-ischemia), `Pdgfrb_Neg`, `Pdgfrb_Pos` variables to analyze these cells proportions in the ischemic brain. Next, we visualize the raw data to guide the statistical modeling. We plot the response variables as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
+
+```{r}
+#| label: fig-Pdgfrb_LowHigh_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-β^low^ and PDGFR-β^high^
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# PDGFR-β^low^
+##################
+
+Pdgfrb_Low_Sctr <- 
+  ggplot(
+    data  = Pdgfrb_Summary, 
+    aes(x = DPI, 
+        y = Pdgfrb_Neg)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of PDGFR-β"^low)) +
+  scale_x_continuous(name="DPI",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme
+  
+
+# PDGFR-β^high^
+######################
+
+Pdgfrb_High_Sctr <- 
+  ggplot(
+    data  = Pdgfrb_Summary, 
+    aes(x = DPI, 
+        y = Pdgfrb_Pos)) +
+geom_smooth(
+  method = "lm", 
+  se     = TRUE,
+  color  = "black") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 2), 
+  color   = "darkred") +
+geom_smooth(
+  method  = "lm", 
+  se      = TRUE, 
+  formula = y ~ poly(x, 3), 
+  color   = "darkgreen") +
+geom_jitter(
+  width = 0.5, 
+  shape = 1, 
+  size  = 1.5, 
+  color = "black") +
+  scale_y_continuous(name= expression("Number of PDGFR-β"^high)) +
+  scale_x_continuous(name="DPI",
+                     breaks=c(0, 3, 7,14,30)) +
+  Plot_theme
+
+
+Pdgfrb_Low_Sctr | Pdgfrb_High_Sctr
+```
+
+@PdgfrbLowHigh_Exploratory show that PDGFR-β^low^ (non-reactive cells) do not fit well due to the sharp drop at 3 DPI. On the other hand, we see that non-linear models are a better alternative for PDGFR-β^high^ cells. AS expected, the precedent implies that the reactivity patterns observed previously are mostly mediated by PDGFR-β^high^ (reactive) cells. We take this into consideration for our modeling.
+
+# Statistical modeling for the proportion of PDGFR-β^low^ and PDGFR-β^high^ cells
+
+Considering that PDGFR-β^low^ and PDGFR-β^high^ cells are mirror populations conditional on the total number of PDGFR-β cells, we will use a model to analyze the cell proportions. For this purpose, we employ the binomial family distribution, where the response variable represents a series of Bernoulli trials (PDGFR-β^high^ or PDGFR-β^low^)in a fixed number of independent trials (PDGFR-𝛽^total^). This family is particularly well-suited for interpreting the underlying event probabilities.
+
+Mathematically, the probability mass function (PMF) for a binomial distribution is given as:
+
+$$
+P(y | n, p) = \binom{n}{y} p^y (1 - p)^{n - y}
+$$ 
+
+Where: - $y$ is the number of successes. - $n$ is the number of trials. - $p$ is the probability of success on an individual trial. - $\binom{n}{y}$ is the binomial coefficient, representing the number of ways to choose $y$ successes in $n$ trials. In `brms`, the linear predictor $\eta$ is linked to the probability $p$ of success using a the logit function:
+
+$$
+log\left(\frac{p}{1 - p}\right) = \eta
+$$ 
+
+We fit the following models:
+
+-   **Pdgfrb_Prop_Mdl1:** We use `DPI` as a linear predictor for the probability of PDGFR-𝛽^high^:
+
+$$
+\log\left(\frac{p_{i}}{1 - p_{i}}\right) = \alpha + \beta_{1} \times DPI_{i}
+$$ 
+
+Where: - $p_{i}$ is the probability of `Pdgfr_React` being a success on the $i^{th}$ trial and \$DPI\_{i} is the $i^{th}$ observed value of `DPI`.
+
+-   **Pdgfrb_Prop_Mdl2:** We use `DPI` with splines and 5 knots:
+
+$$
+\log\left(\frac{p_{i}}{1 - p_{i}}\right) = \alpha + s(DPI_{i}, k = 5)
+$$ 
+
+Where: - $p_{i}$ is the probability of `Pdgfrb_React` being a success on the $i^{th}$ trial. - $DPI_{i}$ is the $i^{th}$ observed value of `DPI`. - $s(DPI_{i}, k = 5)$ is a smooth function of `DPI` with 5 basis functions.
+
+The observed counts for `Pdgfrb_React` out of `Pdgfrb_Total` are modeled as a binomial distribution with probability $p_{i}$. In both cases, we use flat-default `brms` priors.
+
+## Fit the models
+
+```{r}
+#| label: Pdgfrb_LowHigh_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+
+# Model 1: DPI as a linear predictor
+########################################
+
+Pdgfrb_Prop_Mdl1 <- bf(Pdgfrb_Pos | trials(Pdgfrb_Total) ~ DPI)
+
+get_prior(Pdgfrb_Prop_Mdl1, Pdgfrb_Summary, family = binomial())
+
+# Fit model 1
+Pdgfrb_Prop_Fit1 <- 
+  brm(
+    data    = Pdgfrb_Summary,
+    family  = binomial(), 
+    formula = Pdgfrb_Prop_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh/Widefield_5x_Ipsilateral_LowHigh_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Prop_Fit1 <- 
+  add_criterion(Pdgfrb_Prop_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 1: DPI as predictor with splines
+#############################################
+
+Pdgfrb_Prop_Mdl2 <- bf(Pdgfrb_Pos | trials(Pdgfrb_Total) ~ s(DPI, k =5))
+
+get_prior(Pdgfrb_Prop_Mdl2, Pdgfrb_Summary, family = binomial())
+
+# Fit model 2
+Pdgfrb_Prop_Fit2 <- 
+  brm(
+    data    = Pdgfrb_Summary,
+    family  = binomial(), 
+    formula = Pdgfrb_Prop_Mdl2,
+    knots   = list(DPI = c(0, 3, 7, 14, 30)),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh/Widefield_5x_Ipsilateral_LowHigh_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Prop_Fit2 <- 
+  add_criterion(Pdgfrb_Prop_Fit2, c("loo", "waic", "bayes_R2"))
+```
+
+## Model comparison
+
+We perform model comparison using the WAIC criteria. Please refer to `Widefield_5x_Ipsilateral_Pdgfrb_IntDen` notebook for further details on this procedure. 
+
+```{r}
+#| label: Pdgfrb_LowHigh_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfrb_Prop_Comp <- 
+  compare_performance(
+    Pdgfrb_Prop_Fit1, 
+    Pdgfrb_Prop_Fit2 
+    )
+
+Pdgfrb_Prop_Comp
+```
+In both models, R2 is over 0.9. However, we can see that model 2 (with splines) is far less penalized for out of sample prediction (5084 vs 12480). We visualize the same results as a graph:
+
+```{r}
+#| label: fig-Pdgfrb_LowHigh_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model camparison by WAIC
+#| fig-height: 4
+#| fig-width: 5
+
+Pdgfrb_Prop_W <- 
+loo_compare(
+  Pdgfrb_Prop_Fit1, 
+  Pdgfrb_Prop_Fit2, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Pdgfrb_Prop_WAIC <- 
+  Pdgfrb_Prop_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Pdgfrb_Prop_Fit1", 
+             "Pdgfrb_Prop_Fit2"), 
+             
+    labels=c("Mdl1", 
+             "Mdl2")) +
+    
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+Pdgfrb_Prop_WAIC
+```
+
+We have sufficient grounds to continue with model 2 for scientific inference.
+
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-PdgfrbProp_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for the probability of PDGFR-β^high^
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_Prop_Mdl2_pp <- 
+  brms::pp_check(Pdgfrb_Prop_Fit2, 
+                 ndraws = 100) +
+  labs(title = expression("Posterior predictive checks (Pdgfrb-β)"),
+  subtitle = "Formula: Pdgfrb_React | Pdgfrb_Total ~ s(DPI, k = 5)") +
+  Plot_theme 
+
+Pdgfrb_Prop_Mdl2_pp
+```
+We see that the predictions do not match accurately the data, but follow the same trend. No consider this does not constitute a significant deviation but results must be addressed with caution. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfrb_LowHigh_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_Prop_Fit2)
+```
+
+# Model results
+
+## Visualization of conditional effects
+
+We use the `conditional_effects` function from `brms` to visualize the results:
+
+```{r}
+#| label: fig-Pdgfrb_LowHigh_CondEff
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior for PDGFR-β^high^
+#| fig-width: 5
+#| fig-height: 5
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfrb_Prop_DPI <- 
+  conditional_effects(Pdgfrb_Prop_Fit2)
+
+Pdgfrb_Prop_DPI <- plot(Pdgfrb_Prop_DPI, 
+       plot = FALSE)[[1]]
+
+Pdgfrb_Prop_fig <- Pdgfrb_Prop_DPI  + 
+  scale_y_continuous(name = expression ("(p) PDGFR-β"^high)) +
+  scale_x_continuous(name="DPI") +
+  scale_color_manual(
+    values = c("#0048BA", "red"),
+    name="Condition"
+    ) +
+  scale_fill_manual(
+    values = c("#0048BA", "red"),
+    name="Condition"
+    ) +
+
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_Prop_fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh/Widfield_5x_Ipsilateral_Pdgfrb_LowHigh.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_Prop_fig
+```
+
+@fig-Pdgfrb_LowHigh_CondEff show an increasing probability for reactive PDGFR-β. This is largely consistent with the integrated density measurements, suggesting that PDGFR-β reactivity in chronic stages is largely driven by PDGFR-β^high^ cells.
+
+## Posterior summary
+
+We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: Pdgfrb_LowHigh_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Prop_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Prop_Fit2, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "PDGFR-β low and high-intensity populations following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh_Fit2_Table.html",
+             )
+
+Pdgfrb_LowHigh_Fit2_Table <- modelsummary(Pdgfrb_Prop_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_LowHigh_Fit2_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh_Fit2_Table.tex")
+```
+
+We did not found a tool the calculate derivatives from binomial models. Therefore, we must perform scientific inference based on the provided conditional effects. We can visualize a sharp increase in the probability of PDGFR-β^high^ up to the second-third weeks post-ischemia. Followed by the plateau phase indicated by the integrated density estimations.
+
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```

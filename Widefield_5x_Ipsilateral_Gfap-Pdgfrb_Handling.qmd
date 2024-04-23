@@ -1,5 +1,5 @@
 ---
-title: "Data handling for Widefield PDGFR-β and GFAP-stained barain sections"
+title: "Data handling for Widefield PDGFR-β and GFAP-stained barain sections (Ipsilateral hemisphere)"
 subtitle: "Data analysis notebook"
 author: 
   - name: "Daniel Manrique-Castano"
@@ -112,8 +112,8 @@ process_annotation <- function(results_path, path) {
 }
 
 
-basePath <- "QuPath_Ipsilateral_5x"
-resultsPath <- "Data_Raw"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x"
+resultsPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb"
 
 Gfap_csv_path <- paste0(resultsPath, "/Raw_Widefield_5x_Ipsilateral_Gfap_QuPathAnnotations.csv")
 
@@ -165,8 +165,8 @@ process_annotation <- function(results_path, path) {
 }
 
 
-basePath <- "QuPath_Ipsilateral_5x"
-resultsPath <- "Data_Raw"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x"
+resultsPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb"
 
 Pdgfrb_csv_path <- paste0(resultsPath, "/Raw_Widefield_5x_Ipsilateral_Pdgfrb_QuPathAnnotations.csv")
 
@@ -222,8 +222,8 @@ process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
   # Write a .csv file 
   write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
 }
-basePath <- "QuPath_Ipsilateral_5x"
-resultsPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x"
+resultsPath <- "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates"
 
 process_folder <- function(folderPath, filename_suffix) {
   files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
@@ -263,8 +263,8 @@ process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
   # Write a .csv file 
   write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
 }
-basePath <- "QuPath_Ipsilateral_5x"
-resultsPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x"
+resultsPath <- "Data_Raw/Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates"
 
 process_folder <- function(folderPath, filename_suffix) {
   files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
@@ -290,9 +290,9 @@ Here, we set the observation window using the DAPI images and set the scale to 3
 #| message: false
 #| cache: true
 
-coordinatesPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates/"
+coordinatesPath <- "Data_Processed/Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_CellCoordinates/"
 
-IntensityPath <- "Data_Raw/"
+IntensityPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/"
 
 Cells_Intensity_CSV_Path <- paste0(IntensityPath, "/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv")
 Cells_Intensity_Header <- c("Brain", "PdgfrbHigh_Intensity", "PdgfrbLow_Intensity", "Gfap_Intensity")
@@ -428,7 +428,7 @@ Our reference file in this section is `Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_
 #| message: false
 
 # Read the data tables
-Ipsilateral_Intensity_5x <- read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv', header = TRUE)
+Ipsilateral_Intensity_5x <- read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv', header = TRUE)
 
 # We subset the relevant columns
 Ipsilateral_Intensity_5x <-  Ipsilateral_Intensity_5x[, -1]
@@ -461,11 +461,11 @@ Now, we merge the generated `Gfap_Annotations.csv` and `Pdgfr_Annotations.csv` a
 #| message: false
 
 Gfap_Annotations_Raw <- 
-  read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Gfap_QuPathAnnotations.csv', 
+  read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Gfap_QuPathAnnotations.csv', 
            header = TRUE
            )
 Pdgfrb_Annotations_Raw <- 
-  read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Pdgfrb_QuPathAnnotations.csv', 
+  read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Pdgfrb_QuPathAnnotations.csv', 
            header = TRUE
            )
 # We select the rows containing "Positive" tissue
@@ -507,7 +507,7 @@ Finally, we include the Area and intensity measurements performed in FIJI
 #| message: false
 
 # Read the data table
-Ipsilateral_AreaIntensity_Summary_Raw <- read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_AreaIntensity.csv', header = TRUE)
+Ipsilateral_AreaIntensity_Summary_Raw <- read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_AreaIntensity.csv', header = TRUE)
 
 # Extract Gfap data
 Gfap_Area_Raw <- 
@@ -537,7 +537,7 @@ Ipsilateral_Summary_5x$Pdgfrb_IntDen <- Ipsilateral_Summary_5x$Pdgfrb_IntDen /10
 
 head(Ipsilateral_Summary_5x)
 
-write.csv(Ipsilateral_Summary_5x, "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv", row.names = FALSE)
+write.csv(Ipsilateral_Summary_5x, "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv", row.names = FALSE)
 ```
 
 These whole data handling results in a dataset organized by columns, which will be used for analysis. 
@@ -585,8 +585,8 @@ process_annotation <- function(results_path, path) {
   write.table(Annotations, results_path, append = TRUE, sep=",")
 }
 
-basePath <- "QuPath_Ipsilateral_5x_Striatal"
-resultsPath <- "Data_Raw/"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x_Striatal"
+resultsPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb"
 
 Gfap_csv_path <- paste0(resultsPath, "/Raw_Widefield_5x_Ipsilateral_Gfap_Str_QuPathAnnotations.csv")
 
@@ -640,7 +640,7 @@ process_annotation <- function(results_path, path) {
 
 
 basePath <- "QuPath_Ipsilateral_5x_Striatal"
-resultsPath <- "Data_Raw/"
+resultsPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/"
 
 Pdgfr_csv_path <- paste0(resultsPath, "/Raw_Widefield_5x_Ipsilateral_Pdgfrb_Str_QuPathAnnotations.csv")
 
@@ -689,7 +689,7 @@ process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
   # Write a .csv file 
   write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
 }
-basePath <- "QuPath_Ipsilateral_5x_Striatal"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x_Striatal"
 resultsPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_Striatum_CellCoordinates"
 
 process_folder <- function(folderPath, filename_suffix) {
@@ -730,8 +730,8 @@ process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
   # Write a .csv file 
   write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
 }
-basePath <- "QuPath_Ipsilateral_5x_Striatal"
-resultsPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_Striatum_CellCoordinates"
+basePath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/QuPath_Ipsilateral_5x_Striatal"
+resultsPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_Striatum_CellCoordinates"
 
 process_folder <- function(folderPath, filename_suffix) {
   files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
@@ -756,7 +756,7 @@ Like done previously, we generate point patterns using the functions from the `s
 
 coordinatesPath <- "Data_Raw/CellCoordinates/Widefield_5x_Ipsilateral_Gfap-Pdgfrb-Dapi_Striatum_CellCoordinates/"
 
-IntensityPath <- "Data_Raw"
+IntensityPath <- "Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb"
 
 Cells_Intensity_CSV_Path <- paste0(IntensityPath, "/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_Inten.csv")
 Cells_Intensity_Header <- c("Brain", "PdgfrbHigh_Intensity", "PdgfrbLow_Intensity", "Gfap_Intensity")
@@ -869,7 +869,7 @@ for (brain in brains) {
   process_file(coordinatesPath, brain)
 }
 
-saveRDS(Result_Hyperframe, "PointPatterns/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_PointPatterns.rds")
+saveRDS(Result_Hyperframe, "PointPatterns/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Str_PPP.rds")
 ```
 
 ## Buid dataset for analysis
@@ -883,7 +883,7 @@ Here we take the `Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_Inten.csv` g
 #| message: false
 
 # Read the data tables
-Ipsilateral_Striatum_Intensity_5x <- read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_Inten.csv', header = TRUE)
+Ipsilateral_Striatum_Intensity_5x <- read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_Inten.csv', header = TRUE)
 
 # We subset the relevant columns
 Ipsilateral_Striatum_Intensity_5x <-  Ipsilateral_Striatum_Intensity_5x[, -1]
@@ -909,13 +909,13 @@ Now, we merge the generated `GFAP_Annotations.csv` and `PDGFR_Annotations.csv` a
 #| message: false
 
 Gfap_Annotations_Raw <- 
-  read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Gfap_Str_QuPathAnnotations.csv', 
+  read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Gfap_Str_QuPathAnnotations.csv', 
            header = TRUE
            )
 Gfap_Annotations_Raw <- Gfap_Annotations_Raw[, -1]
 
 Pdgfrb_Annotations_Raw <- 
-  read.csv(file = 'Data_Raw/Raw_Widefield_5x_Ipsilateral_Pdgfrb_Str_QuPathAnnotations.csv', 
+  read.csv(file = 'Data_Raw/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Raw_Widefield_5x_Ipsilateral_Pdgfrb_Str_QuPathAnnotations.csv', 
            header = TRUE
            )
 Pdgfrb_Annotations_Raw <- Pdgfrb_Annotations_Raw[, -1]
@@ -948,7 +948,7 @@ names(Ipsilateral_Striatum_Summary_5x)[names(Ipsilateral_Striatum_Summary_5x) %i
 # Scale the Tissue_Area
 Ipsilateral_Striatum_Summary_5x$Tissue_Area <- Ipsilateral_Striatum_Summary_5x$Tissue_Area / 1000000
 
-write.csv(Ipsilateral_Striatum_Summary_5x, "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Str_Inten.csv", row.names = FALSE)
+write.csv(Ipsilateral_Striatum_Summary_5x, "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Str_Inten.csv", row.names = FALSE)
 ```
 
 Now, the complete dataset from this staining is complete and saved in `Data_Tables_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Striatum_Inten.csv`.

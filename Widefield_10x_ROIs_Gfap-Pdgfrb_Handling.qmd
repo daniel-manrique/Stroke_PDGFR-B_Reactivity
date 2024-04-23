@@ -1,0 +1,295 @@
+---
+title: "Data handling for Widefield PDGFR-β and GFAP-stained barain sections (Regions of interest)"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - Point patterns analysis
+  - Cell covariance
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+---
+
+# Data processing for cortico-striatal lesions
+
+
+## Preview
+
+In this notebook, we handle .tsv files to generate point patterns and summary tables for further analysis. 
+
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 10x in specific ROIs:
+
+- **Peri:** Corresponding to perilesional cortical regions besides the cortical injured area
+
+- **Ctx:** Cortical injured regions
+
+- **Str:** Striatal injured regions
+
+Samples were grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI).Please note that Sham animals do not have a perilesional region given that there is no brain injury.
+
+**Working dataset**: .tsv files exported with [QuPath](https://qupath.github.io/) [@bankhead2017]. We performed unbiased detection and quantification of PDGFRB-β and GFAP-positive cells in the **whole ipsilateral hemisphere**. QuPath generates `_detections.tsv` files containing the coordinates of individual cells and other measurements. Also, it creates `_annotations.tsv` files summarizing the information by image. These files are located under the name `Widefield_10x_ROIs_Gfap-Pdgfrb_QuPath.zip` in the OSF repository.
+
+
+## I. Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session. 
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+library(devtools)
+
+#install.packages(c("dpylr", "tidyr", "spatstat"))
+
+library(tidyr)
+library(dplyr)
+library(spatstat)
+library(spatstat.geom)
+
+```
+
+## Processing of image **detections**
+
+The following chunk handles the `_annotations.tsv` files of each image to obtain a single .csv file. The files for PDGFR-β and GFAP cells are processed together. We include DAPI labeling to build an observation window thereafter. The results are stored in the `Data_Processed/Widefield_10x_ROIs_Gfap-Pdgfrb/Widefield_10x_ROIs_Gfap-Pdgfrb-Dapi_Coordinates` folder.
+
+```{r}
+#| label: ROIs_Annotations_10x
+#| include: true
+#| warning: false
+#| message: false
+
+process_initial_data <- function(basePath, Cells_Path, filename, resultsPath) {
+  
+  Cells_Raw <- read_tsv(paste0(basePath, "/", Cells_Path))
+  
+  # Convert to data frame
+  Cells <- as.data.frame(Cells_Raw) 
+  
+  # Subset the date set to keep only relevant columns
+  Cells <- subset(Cells, select = c(Image, Name, Parent, `Centroid X µm`, `Centroid Y µm`))
+  
+  # Extract metadata information from image name
+  Cells <- cbind(Cells, do.call(rbind , strsplit(Cells$Image, "[_\\.]"))[,1:4])
+  colnames(Cells) <- c("Image", "ID", "Class", "X", "Y", "MouseID", "DPI", "Region")
+  Cells <- subset(Cells, select = c(MouseID, DPI, ID, X, Y))
+  
+  # Write a .csv file 
+  write.csv(Cells, paste0(resultsPath, "/", Cells_Path, filename))
+}
+basePath <- "Data_Raw/Widefield_10x_ROIs_Gfap-Pdgfrb/QuPath_ROIs_10x"
+resultsPath <- "Data_Processed/Widefield_10x_ROIs_Gfap-Pdgfrb/Widefield_10x_ROIs_Gfap-Pdgfrb-Dapi_Coordinates/"
+
+process_folder <- function(folderPath, filename_suffix) {
+  files <- list.files(folderPath, pattern = "_detections.tsv", full.names = FALSE)
+  for (file in files) {
+    process_initial_data(folderPath, file, filename_suffix, resultsPath)
+  }
+}
+
+process_folder(paste0(basePath, "/Pdgfrb"), "_Coordinates.csv")
+process_folder(paste0(basePath, "/Dapi"), "_Coordinates.csv")
+process_folder(paste0(basePath, "/Gfap"), "_Coordinates.csv")
+```
+
+## Create point patterns
+
+In this step, we retrieve the files located in the `Data_Processed/Widefield_10x_ROIs_Gfap-Pdgfrb/Widefield_10x_ROIs_Gfap-Pdgfrb-Dapi_Coordinates/` to generate point patterns, density kernels and tessellations. This elements are then stored as an hyperframe. Additionally, we generate files containing intensity summaries and cell locations in tessellated images to perform scientific inference for cell covariance.
+
+**Note:** For this data set, we need to exclude cortical sections from animals at 0 and 3 DPI to be able to generate the hyperframe. The reason is that GFAP cells were not detected in animals Td74 and Td80 and the code cannot match empty columns (no values) with PDGFR-β and DAPI. The excluded tables are at available in the OSF repository. 
+
+```{r}
+#| label: Pdgfrb_Gfap_Hyperframe
+#| include: true
+#| warning: false
+#| message: false
+
+coordinatesPath <- "Data_Processed/Widefield_10x_ROIs_Gfap-Pdgfrb/Widefield_10x_ROIs_Gfap-Pdgfrb-Dapi_Coordinates"
+
+ResultsPath <- "Data_Raw/Widefield_10x_ROIs_Gfap-Pdgfrb"
+
+Cells_Intensity_CSV_Path <- paste0(ResultsPath, "/Raw_Widefield_10x_ROIs_Pdgfrb-Gfap_Inten.csv")
+Cells_Intensity_Header <- c("Brain", "Pdgfrb_Intensity", "Gfap_Intensity")
+
+Tesselation_CSV_Path <- paste0(ResultsPath, "/Raw_Widefield_5x_Ipsilateral_Pdgfrb-Gfap_Covariance.csv")
+Tesselation_Test_Header <- c("Brain", "Low", "High")
+
+# Results to generate
+Result_Hyperframe <- NULL
+
+# Functions
+
+add_to_hyperframe <- function (...) {
+    if (is.null(Result_Hyperframe)){
+      Result_Hyperframe <<- hyperframe(...)
+    } else {
+      Result_Hyperframe <<- rbind(Result_Hyperframe, hyperframe(...))
+    }
+}
+
+create_empty_table <- function (path, header) {
+  df_header <- data.frame(matrix(ncol = length(header), nrow = 0))
+  names(df_header) <- header
+
+  write.csv(df_header, path)
+}
+
+create_empty_table(Cells_Intensity_CSV_Path, Cells_Intensity_Header)
+create_empty_table(Tesselation_CSV_Path, Tesselation_Test_Header)
+
+
+coordinates_manipulation <- function (Raw_Table) {
+  Cell_Coor_X <- Raw_Table$Y
+  Cell_Coor_Y <- Raw_Table$X
+
+  ## Bind the vectors, rotate and bind to original table
+  Coords <- cbind(Cell_Coor_X, Cell_Coor_Y)
+  Coords <- secr::rotate(Coords, 180)
+  Coords <- as.data.frame(Coords)
+  return(cbind(Raw_Table, Coords))
+}
+
+# Create a point pattern (PPP) object
+
+create_point_pattern <- function(Subset, ReferenceSubset) {
+  # We define the limits of the window according to Dapi coordinates
+  xlim <- range(ReferenceSubset$X)
+  ylim <- range(ReferenceSubset$Y)
+
+  # Create point pattern for neurons
+  Cells_PPP <- with(Subset, spatstat.geom::ppp(x = Subset$X, y = Subset$Y, xrange = xlim, yrange = ylim))
+  unitname(Cells_PPP)  <- list("mm", "mm", 0.878/1936)
+  Cells_PPP <- spatstat.geom::rescale (Cells_PPP)
+  
+  ## We rescale the unit to obtain measurements in mm2
+  return(Cells_PPP)
+  
+}
+
+tesselation <- function(Cells_Density) {
+  ## We define the quantiles for Neurons
+  Cells_Quantiles <- c(0, 5000, 20000)
+
+  ## We define the cutting spots according to quantiles
+  Cells_Cut <- cut(Cells_Density, breaks = Cells_Quantiles, labels = c ("Low", "High"))
+
+  ## We generate the tesselation image
+  return(tess(image = Cells_Cut))
+}
+
+tesselation_data <- function(Cells_PPP, Cells_Cut) {
+  Result <- quadratcount(Cells_PPP, tess = Cells_Cut )
+  return(Result)
+}
+
+
+process_file <- function (basePath, path) {
+
+  Dapi_Raw <- read.csv(file = paste0(basePath, '/', path, '_Dapi_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Dapi_Raw  <- Dapi_Raw  %>% sample_frac(.5)
+  Pdgfrb_Raw <- read.csv(file = paste0(basePath, '/', path, '_Pdgfrb_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Pdgfrb_Raw  <- Pdgfrb_Raw  %>% sample_frac(.5)
+  Gfap_Raw <- read.csv(file = paste0(basePath, '/', path, '_Gfap_detections.tsv_Coordinates.csv'), header = TRUE)
+  #Gfap_Raw  <- Gfap_Raw  %>% sample_frac(.5)
+  
+  Dapi_Raw2 <- coordinates_manipulation(Dapi_Raw)
+  Pdgfrb_Raw2 <- coordinates_manipulation(Pdgfrb_Raw)
+  Gfap_Raw2 <- coordinates_manipulation(Gfap_Raw)
+  
+  Dapi_PPP <- create_point_pattern(Dapi_Raw2, Dapi_Raw2)
+  Window(Dapi_PPP) <- convexhull(Dapi_PPP)
+  Pdgfrb_PPP <- create_point_pattern(Pdgfrb_Raw2, Dapi_Raw2)
+  Window(Pdgfrb_PPP) <- convexhull(Dapi_PPP)
+  Gfap_PPP <- create_point_pattern(Gfap_Raw2, Dapi_Raw2)
+  Window(Gfap_PPP) <- convexhull(Dapi_PPP)
+  
+  Pdgfrb_Intensity <- summary(Pdgfrb_PPP)$intensity
+  Gfap_Intensity <- summary(Gfap_PPP)$intensity
+
+  Intensity_Row <- t(c(path, Pdgfrb_Intensity, Gfap_Intensity))
+  
+  Pdgfrb_Dens <- density(Pdgfrb_PPP, sigma =0.02, positive=TRUE, equal.ribbon = TRUE, col = topo.colors, main = "")
+  Gfap_Dens <- density(Gfap_PPP, sigma =0.02, positive=TRUE, equal.ribbon = TRUE, col = topo.colors, main = "")
+
+  Gfap_Tess <- tesselation(Gfap_Dens)
+ 
+  Pdgfrb_Gfap <-tesselation_data(Pdgfrb_PPP, Gfap_Tess)
+
+  Tesselation_Row <- t(c(path, Pdgfrb_Gfap))
+  write.table(Tesselation_Row, Tesselation_CSV_Path, append = TRUE, sep=",", col.names = FALSE)
+  
+  write.table(Intensity_Row, Cells_Intensity_CSV_Path, append = TRUE, sep=",", col.names = FALSE)
+
+  
+  fragments <- strsplit(path, "_")[[1]]
+  len <- length(fragments)
+  mouse <- fragments[1]
+  dpi <- fragments[2]
+  condition <- fragments[3]
+  region <- fragments[4]
+
+add_to_hyperframe(Pdgfrb = Pdgfrb_PPP, Gfap = Gfap_PPP, Gfap_Dens = Gfap_Dens, Gfap_Tess = Gfap_Tess, ID = mouse, DPI=dpi, Condition = condition, Region = region, stringsAsFactors=TRUE)
+}
+
+csv_files <- list.files(coordinatesPath, full.names = FALSE, recursive = FALSE)
+
+brains <- c()
+
+for (csv in csv_files) {
+  fragments <- strsplit(csv, "_")[[1]]
+  brain_name <- paste(fragments[1:4], collapse="_")
+  brains <- append(brains, brain_name)
+}
+
+brains <- unique(brains)
+
+for (brain in brains) {
+  process_file(coordinatesPath, brain)
+}
+
+saveRDS(Result_Hyperframe, "PointPatterns/Widefield_10x_ROIs_Gfap-Pdgfrb_PPP.rds")
+```
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+

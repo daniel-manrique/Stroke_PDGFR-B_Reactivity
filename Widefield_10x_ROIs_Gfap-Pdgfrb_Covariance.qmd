@@ -1,0 +1,1376 @@
+---
+title-block-banner: true
+title: "Point pattern analysis (PPA) of PDGFR-β and GFAP+ cells (regions of interest)"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - Point patterns analysis
+  - Cell covariance
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+editor: 
+  markdown: 
+    wrap: sentence
+---
+---
+
+# Preview
+
+In this notebook, we perform the analysis of PDGFR-β and GFAP covariance in specified ROIs in the injured cortex, striatum and perilesion. We performed automatic cell detection and classification using QuPath [@bankhead2017], and created point patterns the R-package `spatstat`[@baddeley2005; @spatstat]. The point patterns were saved as `.rds` object files.
+
+
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_Neg) and PDGFR-β^high^ (Pdgfrb_Pos) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/8cn6s
+
+**Working dataset:** The `Data_Raw/Widefield_10x_ROIs_Gfap-Pdgfrb/Raw_Widefield_10x_ROIs_Gfap-Pdgfrb_Tessellations.csv`data frame containing cell counts in defined (low / high) GFAP tessellations. The data was generated using integrated functions in the spatstat package [@baddeley2005].
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "emmeans", "ggplot","ggridges", "gtsummary", "modelbased", "modelr","modelsummary", "patchwork", "poorman","reshape",  "spatstat",  "tidybayes"))
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(ggridges)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(reshape)
+library(spatstat)
+library(tidybayes)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load and handle the dataset
+
+We load and handle the `Raw_Widefield_10x_ROIs_Gfap-Pdgfrb_Tessellations.csv` dataset containing raw measurements performed in the `Widefield_10x_ROIs_Gfap-Pdgfrb_Handling.qmd` notebook using the `quadratcount` function to calculate the number of PDGFR-β in defined GFAP tessellations. We handle the dataset to extract the information from the image name and setup correctly the variables to analyze. Please note we exclude Sham (0D) animals, given that the covariance quantification are not suitable at this time point. 
+```{r}
+#| label: Pdgfr_TessTable
+#| include: true
+#| warning: false
+#| message: false
+
+# Load the data set
+Pdgfrb_Tess_Raw <- read.csv(file = 'Data_Raw/Widefield_10x_ROIs_Gfap-Pdgfrb/Raw_Widefield_10x_ROIs_Gfap-Pdgfrb_Tessellations.csv', header = TRUE)
+
+## We subset the relevant columns (cell number)
+Pdgfrb_Tess <- subset(Pdgfrb_Tess_Raw, select = -c(X))
+
+## And extract metadata from the image name
+Pdgfrb_Tess  <- cbind(Pdgfrb_Tess, do.call(rbind , strsplit(Pdgfrb_Tess$Brain, "[_\\.]"))[,1:4])
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_Tess) <- c("Brain", "Low", "High", "MouseID", "DPI", "Condition", "Region")
+
+## We rename the factor levels for region
+Pdgfrb_Tess$Region <- factor(Pdgfrb_Tess$Region, levels = c("Peri", "Str", "Ctx"), 
+                    labels = c("Perilesion", "Striatum", "Cortex"))
+
+## Perform a new subset
+Pdgfrb_Tess <- subset(Pdgfrb_Tess, select = c(MouseID, DPI, Region, Low, High))
+
+## And organize the DPI factors 
+Pdgfrb_Tess$DPI <- factor(Pdgfrb_Tess $DPI, levels = c("0D", "3D", "7D", "14D","30D"))
+
+## We exclude 0 DPI
+Pdgfrb_Tess <- Pdgfrb_Tess[Pdgfrb_Tess$DPI != "0D",]
+
+## We transform NAs to 0
+Pdgfrb_Tess[is.na(Pdgfrb_Tess)] <- 0
+
+## Transform the data set to long format
+Pdgfrb_Tess_Long <- melt(Pdgfrb_Tess, id.vars = c("MouseID", "DPI", "Region"))
+
+## Set new column names
+colnames(Pdgfrb_Tess_Long) <- c("MouseID", "DPI", "Region", "Gfap", "Pdgfrb")
+
+## We set the levels for Gfap
+Pdgfrb_Tess_Long$Gfap <- factor(Pdgfrb_Tess_Long$Gfap, ordered = TRUE, levels = c("Low", "High"))
+
+write.csv(Pdgfrb_Tess_Long, "Data_Processed/Widefield_10x_ROIs_Gfap-Pdgfrb/Wide10x_ROIs_Pdgfrb-Gfap_Tessellations.csv", row.names = FALSE)
+```
+
+The processed file is saved as `Wide10x_ROIs_Pdgfrb-Gfap_Tessellations.csv` and used for scientific inference:
+
+```{r}
+#| label: tbl-Pdgfr_TessTable
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+gt::gt(Pdgfrb_Tess_Long[1:10,])
+
+```
+
+The table contains the unique animal ID (MouseID), days post-ischemia (DPI), ROIs the image was taken in (Region), tessellation category [low or high] for GFAP expression (Gfap) and PDGFR-β cell counts (Pdgfrb).
+
+# Exploratory data visualization
+
+We visualize the data.
+
+```{r}
+#| label: fig-Pdgfrb_LowHigh_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory visualization for PDGFR-β/GFAP covariance
+#| fig-height: 5
+#| fig-width: 9
+
+
+set.seed(8807)
+
+Pdgfrb_Gfap_Ridges <- 
+  ggplot(Pdgfrb_Tess_Long, 
+        aes(x = Pdgfrb, 
+            y = DPI, 
+            fill = Gfap)) + 
+                                                                                           
+  geom_density_ridges(
+    quantile_lines = TRUE,
+    rel_min_height = 0.01,
+    alpha = 0.8, 
+    scale = 2,
+    jittered_points = TRUE,
+    point_alpha = 1, 
+    point_size = 3) +
+    
+  scale_y_discrete(name= " DPI \n",
+                     labels = c("3D", "7D", "14D", "30D")) +
+  
+  scale_x_continuous(name="\n PDGFR-β / GFAP Covaiance") +
+  
+  scale_fill_manual(values= c("cyan", "green"),
+                        name="GFAP density",
+                        breaks=c("Low", "High"),
+                        labels=c("Low", "High")) +
+  
+  
+  scale_color_manual(values= c("cyan", "green"),
+                        name="Gfap density",
+                        breaks=c("Low", "High"),
+                        labels=c("Low", "High")) +
+  
+  Plot_theme +
+  theme (legend.position= c(0.9, 0.85)) +
+
+facet_wrap(~ Region, 
+           scales = "free_x", 
+           ncol = 3)
+
+Pdgfrb_Gfap_Ridges
+```
+
+The cyan densities show that the ischemic cortex display more PDGFR-β+ cells in areas of low GFAP spatial intensity . This means that in the ischemic cortex, PDGFR-β cells are prominently located outside the GFAP convex hull, as shown by the analysis of 5x whole hemisphere images. Also, the plot for cortex gives an idea of the progressive increase up to 30 DPI of PDGFR-β in regions devoid from GFAP. Plese be aware of the difference of the scales.
+
+# Statistical modeling
+
+We perform Bayesian modeling with the `brms` package [@brms]using the default `brms` priors. We tested different conditions for the fit (not shown) which resulted in a high `Rhat`, meaning the chains did not converged as expected. We ponder the main reason for this is the broad variability for the interaction of DPI/GFAP density and region (three factors). Therefore, we fit independent models for each region to make a more accurate and informative scientific inference. Still our fist model is a regression on GFAP density and Region (with out considering the time course), to have an idea of the effect of the region in the allocation of PDGFR-β+ cells.
+
+Given the nature of the data, we aimed to fit in the first place Poisson models to the data. However, as seen in @fig-Pdgfrb_LowHigh_Exploratory the overdispersion of the data is challenging for the unique $\lambda$ parameter governing both the mean and variation. Therefore, we choose to employ a hurdle_lognormal() distribution to account for the overdispersion of the parameter and also the number of low counts and zeros in the data set. 
+
+Mathematically, the hurdle_lognormal model can be expressed in two parts: a binary model for the occurrence of zeros versus positive counts:
+
+ $$
+   y_i > 0 \sim \text{Bernoulli}(p_i) \\
+   \text{logit}(p_i) = \alpha_0 + \alpha_1x_{1i} + \alpha_2x_{2i} + \ldots + \alpha_kx_{ki}
+$$
+
+and a log-normal model for the positive counts:  
+
+$$
+\log(y_i) \sim N(\mu_i, \sigma^2), \quad y_i > 0 \\
+\mu_i = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \ldots + \beta_kx_{ki}
+$$
+
+Where:
+- $y_i$ is the observed count for the $i$-th observation.
+- $p_i$ is the probability of observing a positive count for the $i$-th observation.
+- $\alpha_0, \alpha_1, ..., \alpha_k$ are the coefficients for the logistic regression part of the model.
+- $\mu_i$ is the mean log count for positive observations.
+- $\sigma^2$ is the variance of the log counts.
+- $\beta_0, \beta_1, ..., \beta_k$ are the regression coefficients for the log-normal part.
+- $x_{1i}, x_{2i}, ..., x_{ki}$ are the covariate values for the $i$-th observation.
+
+
+We fit the following models:
+
+-   **Pdgfrb_Regions_Mdl1:** We use `Region` and `GFAP` as predictors. The occurrence of positive counts is modeled as:
+
+$$
+  \text{logit}(p_i) = \alpha_0 + \alpha_1 \cdot \text{Region}_i + \alpha_2 \cdot \text{Gfap}_i + \alpha_3 \cdot (\text{Region}_i \times \text{Gfap}_i)
+  $$
+And the positive counts as:
+  $$
+  \mu_i = \beta_0 + \beta_1 \cdot \text{Region}_i + \beta_2 \cdot \text{Gfap}_i + \beta_3 \cdot (\text{Region}_i \times \text{Gfap}_i)
+  $$
+-   **Pdgfrb_Area_Mdl1:** We use areas (Perilesion or Striatum) and `GFAP` as predictors. This includes as wella modeling for the occurence of positive counts: 
+
+$$
+  \text{logit}(p_i) = \alpha_0 + \alpha_1 \cdot \text{DPI}_i + \alpha_2 \cdot \text{Gfap}_i + \alpha_3 \cdot (\text{DPI}_i \times \text{Gfap}_i)
+$$
+
+and the estimation of positive counts themselves:
+
+$$
+  \mu_i = \beta_0 + \beta_1 \cdot \text{DPI}_i + \beta_2 \cdot \text{Gfap}_i + \beta_3 \cdot (\text{DPI}_i \times \text{Gfap}_i)
+$$
+When modeling, we found out that the regression for cortex does not perform a good exploration of the parameter space after several fitting process. Given that we can not rely in the parameters obtained for this region using Poisson or hurdle_lognormal, we performed the modeling using a negative binomial distributional family. Those estimates are more stable and insightful for our analysis. 
+
+The negative binomial distribution extends the Poisson distribution to accommodate overdispersion. The negative binomial distribution includes a dispersion parameter (`theta`), which allows the variance to be greater than the mean. The probability mass function of this distribution for an outcome $Y$ is given by:
+
+$$
+  P(Y = y) = \binom{y + r - 1}{y} p^r (1-p)^y
+$$
+where $y$ is the number of failures before the $r^{th}$ success, $p$ is the probability of success, and $r$ is the number of successes. The parameters $r$ and $p$ relate to the mean ($\mu$) and dispersion ($\theta$) of the distribution, with the mean expressed as $\mu = \frac{r(1-p)}{p}$ and the variance as $\mu + \frac{\mu^2}{r}$.
+
+Also, $\mu_i$ in this distributional family is typically concieved on the log scale as a linear combination of predictors:
+
+ $$
+\log(\mu_i) = \beta_0 + \beta_1x_{1i} + \beta_2x_{2i} + \ldots + \beta_kx_{ki}
+$$
+Therefore, the model for cortex takes the following formulation:
+
+- **Pdgfrb_Cortex_Mdl1**: Model for `DPI` and `GFAP` as predictors in each area (cortex, striatum, and perilesion):
+
+$$
+  \log(\mu_i) = \beta_0 + \beta_1 \cdot \text{DPI}_i + \beta_2 \cdot \text{Gfap}_i + \beta_3 \cdot (\text{DPI}_i \times \text{Gfap}_i)
+$$
+All the models use `brms` default priors.
+
+## Fit the models
+
+```{r}
+#| label: Pdgfrb_Gfap_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+set.seed(8807)
+
+
+### For Regions
+
+# Model 1: DPI and GFAP region as predictors 
+################################################
+Pdgfrb_Gfap_Regions_Mdl1 <- bf(Pdgfrb ~ Region + Gfap + Region:Gfap)
+                      
+                      
+get_prior(Pdgfrb_Gfap_Regions_Mdl1, Pdgfrb_Tess_Long, family = hurdle_lognormal())
+
+# Fit model 1
+Pdgfrb_Gfap_Fit1 <- 
+  brm(
+    data    = Pdgfrb_Tess_Long,
+    formula = Pdgfrb_Gfap_Regions_Mdl1,
+    family  = hurdle_lognormal(),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Regions.rds",
+    file_refit = "never") 
+                     
+Pdgfrb_Gfap_Fit1 <- 
+  add_criterion(Pdgfrb_Gfap_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+#### For perilesion
+
+Pdgfrb_Tess_Perilesion <- Pdgfrb_Tess_Long[(Pdgfrb_Tess_Long$Region=="Perilesion"),]
+
+Pdgfrb_Gfap_Perilesion_Mdl1 <- bf(Pdgfrb ~ DPI + Gfap + DPI:Gfap)
+                     
+                      
+get_prior(Pdgfrb_Gfap_Perilesion_Mdl1, Pdgfrb_Tess_Long, family = hurdle_lognormal())
+
+# Fit model 1 (Perilesion)
+########################################################
+
+Pdgfrb_Gfap_Perilesion_Fit1 <- 
+  brm(
+    data    = Pdgfrb_Tess_Perilesion,
+    formula = Pdgfrb_Gfap_Perilesion_Mdl1 ,
+    family  = negbinomial(),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Perilesion.rds",
+    file_refit = "never") 
+                     
+Pdgfrb_Gfap_Perilesion_Fit1 <- 
+  add_criterion(Pdgfrb_Gfap_Perilesion_Fit1, c("loo", "waic", "bayes_R2"))
+
+### For Striatum
+
+Pdgfrb_Tess_Striatum <- Pdgfrb_Tess_Long[(Pdgfrb_Tess_Long$Region=="Striatum"),]
+
+Pdgfrb_Gfap_Striatum_Mdl1 <- bf(Pdgfrb ~ DPI + Gfap + DPI:Gfap)
+                       
+                      
+get_prior(Pdgfrb_Gfap_Striatum_Mdl1, Pdgfrb_Tess_Long, family = hurdle_lognormal())
+
+# Fit model 1 (Striatum)
+########################################################
+
+Pdgfrb_Gfap_Striatum_Fit1 <- 
+  brm(
+    data    = Pdgfrb_Tess_Striatum,
+    formula = Pdgfrb_Gfap_Striatum_Mdl1,
+    family  = hurdle_lognormal(),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Striatum.rds",
+    file_refit = "never") 
+                     
+Pdgfrb_Gfap_Striatum_Fit1 <- 
+  add_criterion(Pdgfrb_Gfap_Striatum_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+### For cortex
+
+Pdgfrb_Tess_Cortex <- Pdgfrb_Tess_Long[(Pdgfrb_Tess_Long$Region=="Cortex"),]
+
+Pdgfrb_Gfap_Cortex_Mdl1 <- bf(Pdgfrb ~ DPI + Gfap + DPI:Gfap)
+                      
+get_prior(Pdgfrb_Gfap_Cortex_Mdl1, Pdgfrb_Tess_Long, family = negbinomial())
+
+# Model 1: DPI and GFAP region as predictors
+########################################################
+
+# Fit model 1
+Pdgfrb_Gfap_Cortex_Fit1 <- 
+  brm(
+    data    = Pdgfrb_Tess_Cortex,
+    formula = Pdgfrb_Gfap_Cortex_Mdl1,
+    family  = negbinomial(),
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex.rds",
+    file_refit = "never") 
+                     
+Pdgfrb_Gfap_Cortex_Fit1 <- 
+  add_criterion(Pdgfrb_Gfap_Cortex_Fit1, c("loo", "waic", "bayes_R2"))
+```
+## Model diagnostics
+
+We check models fitting with `pp_checks`
+
+```{r}
+#| label: fig-Pdgfrb_Gfap_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β / GFAP covarince
+#| fig-height: 5
+#| fig-width: 12
+
+set.seed(8807)
+
+### For regions
+Pdgfrb_Gfap_Regions_pp <- 
+  brms::pp_check(Pdgfrb_Gfap_Fit1, 
+                 ndraws = 100) +
+  scale_x_continuous(limits = c(0, 1000)) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb ~ Region + Gfap + Region:Gfap") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme 
+
+
+### For Perilesion
+Pdgfrb_Gfap_Perilesion_pp <- 
+  brms::pp_check(Pdgfrb_Gfap_Perilesion_Fit1, 
+                 ndraws = 100) +
+  scale_x_continuous(limits = c(0, 500)) +
+  labs(title = "Posterior predictive checks (Perilesion)",
+  subtitle = "Formula: Pdgfrb ~ DPI + Gfap + DPI:Gfap") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme 
+
+
+### For Striatum
+Pdgfrb_Gfap_Striatum_pp <- 
+  brms::pp_check(Pdgfrb_Gfap_Striatum_Fit1, 
+                 ndraws = 100) +
+  scale_x_continuous(limits = c(0, 1000)) +
+  labs(title = "Posterior predictive checks (Striatum)",
+  subtitle = "Formula: Pdgfrb ~ DPI + Gfap + DPI:Gfap") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme 
+
+
+### For cortex
+Pdgfrb_Gfap_Cortex_pp <- 
+  brms::pp_check(Pdgfrb_Gfap_Cortex_Fit1, 
+                 ndraws = 100) +
+  scale_x_continuous(limits = c(0, 1000)) +
+  labs(title = "Posterior predictive checks (cortex)",
+  subtitle = "Formula: Pdgfrb ~ DPI + Gfap + DPI:Gfap") +
+  #scale_y_continuous(limits=c(0, 0.15)) +
+  Plot_theme 
+
+Pdgfrb_Gfap_Regions_pp | Pdgfrb_Gfap_Perilesion_pp | Pdgfrb_Gfap_Striatum_pp | Pdgfrb_Gfap_Cortex_pp
+```
+
+In all the cases, we can see that the predictions do not deviate substantially from the data.
+
+# Model results
+
+In contrast to other analysis carried out for this research, the fitted models in this pipeline include DPI and GFAP (low, high) as categorical (not continuous) variables.Therefore, performing a contrast between the time points and GFAP regions is necessary for an informative scientific inference. For this purpose, we use the emmeans function from the `emmeans` [@emmeans] package. After, we incorporate the calculated contrast in the results graph.
+
+## Results for Region:DPI model
+
+In our first model (Pdgfrb \~ Region + Gfap + Region:Gfap) we attempt to find out the effect of region in the allocation of PDGFR-β+ cells. First, we generate a graph using the conditional effects function:
+
+```{r}
+#| label: Pdgfr_Gfap_PlotRegions
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+# We convert the estimates to a data frame
+Pdgfr_Gfap_Region_df <- 
+  conditional_effects(Pdgfrb_Gfap_Fit1, effects = "Region:Gfap")
+
+Pdgfr_Gfap_Region_Fig <- 
+  plot(Pdgfr_Gfap_Region_df)[[1]] +
+  geom_point(data=Pdgfrb_Tess_Long, aes(y = Pdgfrb, x = Region, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  #ggtitle("Regions") +
+  
+  scale_y_continuous(name = "PDGFR-β cells",
+                     limits=c(0, 1200), 
+                     breaks=seq(0,1200,300)) +
+  
+  scale_x_discrete(name="Regions",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= c(0.2, 0.7))
+
+```
+
+For the moment, we store the graph as an object to latter build a composite graph. Now, we calculate the contrast of interest and prepare a data frame for a secondary plot:
+
+### Calculate contrast between factor levels of interest
+
+We generate data tables containing the contrasts between the different levels of the predictor variables. We'll focus in the contrast related to the allocation of PDGFR-β+ cells in regions with Low GFAP spatial intensity.
+
+```{r}
+#| label: Pdgfrb_Gfap_ContrastRegions
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+# We generate a data frame with the contrast
+Pdgfr_Gfap_Region_Contrast <- Pdgfrb_Gfap_Fit1%>%
+emmeans(~ Region + Gfap, var = "Pdgfrb", epred = TRUE) %>%
+contrast(method = "pairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+
+# We select contrast of interest 
+Pdgfr_Gfap_Region_Contrast_Sub <- Pdgfr_Gfap_Region_Contrast[
+  (Pdgfr_Gfap_Region_Contrast$contrast=="Perilesion Low - Striatum Low"|
+   Pdgfr_Gfap_Region_Contrast$contrast=="Perilesion Low - Cortex Low"|
+   Pdgfr_Gfap_Region_Contrast$contrast=="Striatum Low - Cortex Low"),]
+
+Pdgfr_Gfap_Region_Contrast_Sub$contrast <- 
+  factor(Pdgfr_Gfap_Region_Contrast_Sub$contrast, 
+         levels = c("Perilesion Low - Striatum Low", "Perilesion Low - Cortex Low", "Striatum Low - Cortex Low")) 
+```
+
+
+We plot the contrast using ggplot
+
+```{r}
+#| label: Pdgfrb_Gfap_PlotRegions2
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+
+Pdgfr_Gfap_Region_Contrast_Fig <- 
+  Pdgfr_Gfap_Region_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast)) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+
+  scale_y_discrete(
+    name= "",
+    labels = c("Peri-Str","Peri-Ctx",  "Str-Ctx")) +
+  
+  scale_x_continuous(
+   name="Region contrast",
+   limits=c(-600, 100), 
+   breaks=seq(-600,100, 100)) +
+
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.7))
+
+```
+
+Next, we create the composite graph to plot estimates and contrast:
+
+```{r}
+#| label: fig-Pdgfr_Gfap_PlotRegions3
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Posterior for PDGFR-𝛽+ cells in GFAP regions
+#| fig-width: 6
+#| fig-height: 5
+
+Pdgfr_Gfap_Region_Patch <- 
+  Pdgfr_Gfap_Region_Fig + 
+  plot_spacer() + 
+  Pdgfr_Gfap_Region_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.4))
+  
+
+ ggsave(plot     = Pdgfr_Gfap_Region_Patch, 
+       filename  = "Plots/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Region-Contrast.png", 
+       width     = 14, 
+       height    = 12, 
+       units     = "cm")
+ 
+ Pdgfr_Gfap_Region_Patch
+```
+
+The graph shows that the contrast between perilesional and cortical areas is as extreme as the one between striatum and perilesional areas. This suggest that the cortex comprises tissue conditions well differentiated from those of striatum. Next, we visualize the results per region.
+
+### Posterior summary
+
+Now, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Pdgfr_Gfap_DescribePosterior_Regions
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Gfap_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Covariance between PDGFR-β and GFAP+ cells following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Fit1_Table.html",
+             )
+
+Pdgfrb_Gfap_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Gfap_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Table.tex")
+```
+The results having `Region` (Perilesion, striatum, Cortex) and `Gfap` (Low, High) as predictors, show that the perilesion (intercept) exhibits 3.78 (95%CI = 3.52-4.04) (log count) PDGFR-β+ cells in Low GFAP density areas. In the striatum, the log count is 0.49 (95%CI = 0.12 - 0.85) units higher than in the perilesion, whereas these value augments to 1.06 (95%CI= 0.67 -1.46) in the cortex. Not surprisingly, the ischemic cortex is the region that exhibits more prominent PDGFR-β allocation.
+
+On the other hand, the effect of GFAP spatial intensity is signaled by the `Gfap.L`, which indicates a linear contrast between the two levels of the variable "Low" and "High". This imply that when GFAP changes form low to high, there is -0.47 (95%CI= -0.83 - -0.09) units in the log count of PDGFR-β+ cells assuming the effect is not mediated by Region. However, the interaction terms RegionStriatum:Gfap and RegionCortex:Gfap suggest there are disparities in the response in the striatum and cortex. The striatum display an additional increase (0.46, 95%CI= -0.07-0.97) of PDGFR-β+ cells when the GFAP spatial intensity goes from Low to High, compared to the perilesional regions. Specifically, the combined effect is: - 0.47 + 0.46 = -0.02.
+
+Conversely, the cortex display a reduction of -0.64 (95%CI= -1.20- - 0.06) units in the log count of PDGFR-β+ cells when GFAP changes from "Low" to "High" (compared to perilesion). Therefore, the effect of the spatial intensity of GFAP is contrary in striatum and cortex.
+
+Please note that the results graph show the number of cells in the normal scale given the conversion performed by the `conditional_effects` function from `brms`. 
+
+
+## Results for Perilesion (DPI:Gfap)
+
+As done previously, we generate a primary graph containing the points estimates from the model.
+
+```{r}
+#| label: Pdgfr_Gfap_PlotPerilesion
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+# We convert the estimates to a data frame
+Pdgfrb_Gfap_Perilesion <- 
+  conditional_effects(Pdgfrb_Gfap_Perilesion_Fit1, effects = "DPI:Gfap")
+
+Pdgfrb_Gfap_Perilesion_Fig <- 
+  plot(Pdgfrb_Gfap_Perilesion)[[1]] +
+  geom_point(data=Pdgfrb_Tess_Perilesion, aes(y = Pdgfrb, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Perilesion") +
+  
+  scale_y_continuous(name = "PDGFR-β cells",
+                     limits=c(0, 400), 
+                     breaks=seq(0,400,80)) +
+  
+  scale_x_discrete(name="DPI",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="Gfap density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= c(0.2, 0.7))
+```
+
+Now, we calculate the contrast and subset the relevant data for the graphical representation.
+
+#### Calculate contrast between factor levels of interest
+
+```{r}
+#| label: Pdgfrb_Gfap_ContrastPerilesion
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+# We generate a data frame with the contrast
+Pdgfrb_Gfap_Perilesion_Contrast <- Pdgfrb_Gfap_Perilesion_Fit1%>%
+emmeans(~ DPI + Gfap, var = "Pdgfrb", epred = TRUE) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+
+### Additionally, we can generate a table with the lower and upper limits 
+Pdgfrb_Gfap_Perilesion_Fit1_summary_df <- Pdgfrb_Gfap_Perilesion_Contrast %>%
+  group_by(contrast) %>%  
+  summarise(
+    estimate = mean(.value), 
+    lower_ci = quantile(.value, 0.025),
+    upper_ci = quantile(.value, 0.975)
+  ) %>%
+  mutate(
+    percentage_change = estimate * 100
+  )
+
+
+# Subset relevant data fo the contrast graph
+Pdgfrb_Gfap_Perilesion_Contrast_Sub <- Pdgfrb_Gfap_Perilesion_Contrast[
+  (Pdgfrb_Gfap_Perilesion_Contrast$contrast=="7D Low - 3D Low"|
+   Pdgfrb_Gfap_Perilesion_Contrast$contrast=="14D Low - 7D Low"|
+   Pdgfrb_Gfap_Perilesion_Contrast$contrast=="30D Low - 14D Low"|
+  Pdgfrb_Gfap_Perilesion_Contrast$contrast=="30D Low - 3D Low"),]
+
+Pdgfrb_Gfap_Perilesion_Contrast_Sub$contrast <- 
+  factor(Pdgfrb_Gfap_Perilesion_Contrast_Sub$contrast, 
+         levels = c("7D Low - 3D Low", "14D Low - 7D Low", "30D Low - 14D Low", "30D Low - 3D Low")) 
+```
+
+We create a grapg with the contrast:
+
+```{r}
+#| label: Pdgfr_Gfap_PlotPerilesion2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfrb_Gfap_Perilesion_Contrast_Fig <- 
+  Pdgfrb_Gfap_Perilesion_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        )) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  scale_y_discrete(
+    name= "",
+    labels = c("7D-3D","14D-7D",  "30D-14D", "30D-3D")) +
+  
+  scale_x_continuous(
+   name = expression ("DPI contrast GFAP"^low),
+   limits=c(-200, 200), 
+   breaks=seq(-200,200, 50)) +
+
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.8))
+
+```
+
+Next, we create the composite graph:
+
+```{r}
+#| label: fig-Pdgfr_Gfap_PlotPerilesion3
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Posterior for PDGFR-β+ cells in GFAP regions
+#| fig-width: 6
+#| fig-height: 5
+
+Pdgfrb_Gfap_Perilesion_Patch <- 
+  Pdgfrb_Gfap_Perilesion_Fig + 
+  plot_spacer() + 
+  Pdgfrb_Gfap_Perilesion_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.5))
+  
+
+ ggsave(plot     = Pdgfrb_Gfap_Perilesion_Patch, 
+       filename  = "Plots/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Perilesion-Contrast.png", 
+       width     = 14, 
+       height    = 12, 
+       units     = "cm")
+ 
+Pdgfrb_Gfap_Perilesion_Patch
+
+```
+
+The graph shows the relevant contrast by DPI for GFAP-low. We can see a progressive increase of the cell counting during the injury course with an increasing uncertainty, which materializes in a more likely difference of ~ 50 cells between 30D and 3D. 
+
+#### Posterior summary
+
+Now, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Pdgfr_Gfap_DescribePosterior_Perilesion
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Gfap_Perilesion_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Gfap_Perilesion_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Covariance between PDGFR-β and GFAP+ cells in the perilesion following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Perilesion_Table.html",
+             )
+
+Pdgfrb_Gfap_Perilesion_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Perilesion_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Gfap_Perilesion_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Perilesion_Table.tex")
+```
+The results show a general increase in the number of PDGFR-β+ cells during the injury course, with a peak at 14D (0.52, 95%CI= -0.10 - 1.13), when GFAP spatial intensity is low, as shown in the previous model with `Region` as a predictor.
+
+The effect of GFAP spatial intensity implies that when GFAP changes form low to high, there is -0.41 (95%CI= -1.05 - 0.25) units in the log count of PDGFR-β+ cells assuming the effect is not mediated by DPI. Then, the interaction terms for DPI shows a prominent effect at 30DPI (-0.28 + - 0.76 = -1.04), showing that the major difference between the number of PDGFR-β+ cells in low and high GFAP spatial intensity occur at this stage.     
+
+Please note that the results graph show the number of cells in the normal scale given the conversion performed by the `conditional_effects` function from `brms`. 
+
+## Results for striatum (DPI:GFAP)
+
+We perform the same procedure for striatum.
+
+```{r}
+#| label: Pdgfr_Gfap_PlotStriatum
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# We convert the estimates to a data frame
+Pdgfrb_Gfap_Striatum_df <- 
+  conditional_effects(Pdgfrb_Gfap_Striatum_Fit1, effects = "DPI:Gfap")
+
+Pdgfrb_Gfap_Striatum_Fig <- 
+  plot(Pdgfrb_Gfap_Striatum_df)[[1]] +
+  geom_point(data=Pdgfrb_Tess_Striatum, aes(y = Pdgfrb, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Striatum") +
+  
+  scale_y_continuous(name = "PDGFR-β cells",
+                     limits=c(0, 1000), 
+                     breaks=seq(0,1000,300)) +
+  
+  scale_x_discrete(name="DPI",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= "none")
+
+```
+
+### Calculate the contrast between factor levels of interest
+
+```{r}
+#| label: Pdgfrb_Gfap_StriatumContrast
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# For Pdgfrb_Gfap Striatum
+Pdgfrb_Gfap_Striatum_Contrast <- Pdgfrb_Gfap_Striatum_Fit1%>%
+emmeans(~ DPI + Gfap, var = "Pdgfrb", epred = TRUE) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+## Create a table with limits:
+Pdgfrb_Gfap_Striatum_Fit1_summary_df <- Pdgfrb_Gfap_Striatum_Contrast %>%
+  group_by(contrast) %>%  
+  summarise(
+    estimate = mean(.value),  
+    lower_ci = quantile(.value, 0.025),
+    upper_ci = quantile(.value, 0.975)
+  ) %>%
+  mutate(
+    percentage_change = estimate * 100
+  )
+
+
+# Subset contrasts of interests 
+Pdgfrb_Gfap_Striatum_Contrast_Sub <- Pdgfrb_Gfap_Striatum_Contrast[
+  (Pdgfrb_Gfap_Striatum_Contrast$contrast=="7D High - 3D High"|
+   Pdgfrb_Gfap_Striatum_Contrast$contrast=="14D High - 7D High"|
+   Pdgfrb_Gfap_Striatum_Contrast$contrast=="30D High - 14D High"|
+   Pdgfrb_Gfap_Striatum_Contrast$contrast=="30D High - 3D High"),]
+
+Pdgfrb_Gfap_Striatum_Contrast_Sub$contrast <- 
+  factor(Pdgfrb_Gfap_Striatum_Contrast_Sub$contrast, 
+         levels = c("7D High - 3D High", "14D High - 7D High", "30D High - 14D High", "30D High - 3D High")) 
+```
+
+We plot the contrast:
+
+```{r}
+#| label: Pdgfrb_Gfap_PlotStriatum2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_Gfap_Striatum_Contrast_Fig <- 
+  Pdgfrb_Gfap_Striatum_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast,
+        )) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+  
+  scale_y_discrete(
+    name= "",
+    breaks = c("7D High - 3D High", "14D High - 7D High", "30D High - 14D High", "30D High - 3D High"),
+    labels = c("7D-3D","14D-7D","30D-14D", "30D-3D")) +
+  
+  scale_x_continuous(
+   name = expression ("DPI contrast GFAP"^high),
+   limits=c(-300, 500), 
+   breaks=seq(-300,500, 200)) +
+
+  Plot_theme +
+  
+  theme (legend.position = "none")
+```
+
+Finally, we create the composite graph:
+
+```{r}
+#| label: fig-Pdgfr_Gfap_PlotStriatum3
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Posterior for PDGFR-β+ cells in GFAP regions
+#| fig-width: 6
+#| fig-height: 5
+
+
+Pdgfrb_Gfap_Striatum_Patch <- 
+  Pdgfrb_Gfap_Striatum_Fig + 
+  plot_spacer() + 
+  Pdgfrb_Gfap_Striatum_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.5))
+
+ ggsave(plot     = Pdgfrb_Gfap_Striatum_Patch, 
+       filename  = "Plots/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Striatum-Contrast.png", 
+       width     = 14, 
+       height    = 12, 
+       units     = "cm")
+ 
+ 
+Pdgfrb_Gfap_Striatum_Patch
+```
+The contrast for GFAP_Low shows a decrease in the cell counting up to 14D, denoting that PDGFR-β+ cells accompany GFAP reactive astrocytes in this region. 
+
+### Posterior summary
+
+Now, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Pdgfr_Gfap_DescribePosterior_Striatum
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Gfap_Striatum_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Gfap_Striatum_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Covariance between PDGFR-β and GFAP+ cells in the striatum following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Striatum_Table.html",
+             )
+
+Pdgfrb_Gfap_Striatum_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Striatum_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Gfap_Striatum_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Striatum_Table.tex")
+
+```
+Similar to perilesion, the results for striatum show a general increase in the number of PDGFR-β+ cells during the injury course when GFAP spatial intensity is low. However, the magnitude of these changes is higher, and the peak is reached at 30D (1.28, 95%CI= 0.71 - 1.85). The effect of GFAP spatial intensity is also higher than in the perilesion -1.47 (95%CI= -2.08 - -0.87). Interestingly, the terms for the interaction between DPI and GFAP spatial intensity denote that the log counts for PDGFR-β+ cells increases progressively in areas of astrogliosis (GFAP_High) with a combined effect of -1.47 + 2.06 = 0.45 units. Please note that the results graph show the number of cells in the normal scale given the conversion performed by the `conditional_effects` function from `brms`. 
+
+
+## Results Cortex (DPI:GFAP) 
+
+Now, we handle the results for the ischemic cortex.
+
+```{r}
+#| label: Pdgfr_Gfap_PlotCortex
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+# We convert the estimates to a data frame
+Pdgfrb_Gfap_Cortex_df <- 
+  conditional_effects(Pdgfrb_Gfap_Cortex_Fit1, effects = "DPI:Gfap")
+
+Pdgfrb_Gfap_Cortex_Fig <- 
+  plot(Pdgfrb_Gfap_Cortex_df)[[1]] +
+  geom_point(data=Pdgfrb_Tess_Cortex, aes(y = Pdgfrb, x = DPI, colour=Gfap),
+             inherit.aes=FALSE, alpha=0.5,
+             position=position_jitter(h=0, w=0.07)) +
+  
+  ggtitle("Cortex") +
+  
+  scale_y_continuous(name = "PDGFR-β cells",
+                     limits=c(0, 1500), 
+                     breaks=seq(0,1500,300)) +
+  
+  scale_x_discrete(name="DPI",
+                   position = "top") +
+  
+  scale_color_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")
+    ) +
+  
+  scale_fill_manual(
+    values = c("#0048BA", "#006B3C"),
+    name="GFAP density",
+    breaks=c("Low", "High"),
+    labels=c("Low", "High")) +
+
+   Plot_theme +
+  
+   theme (legend.position= "none")
+```
+
+#### Calculate the contrast between factor levels of interest
+
+```{r}
+#| label: Pdgfrb_Gfap_CortexContrast
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# For Pdgfr_Gfap Cortex
+Pdgfrb_Gfap_Cortex_Contrast <- Pdgfrb_Gfap_Cortex_Fit1%>%
+emmeans(~ DPI + Gfap, var = "Pdgfrb", epred = TRUE) %>%
+contrast(method = "revpairwise") %>%
+gather_emmeans_draws() %>% sample_n(100)
+
+## Create a table with limits:
+Pdgfrb_Gfap_Cortex_Fit1_summary_df <- Pdgfrb_Gfap_Cortex_Contrast %>%
+  group_by(contrast) %>%  
+  summarise(
+    estimate = mean(.value),
+    lower_ci = quantile(.value, 0.025),
+    upper_ci = quantile(.value, 0.975)
+  ) %>%
+  mutate(
+    percentage_change = estimate * 100
+  )
+
+
+# Subset contrasts of interests 
+Pdgfrb_Gfap_Cortex_Contrast_Sub <- Pdgfrb_Gfap_Cortex_Contrast[
+  (Pdgfrb_Gfap_Cortex_Contrast$contrast=="7D Low - 3D Low"|
+   Pdgfrb_Gfap_Cortex_Contrast$contrast=="14D Low - 7D Low"|
+   Pdgfrb_Gfap_Cortex_Contrast$contrast=="30D Low - 14D Low"),]
+
+Pdgfrb_Gfap_Cortex_Contrast_Sub$contrast <- 
+  factor(Pdgfrb_Gfap_Cortex_Contrast_Sub$contrast, 
+         levels = c("7D Low - 3D Low", "14D Low - 7D Low", "30D Low - 14D Low")) 
+```
+
+We organize our comparisons for plotting:
+
+```{r}
+#| label: Pdgfr_Gfap_PlotCortex2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+              
+Pdgfrb_Gfap_Cortex_Contrast_Fig <- 
+  Pdgfrb_Gfap_Cortex_Contrast_Sub %>%
+  ggplot(
+    aes(x    = .value, 
+        y    = contrast)) +
+  
+  stat_slab() +
+  
+  stat_pointinterval(
+    point_interval = mode_hdi, 
+    position = position_dodge(width = .95, preserve = "single")) +
+
+  scale_y_discrete(
+    name= "",
+    labels = c("7D-3D","14D-7D",  "30D-14D")) +
+  
+  scale_x_continuous(
+   name="DPI contrast",
+   limits=c(-600, 1000), 
+   breaks=seq(-600,1000, 300)) +
+
+  Plot_theme +
+  
+  theme (legend.position = c(0.9, 0.9))
+```
+
+We generate the composite graph:
+
+```{r}
+#| label: fig-Pdgfr_Gfap_PlotCortex3
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Posterior for PDGFR-𝛽+ cells in GFAP regions
+#| fig-width: 6
+#| fig-height: 5
+
+Pdgfrb_Gfap_Cortex_Patch <- 
+  Pdgfrb_Gfap_Cortex_Fig + 
+  plot_spacer() + 
+  Pdgfrb_Gfap_Cortex_Contrast_Fig  + 
+  plot_layout(ncol = 2, 
+              nrow = 2, 
+              widths = c(6, 1), 
+              heights = c(1, 0.4))
+  
+
+ ggsave(plot     = Pdgfrb_Gfap_Cortex_Patch, 
+       filename  = "Plots/Widefield_10x_ROIs_Gfap-Pdgfrb_Covariance/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex-Contrast.png", 
+       width     = 14, 
+       height    = 12, 
+       units     = "cm")
+ 
+ Pdgfrb_Gfap_Cortex_Patch
+```
+
+
+
+#### Posterior summary
+
+Now, we plot the posterior summary as done previously:
+```{r}
+#| label: Pdgfr_Gfap_DescribePosterior_Cortex
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Gfap_Cortex_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Gfap_Cortex_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Covariance between PDGFR-β and GFAP+ cells in the Cortex following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Table.html",
+             )
+
+Pdgfrb_Gfap_Cortex_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Cortex_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Gfap_Cortex_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Table.tex")
+```
+
+# Density maps for visualization
+
+In this section, we plot some density maps for visualization and illustration in the scientific article.
+
+First, we load the point patterns
+
+```{r}
+#| label: Pdgfrb_Gfap_LoadPPP
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+PPP_ROIs_10x <- readRDS("PointPatterns/Widefield_10x_ROIs_Gfap-Pdgfrb_PPP.rds") 
+```
+
+Next, we plot the density kernels stored in the hyperframe.
+
+```{r}
+#| label: PPP_Pdgfr_DensityPlots
+#| include: true
+#| warning: false
+#| message: false
+
+Gfap_Colmap <- colourmap(topo.colors(256), range = c(0, 20000))
+
+## For Cortex 30D
+
+plot(PPP_ROIs_10x$Gfap_Dens$`139`, col = Gfap_Colmap, main = "30 DPI") 
+plot(PPP_ROIs_10x$Pdgfr$`139`, pch = 16, cex = 0.4, col = "white", add = TRUE) 
+
+## For Striatum 30D
+
+plot(PPP_ROIs_10x$Gfap_Dens$`141`, col = Gfap_Colmap, main = "30 DPI") 
+plot(PPP_ROIs_10x$Pdgfr$`141`, pch = 16, cex = 0.4, col = "black", add = TRUE)
+
+
+## For Perilesional 30D
+
+plot(PPP_ROIs_10x$Gfap_Dens$`140`, col = Gfap_Colmap, main = "30 DPI") 
+plot(PPP_ROIs_10x$Pdgfr$`140`, pch = 16, cex = 0.4, col = "white", add = TRUE) 
+```
+
+The black/white dots represent PDGFR-β+ cells, while the density kernels depict the GFAP spatial intensity.
+
+# References
+
+::: {#refs}
+:::
+
+
+```{r}
+sessionInfo()
+```
+
