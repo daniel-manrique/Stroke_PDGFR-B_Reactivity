@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of PDGFR-β-low and PDGFR-β high+ cells"
+title: "Analysis of PDGFR-β-low and PDGFR-β high+ cells in the ipsilateral hemisphere"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full

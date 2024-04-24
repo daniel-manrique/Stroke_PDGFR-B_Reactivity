@@ -700,7 +700,7 @@ modelsummary(Pdgfrb_Gfap_Fit1,
              title = "Covariance between PDGFR-β and GFAP+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Fit1_Table.html",
+             output = "Tables/html/Widefield_10x_ROIs_Gfap-Pdgfrb_Regions_Fit1_Table.html",
              )
 
 Pdgfrb_Gfap_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Fit1, 
@@ -709,7 +709,7 @@ Pdgfrb_Gfap_Fit1_Table <- modelsummary(Pdgfrb_Gfap_Fit1,
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Pdgfrb_Gfap_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Cortex_Table.tex")
+gt::gtsave (Pdgfrb_Gfap_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Gfap-Pdgfrb_Regions_Table.tex")
 ```
 The results having `Region` (Perilesion, striatum, Cortex) and `Gfap` (Low, High) as predictors, show that the perilesion (intercept) exhibits 3.78 (95%CI = 3.52-4.04) (log count) PDGFR-β+ cells in Low GFAP density areas. In the striatum, the log count is 0.49 (95%CI = 0.12 - 0.85) units higher than in the perilesion, whereas these value augments to 1.06 (95%CI= 0.67 -1.46) in the cortex. Not surprisingly, the ischemic cortex is the region that exhibits more prominent PDGFR-β allocation.
 
