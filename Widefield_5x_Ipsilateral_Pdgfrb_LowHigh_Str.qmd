@@ -136,15 +136,15 @@ Plot_theme <- theme_classic() +
 #| tbl-cap: "Data set"
 
 # We load the dataset in case is not present in the R environment
-Pdgfrb_Striatum <- read.csv(file = "ProData/Wide5x_Ipsi_Pdgfr-Gfap_LowHigh_Str.csv", header = TRUE)
+Pdgfrb_Striatum <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten_Str.csv", header = TRUE)
 
-knitr::kable(Pdgfrb_Striatum [1:10, ])
+gt::gt(Pdgfrb_Striatum[1:10,])
 ```
 
-For this analysis, we focus on `DPI` (Days post-ischemia), `Pdgfr_NonReact`, `Pdgfr_React` variables to analyze these cells proportions in the ischemic brain. Next, we visualize the raw data to guide the statistical modeling. We plot the response variables as a scatter plot fitting a linear model, given that this data set comprises just two time points.
+For this analysis, we focus on `DPI` (Days post-ischemia), `Pdgfrb_NonReact`, `Pdgfrb_React` variables to analyze these cells proportions in the ischemic brain. Next, we visualize the raw data to guide the statistical modeling. We plot the response variables as a scatter plot fitting a linear model, given that this data set comprises just two time points.
 
 ```{r}
-#| label: Pdgfrb_LowHigh_Str_Exploratory
+#| label: fig-Pdgfrb_LowHigh_Str_Exploratory
 #| include: true
 #| warning: false
 #| message: false
@@ -163,7 +163,7 @@ Striatum_Pdgfr_Low_Sctr <-
   ggplot(
     data  = Pdgfrb_Striatum, 
     aes(x = DPI, 
-        y = Pdgfr_NonReact)) +
+        y = Pdgfrb_NonReact)) +
 geom_smooth(
   method = "lm", 
   se     = TRUE,
@@ -186,7 +186,7 @@ Striatum_Pdgfr_High_Sctr <-
   ggplot(
     data  = Pdgfrb_Striatum, 
     aes(x = DPI, 
-        y = Pdgfr_React)) +
+        y = Pdgfrb_React)) +
 geom_smooth(
   method = "lm", 
   se     = TRUE,
@@ -204,7 +204,7 @@ geom_jitter(
 Striatum_Pdgfr_Low_Sctr | Striatum_Pdgfr_High_Sctr
 ```
 
-@Pdgfrb_Striatum_LowHigh_Exploratory show that PDGFR-β^low^ (non-reactive cells) show a wide dispersion give the reduced number of observations at 14 DPI. Meanwhile, PDGFR-β^high^ display an increasing trend from 14 to 30 DPI. As done for brain with cortico-striatal lesions, we fit the model using a binomial family distribution. Please refer to the `Widefield_5x_Pdgfr-LowHigh/qmd` notebook for additional details of this dristribution model. 
+@Pdgfrb_Striatum_LowHigh_Exploratory show that PDGFR-β^low^ (non-reactive cells) show a wide dispersion give the reduced number of observations at 14 DPI. Meanwhile, PDGFR-β^high^ display an increasing trend from 14 to 30 DPI. As done for brain with cortico-striatal lesions, we fit the model using a binomial family distribution. Please refer to the `Widefield_5x_Ipsilateral_Pdgfrb_LowHigh.qmd` notebook for additional details of this distribution model. 
 
 # Statistical modeling 
 
@@ -232,41 +232,40 @@ $$
 #| results: false
 #| cache: true
 
-Pdgfr_Prop_Str_Mdl1 <- bf(Pdgfr_React | trials(Pdgfr_Total) ~ DPI)
+Pdgfrb_Prop_Str_Mdl1 <- bf(Pdgfrb_React | trials(Pdgfrb_Total) ~ DPI)
 
-get_prior(Pdgfr_Prop_Str_Mdl1, Pdgfrb_Striatum, family = binomial())
+get_prior(Pdgfrb_Prop_Str_Mdl1, Pdgfrb_Striatum, family = binomial())
 
-Pdgfr_Prop_Str_Prior1 <- 
+Pdgfrb_Prop_Str_Prior1 <- 
   c(prior(normal(1,0.2), class = b, lb = 0),
     prior(student_t(3, 0, 2), class = Intercept, lb = 0))
 
 # Fit model 1
-Pdgfr_Prop_Str_Fit1 <- 
+Pdgfrb_Prop_Str_Fit1 <- 
   brm(
     data    = Pdgfrb_Striatum,
     family  = binomial(), 
-    formula = Pdgfr_Prop_Str_Mdl1,
-    prior   = Pdgfr_Prop_Str_Prior1,
+    formula = Pdgfrb_Prop_Str_Mdl1,
+    prior   = Pdgfrb_Prop_Str_Prior1,
     chains  = 4,
     cores   = 4,
     warmup  = 2500, 
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Pdgfrb_LowHigh/Pdgfrb_Prop_Str_Fit1.rds",
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh/Widefield_5x_Ipsilateral_Str_LowHigh_Fit1.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison
-Pdgfr_Prop_Strl_Fit1 <- 
-  add_criterion(Pdgfr_Prop_Str_Fit1, c("loo", "waic", "bayes_R2"))
+Pdgfrb_Prop_Strl_Fit1 <- 
+  add_criterion(Pdgfrb_Prop_Str_Fit1, c("loo", "waic", "bayes_R2"))
 ```
-
 ## Model diagnostics
 
 We perform model checks using the `pp_check` function:
 
 ```{r}
-#| label: Pdgfrb_LowHigh_Str_Diagnistics 
+#| label: fig-Pdgfrb_LowHigh_Str_Diagnistics 
 #| include: true
 #| warning: false
 #| message: false
@@ -278,16 +277,15 @@ We perform model checks using the `pp_check` function:
 
 set.seed(8807)
 
-Pdgfr_Prop_Str_Mdl1_pp <- 
-  brms::pp_check(Pdgfr_Prop_Str_Fit1, 
+Pdgfrb_Prop_Str_Mdl1_pp <- 
+  brms::pp_check(Pdgfrb_Prop_Str_Fit1, 
                  ndraws = 100) +
     labs(title = expression("Posterior predictive checks (PDGFR-β)"),
     subtitle = "Formula: PDGFR_React | PDGFR_Total ~ DPI") +
   Plot_theme  
  
-Pdgfr_Prop_Str_Mdl1_pp
+Pdgfrb_Prop_Str_Mdl1_pp
 ```
-
 Similar to our cortico-striatal injuries, our predictions exhibit a moderate deviations from the data. We further diagnose calculating Leave-One-Out Cross-Validation (Loo) using the `loo` function from `brms`.
 
 ```{r}
@@ -296,10 +294,10 @@ Similar to our cortico-striatal injuries, our predictions exhibit a moderate dev
 #| warning: false
 #| message: false
 
-loo(Pdgfr_Prop_Str_Fit1)
+loo(Pdgfrb_Prop_Str_Fit1)
 ```
 
-The results show that most observations are problematic. In particular, 48% of observations belonging to the very bad category, suggest that the importance sampling weights for these observations are highly variable. Therefore, it is fair to ponder that this model must be considered with caution.
+The results show that most observations are problematic. In particular, 48% of observations belonging to the very bad category, suggest that the importance sampling weights for these observations are highly variable. This model does not have a good fit and must include additional variables. 
 
 # Model results
 
@@ -318,14 +316,14 @@ The results show that most observations are problematic. In particular, 48% of o
 set.seed(8807)
 
 # We create the graph for convex hull
-Pdgfr_Prop_Str_DPI <- 
-  conditional_effects(Pdgfr_Prop_Str_Fit1)
+Pdgfrb_Prop_Str_DPI <- 
+  conditional_effects(Pdgfrb_Prop_Str_Fit1)
 
-Pdgfr_Prop_Str_DPI <- plot(Pdgfr_Prop_Str_DPI, 
+Pdgfrb_Prop_Str_DPI <- plot(Pdgfrb_Prop_Str_DPI, 
        plot = FALSE)[[1]]
 
-Pdgfr_Prop_Str_fig <- Pdgfr_Prop_Str_DPI  + 
-  scale_y_continuous(name = expression ("(p) PDGFR-β"^high)) +
+Pdgfrb_Prop_Str_fig <- Pdgfrb_Prop_Str_DPI  + 
+  scale_y_continuous(name = expression ("(p) Pdgfrb-β"^high)) +
   scale_x_continuous(name="DPI") +
   scale_color_manual(
     values = c("#0048BA", "red"),
@@ -340,16 +338,16 @@ Pdgfr_Prop_Str_fig <- Pdgfr_Prop_Str_DPI  +
   theme(legend.position = "top", legend.direction = "horizontal")
 
 ggsave(
-  plot     = Pdgfr_Prop_Str_fig, 
-  filename = "Plots/Pdgfr_Prop_Str_fig.png", 
+  plot     = Pdgfrb_Prop_Str_fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh/Widfield_5x_Ipsilateral_Pdgfrb_LowHigh_Str.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
 
-Pdgfr_Prop_Str_fig
+Pdgfrb_Prop_Str_fig
 ```
 
-@fig-PDGFRProp_Striatal_CondEff show an increasing probability for reactive PDGFR-β with a low uncertainty. This shows a clear contrast with cortico-striatal lesions which exhibit twice the probability at 14 and 30 DPI.
+@fig-Pdgfr_LowHigh_Str_CondEff show an increasing probability for reactive PDGFR-β with a low uncertainty. This shows a clear contrast with cortico-striatal lesions which exhibit twice the probability at 14 and 30 DPI.
 
 ## Posterior summary
 
@@ -363,9 +361,34 @@ Here, we visualize the results in numerical terms using the `describe_posterior`
 #| results: false
 
 describe_posterior(
-  Pdgfr_Prop_Str_Fit1,
+  Pdgfrb_Prop_Str_Fit1,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
+
+modelsummary(Pdgfrb_Prop_Str_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "PDGFR-β low and high-intensity populations in striatal-only lesions following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh_Str_Table.html",
+             )
+
+Pdgfrb_Prop_Str_Fit1_Table <- modelsummary(Pdgfrb_Prop_Str_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Prop_Str_Fit1_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_LowHigh_Str_Table.tex")
+```
+
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
 ```

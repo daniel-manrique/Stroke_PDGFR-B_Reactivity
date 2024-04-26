@@ -68,7 +68,7 @@ Install and load all required packages. Please uncomment (delete #) the line cod
 #install.packages("devtools")
 #library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "emmeans", "ggplot", "modelr", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "emmeans", "ggplot","gtsummary",  "modelr", "modelsummary", "patchwork", "poorman", "tidybayes", "tidyverse", "viridis"))
 
 
 library(bayesplot)
@@ -78,7 +78,9 @@ library(dplyr)
 library(easystats)
 library(emmeans)
 library(ggplot2)
+library(gtsummary)
 library(modelr)
+library(modelsummary)
 library(patchwork)
 library(poorman)
 library(plyr)
@@ -1607,7 +1609,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Striatum_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PDGFR-β+ parenchymal cells following MCAO",
+             title = "PDGFR-β+ cells following MCAO in striatal-only regions",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_10x_ROIs_CD31-Pdgfrb_Striatum_Fit1_Table.html",
@@ -1619,7 +1621,7 @@ Pdgfrb_Striatum_Fit1_Table <- modelsummary(Pdgfrb_Striatum_Fit1,
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Pdgfrb_L1MCAO_Fit1_Table, 
+gt::gtsave (Pdgfrb_Striatum_Fit1_Table, 
             filename = "Tables/tex/Widefield_10x_ROIs_CD31-Pdgfrb_Striatum_Fit1_Table.tex")
 
 
@@ -1633,7 +1635,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Striatum_Fit2, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PDGFR-β+ parenchymal cells following MCAO",
+             title = "Probability of parenchymal PDGFR-β+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_10x_ROIs_CD31-Pdgfrb_Striatum_Fit2_Table.html",
@@ -1649,7 +1651,7 @@ gt::gtsave (Pdgfrb_Striatum_Fit2_Table,
             filename = "Tables/tex/Widefield_10x_ROIs_CD31-Pdgfrb_Striatum_Fit2_Table.tex")
 ```
 
-# Analisys of Sham/MCAO animals (effect of recombination)
+# Analisys of Sham/MCAO animals (effect of tamoxifen recombination)
 
 To estimate the effects of tamoxifen recombination in the number of parenchymal PDGFR-B cells, we analyze the cortical regions from MCAO and Sham animals in a single Bayesian model.
 
@@ -1658,7 +1660,7 @@ To estimate the effects of tamoxifen recombination in the number of parenchymal 
 We filter the data set to select rows with cortical ROIs for MCAO and Sham animals.
 
 ```{r}
-#| label: pDGFRB_CD31_ShamMCAO
+#| label: Pdgfrb_CD31_ShamMCAO
 #| include: true
 #| warning: false
 #| message: false
@@ -1672,13 +1674,11 @@ Pdgfrb_CD31_ShamMCAO$Condition <- factor(Pdgfrb_CD31_ShamMCAO$Condition, levels 
 
 ## Statistical modeling
 
-As we want to evaluate the effects of recombination in each time point, we fit a linear model using  a Poisson distribution. Please refer to XXXXXX notebook for additional details on this. Here, we regress the total number of parenchymal PDGFR-β cells conditioning on the interaction between DPI and condition (sham or MCAO).The model takes the following notation:
+As we want to evaluate the effects of recombination in each time point, we fit a linear model using  a Poisson distribution. Here, we fit the model for the total number of parenchymal PDGFR-β cells conditioning on the interaction between DPI and condition (sham or MCAO).The model takes the following notation:
 
 $$
 Pdgfrb\_Parenchymal \sim Poisson(\lambda) \\
 \log(\lambda) = \beta_0 + \beta_1 \cdot DPI + \beta_2 \cdot Condition + \beta_3 \cdot (DPI \times Condition)
-
-
 $$
 
 Here, $\log$ is the natural logarithm, serving as the link function that relates the linear predictors to the mean of the Poisson distribution. This log link ensures that the predictions for $\lambda$ are always positive, as required for count data.
@@ -1724,7 +1724,7 @@ Pdgfrb_ShamMCAO_Fit1 <-
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Pdgfrb-CD31_Coloc/Pdgfrb_ShamMCAO_Fit1.rds",
+    file    = "Models/Widefield_10x_ROIs_CD31-Pdgfrb_Coloc/Widefield_10x_ROIs_CD31-Pdgfrb_ShamMCAO_Fit1",
     file_refit = "never") 
                      
 # Add loo for model comparison
@@ -1811,7 +1811,7 @@ Pdgfrb_ShamMCAO_fig <- Pdgfrb_ShamMCAO_DPI  +
 
 ggsave(
   plot     = Pdgfrb_ShamMCAO_fig, 
-  filename = "Plots/Widefiled_10x_Pdgfrb-CD31_Coloc/Pdgfrb_ShamMCAO_fig.png", 
+  filename = "Plots/Widefield_10x_ROIs_CD31-Pdgfrb_Coloc/Widefield_10x_ROIs_CD31-Pdgfrb_ShamMCAO_fig.png", 
   width    = 9, 
   height   = 9, 
   units    = "cm")
@@ -1839,9 +1839,32 @@ describe_posterior(
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
+
+modelsummary(Pdgfrb_ShamMCAO_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Parenchymal PDGFR-β+ cells in MCAO and sham animals",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_CD31-Pdgfrb_ShamMCAO_Fit1_Table.html",
+             )
+
+Pdgfrb_ShamMCAO_Fit1_Table <- modelsummary(Pdgfrb_ShamMCAO_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_ShamMCAO_Fit1_Table, 
+            filename = "Tables/tex/Widefield_10x_ROIs_CD31-Pdgfrb_ShamMCAO_Fit1_Table.tex")
 ```
 
 # References
 
 ::: {#refs}
 :::
+
+```{r}
+sessionInfo()
+```
+
