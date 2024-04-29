@@ -118,6 +118,7 @@ library(plyr)
 library(tidybayes)
 library(tidyverse)
 library(viridis)
+
 ```
 
 # Visual themes
@@ -284,7 +285,7 @@ Pdgfrb_Morphology_corr_fig
 
 ## Run the PCA
 
-After, we perform the principal component analysis using the `princomp` function, using the correlation matrix stored as `Pdgfr_Morphology_corr`. We print the numerical and graphical summaries of this step
+After, we perform the principal component analysis using the `princomp` function, using the correlation matrix stored as `Pdgfrb_Morphology_corr`. We print the numerical and graphical summaries of this step
 
 ```{r}
 #| label: fig-Pdgfrb_Morhplogy_PCA
@@ -348,7 +349,7 @@ To summarize the traits of the evaluated cells, we plot a spyder plot depicting 
 To create an sypder plot, we need to prepare the data in tiny format and summarize the variables.
 
 ```{r}
-#| label: Pdgfrb_Morhplogy_Spyder
+#| label: fig-Pdgfrb_Morhplogy_Spyder
 #| include: true
 #| warning: false
 #| message: false
@@ -362,17 +363,17 @@ Pdgfrb_Spyder_Variables <- subset(Pdgfrb_Morphology, select = c(Area, ConvexHull
 # Select columns containing metadata
 metadata <- Pdgfrb_Morphology[,c(1:8)]
 
-# Center the variables of interst
+# Center the variables of interest
 Pdgfrb_Spyder_VariablesCentred <- data.frame(scale(Pdgfrb_Spyder_Variables[, c(1:4)], center=T, scale=T))
 
-# Merge the metada and the variables of interest
+# Merge the metadata and the variables of interest
 Pdgfrb_Morphology_Spyder <- cbind(metadata, Pdgfrb_Spyder_VariablesCentred)
 
 # Group by class (cell type), summarize and reshape the date set
 Pdgfrb_Morphology_Spyder_Sum <- Pdgfrb_Morphology_Spyder %>%
    group_by(Class) %>%
    summarise(across(9:12, mean)) %>%
-  reshape_longer(c("Area", "ConvexHull",  "BranchLenght", "Intensity_Mean"))
+  datawizard::reshape_longer(c("Area", "ConvexHull",  "BranchLenght", "Intensity_Mean"))
 
 # Set variables as factors and rename them
 Pdgfrb_Morphology_Spyder_Sum$name <- factor(Pdgfrb_Morphology_Spyder_Sum$name, levels = c("Area", "ConvexHull",  "BranchLenght", "Intensity_Mean"), labels = c("Area", "Convex Hull",  "Branch Lenght", "Mean Intensity"))
@@ -515,8 +516,8 @@ We plot the model using `conditional_effects` from the `brm`s package.
 #| warning: false
 #| message: false
 #| fig-cap: Posterior predictive checks for PDGFR-β+ morphology
-#| fig-height: 4
-#| fig-width: 9
+#| fig-height: 5
+#| fig-width: 12
 
 # We create the graph for convex hull
 Pdgfrb_Morphology_Class <- 
