@@ -161,6 +161,8 @@ DPI_mapping <- c("3D" = "3", "7D" = "7")
 Ki67_Data$DPI_Cont <- as.numeric(DPI_mapping[as.character(Ki67_Data$DPI)])
 
 write.csv(Ki67_Data, "Data_Processed/Confocal_20x_ROIs_Ki67-Pdgfrb-CD31/Confocal_20x_ROIs_Ki67-Pdgfrb_Coloc.csv")
+
+gt::gt(Ki67_Data[1:10,])
 ```
 
 The dataset available at 10.5281/zenodo.10553084 includes images at 0D (sham animals) that were used to train the Pixel classification in ilastik [@berg2019]. There are not Ki67/PDGFR-β colocalized cells at 0 DPI. Also, includes images at 14D and 30D that were taken just for visualization and reference but will not be included in the analysis. 

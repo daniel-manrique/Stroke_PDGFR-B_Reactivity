@@ -176,6 +176,8 @@ Ki67_Data$Percentage_Pdgfrb <- (Ki67_Data$Colocalized * 100) / Ki67_Data$Pdgfrb
 Ki67_Data$Percentage_Ki67 <- (Ki67_Data$Colocalized * 100) / Ki67_Data$Ki67
 
 write.csv(Ki67_Data, "Data_Processed/Widefield_10x_Ipsilateral_Ki67-Pdgfrb/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc.csv", row.names = FALSE)
+
+gt::gt(Ki67_Data[1:10,])
 ```
 
 # Exploratory data visualization
