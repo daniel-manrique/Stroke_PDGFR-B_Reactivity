@@ -7,7 +7,13 @@ date-format: full
 author: 
   - name: "Daniel Manrique-Castano"
     orcid: 0000-0002-1912-1764
-    affiliation: Univerisity Laval (Laboratory of neurovascular interactions) 
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/" 
 keywords: 
   - PDGFR-β
   - PCA

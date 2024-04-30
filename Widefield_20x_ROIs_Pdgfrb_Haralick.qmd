@@ -51,10 +51,9 @@ This notebook reports the analysis of the area and Haralick features for PDGFR-�
 
 **Parent dataset:** PDGFR-β (td-tomato) Z-plane ROIs imaged at 20x. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_20x_ROIs_Pdgfrb.zip`.
 
-**Working dataset**: This notebook works with two different datasets. First, the `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/CellProfiler/Image.csv`containing the quantification of the area covered by the detected cells after processing using CellProfiler [@stirling2021]. The pipeline is available at https://osf.io/qmyk4. 
+**Working dataset**: This notebook works with two different datasets. First, the `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/CellProfiler/Image.csv`containing the quantification of the area covered by the detected cells after processing using CellProfiler [@stirling2021]. The pipeline is available at https://osf.io/qmyk4.
 
 On the other hand, we load the `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/Raw_Widefield_20x_ROIs_Pdgfrb_Haralick.csv` containing the computed Haralick features using the `Widefield_20x_ROIs_Pdgfrb_Haralick_BatchScript` notebook.
-
 
 # Install and load required packages
 
@@ -209,8 +208,8 @@ We visualize the number of parenchymal PDGFR-β+ cells in the injured cortex.
 #| message: false
 #| results: false
 #| fig-cap: Exploratory data visualization for PDGFR-β area
-#| fig-width: 5
-#| fig-height: 4
+#| fig-width: 12
+#| fig-height: 5
 
 set.seed(8807)
 
@@ -365,7 +364,7 @@ We visualize the results using the `conditional_effects` function form `brms`.
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior for PDGFR-𝛽 area
+#| fig-cap: Posterior for PDGFR-β area
 #| fig-width: 6
 #| fig-height: 4
 
@@ -487,6 +486,7 @@ Pdgfrb_Haralick $Region <- factor(Pdgfrb_Haralick $Region, levels = c("Peri", "S
 
 gt::gt(Pdgfrb_Haralick[1:10, ])
 ```
+
 Here, we define the Haralick features for reference:
 
 -   **Angular Second Moment (ASM) / Energy:** Measures the uniformity of an image. A higher value indicates that the image has more uniform textures or constant regions.
@@ -517,7 +517,7 @@ Here, we define the Haralick features for reference:
 
 ## Principal component analysis (PCA)
 
-Next, we perform principal component analysis (PCA) as a dimensionality reduction method to for multiple variables. We will use the `factoMineR`[@FactoMineR] and `factoextra` [@factoextra] packages to have access to the PCA and visualization functions.
+Next, we perform principal component analysis (PCA) as a dimensionality reduction method to for multiple variables. We will use the `factoMineR` [@lê2008; @FactoMineR] and `factoextra` [@factoextra] packages to have access to the PCA and visualization functions.
 
 PCA uses an orthogonal transformation to convert a set of possibly correlated observations into a set of values of linearly uncorrelated variables called principal components. The number of principal components is generally less than the number of original variables. Here, the first principal component accounts for the higher variability in the data. This allow the transformation of a large set of variables into a smaller inputs containing all the information.
 
@@ -727,22 +727,21 @@ ggsave(
 
 Pdgfrb_Haralick_Spyder_fig
 ```
+
 ## Statistical modeling
 
 In this case, we perform statistical modeling using a logistic regression in `brms`. The response variable "Region" is modeled as a function of Entropy, Contrast and IDM. In this case, we set the family to `categorical` for multinomial logistic regression model with a logit link function.
 
 $$
 Region_{i} = logit ^{-1} (\beta_{0} + \beta_{1} * Entropy_{i} + \beta_{2} * Contrast_{i} + \beta_{3} * IDM_{i} + \epsilon_{i})
-$$
-This model uses the following weakly-informative priors:
+$$ This model uses the following weakly-informative priors:
 
 $$
 \begin{align}
 \beta_{1} \sim Normal(0, 1) \\
 \alpha \sim normal(0, 1) \\
 \end{align}
-$$
-## Fit the model
+$$ \## Fit the model
 
 ```{r}
 #| label: Pdgfrb_Haralick_Modeling
@@ -896,6 +895,7 @@ ggsave(
 
 Pdgfrb_Haralick_Convex_fig | Pdgfrb_Haralick_Branch_fig | Pdgfrb_Haralick_Inten_fig
 ```
+
 ### Posterior summary
 
 Next, we plot the posterior summary for both models using the `describe_posterior` function:
@@ -937,7 +937,6 @@ gt::gtsave (Pdgfrb_Haralick_Fit1_Table,
 
 ::: {#refs}
 :::
-
 
 ```{r}
 sessionInfo()
