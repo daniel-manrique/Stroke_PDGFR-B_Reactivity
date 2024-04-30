@@ -418,11 +418,20 @@ Pdgfrb_Morphology_Spyder_fig
 
 # Statistical modeling
 
-In this case, we perform statistical modeling using a logistic regression in `brms`. The response variable "class" is modeled as a function of Area, Convex Hull, Branch Length, and Mean Intensity. We specify the family argument specifies the type of regression model to fit. In this case, we set the family to categorical for multinomial logistic regression model with a logit link function.
+In this case, we perform statistical modeling using a logistic regression in `brms`. The response variable "class" is modeled as a function of Area, Convex Hull, Branch Length, and Mean Intensity. In this case, we set the family to `categorical` for multinomial logistic regression model with a logit link function.
 
 $$
 Class_{i} = logit ^{-1} (\beta_{0} + \beta_{1} * Area_{i} + \beta_{2} * Convex Hull_{i} + \beta_{3} * Branch Lenght_{i} + \beta_{3} * Mean Intensityt_{i} + \epsilon_{i})
 $$
+This model uses the following weakly-informative priors:
+
+$$
+\begin{align}
+\beta_{1} \sim Normal(0, 1) \\
+\alpha \sim normal(0, 1) \\
+\end{align}
+$$
+
 ## Fit the model
 
 ```{r}
@@ -491,7 +500,7 @@ Pdgfrb_Morphology_Mdl1_pp <-
 Pdgfrb_Morphology_Mdl1_pp
 ```
 
-@fig-GfapCoverage_Diagnostics displays a good fit between predictions and data. We can explore further the model using `shinystan`.
+@fig-Pdgfrb_Morphology_Diagnostics displays a good fit between predictions and data. We can explore further the model using `shinystan`.
 
 ```{r}
 #| label: Pdgfrb_Shiny

@@ -1,0 +1,215 @@
+---
+title-block-banner: true
+title: "Computation of Haralick features (texture analysis) from PDGFR-β in defined ROIs"
+subtitle: "Batch processing Python script"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - Ki67
+  - PDGFR-β
+  - Brain injury
+  - Cell proliferation
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+This notebook performs the batch processing/analysis of Haralick features for PDGFR-β in defined ROIs of the ipsilateral hemisphere.
+
+**Parent dataset:** PDGFR-β (td-tomato) imaged at 20x in defined ROIs. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_20x_ROIs_Pdgfrb.zip`.
+
+In this batch processing script, we compute the Haralick features for a set of microscopy images. The Haralick features are texture descriptors for images that are based on the quantization of gray-levels [@lofstedt2019]. We compute the following features:
+
+**Angular Second Moment (ASM) / Energy:** This measures the uniformity of an image. A higher value indicates that the image has more uniform textures or constant regions.
+
+**Contrast:** Represents the difference between the highest and the lowest intensity value in the co-occurrence matrix. It measures the amount of local variations present in an image.
+
+**Correlation:** Measures the joint probability occurrence of the specified pixel pairs. It provides information about the linear dependency of gray levels in the neighboring pixels.
+
+**Sum of Squares / Variance:** It provides a measure of the squared differences from the mean intensity value.
+
+**Inverse Difference Moment (IDM) / Homogeneity:** This measures the local homogeneity of an image. The values are high when the local textures are consistent or homogeneous.
+
+**Sum Average:** Represents the average intensity value of the co-occurrence matrix.
+
+**Sum Variance:** Measures the variance of the sum of the intensity values from the average value in the co-occurrence matrix.
+
+**Sum Entropy:** Represents the randomness or complexity in the sum of the intensity values of the co-occurrence matrix.
+
+**Entropy:** Provides a measure of the randomness or complexity in the image. Higher values indicate more complex textures.
+
+**Difference Variance:** Represents the variance in the differences between the intensity values of pairs of pixels.
+
+**Difference Entropy:** Measures the randomness or complexity in the differences between the intensity values of pairs of pixels.
+
+**Informational Correlation 1 (Info Corr 1):** Represents the correlation between the occurrence of the specified pixel pairs and their average intensity values.
+
+**Informational Correlation 2 (Info Corr 2):** Provides another measure of the correlation between the occurrence of the specified pixel pairs and their average intensity values. It's typically more sensitive to changes than Info Corr 1.
+
+# Load the libraries
+
+We load the required libraries to open the .tif files and handle the data. The Haralick features are computed using the `mahotas` library [@mahotas].
+
+```{python}
+import os
+from tifffile import imread
+import re
+import mahotas as mh
+import numpy as np
+import pandas as pd
+```
+
+# Extract metadata from image name
+
+Next, we execute a function to extract the metadata from the file name and organize a table with the computed features.
+
+```{python}
+
+def extract_metadata_from_filename(filename):
+    """
+    Extracts Day, Region, Protein, and AnimalID information from the given filename.
+    
+    Parameters:
+        filename (str): The filename to extract metadata from.
+    
+    Returns:
+        tuple: (animalid, day, region, protein)
+    """
+    # Extract AnimalID as the first string of the filename, for example, "Td012"
+    animalid = filename.split("_")[0]
+    
+    # Define a regular expression pattern based on your file naming convention
+    pattern = r"_(\d+D)_.*_(\w+)_(\w+)_"
+    match = re.search(pattern, filename)
+    
+    if match:
+        day, region, protein = match.groups()
+        return animalid, day, region, protein
+    else:
+        raise ValueError(f"Pattern not matched for: {filename}")
+
+# Example usage
+data_directory = "D:/Research/Stroke_PDGFR-B_Reactivity/Images_Raw/Widefield_20x_ROIs-Stacks_Pdgfra-Pdgfrb/Images_Zplane"
+files = [f for f in os.listdir(data_directory) if f.endswith('.tif')]
+
+for file in files:
+    # Extract metadata
+    animalid, day, region, protein = extract_metadata_from_filename(file)
+    
+    # Load the image stack
+    image_stack = imread(os.path.join(data_directory, file))
+    
+    # For now, let's just print the metadata and the shape of the image stack
+    print(f"Filename: {file} | AnimalID: {animalid} | Day: {day} | Region: {region} | Protein: {protein} | Image Shape: {image_stack.shape}")
+
+```
+
+# Compute Haralick features
+
+Finally, we compute the Haralick features and save the file as `Raw_Widefield_20x_ROIs_Pdgfrb_Haralick.csv`. Subsequent scientific inference is performed in the `Widefield_20x_ROIs_Pdgfrb_Haralick.qmd` notebook. 
+
+```{python}
+def compute_haralick_features(image):
+    """
+    Compute Haralick texture features for a 2D image using mahotas.
+    
+    Parameters:
+        image (numpy.ndarray): 2D image.
+        
+    Returns:
+        dict: Dictionary containing texture metrics for the image.
+    """
+    features = mh.features.haralick(image)
+    feature_dict = {
+        'angular_second_moment': features[0][0],
+        'contrast': features[0][1],
+        'correlation': features[0][2],
+        'sum_of_squares': features[0][3],
+        'inverse_difference_moment': features[0][4],
+        'sum_average': features[0][5],
+        'sum_variance': features[0][6],
+        'sum_entropy': features[0][7],
+        'entropy': features[0][8],
+        'difference_variance': features[0][9],
+        'difference_entropy': features[0][10],
+        'info_corr_1': features[0][11],
+        'info_corr_2': features[0][12]
+    }
+    return feature_dict
+
+# List to store results
+results = []
+
+for file in files:
+    # Extract metadata
+    animalid, day, region, protein = extract_metadata_from_filename(file)
+    
+    # Load the image
+    image = imread(os.path.join(data_directory, file))
+    
+    # Compute Haralick features for the image
+    features = compute_haralick_features(image)
+    
+    # Store the results, flattening the features for easier dataframe manipulation
+    results.append({
+        'AnimalID': animalid,
+        'Day': day,
+        'Region': region,
+        'Protein': protein,
+        **features,
+        'Filename': file  # Store the filename for traceability
+    })
+    
+    print(f"Processed: {file} | AnimalID: {animalid} | Day: {day} | Region: {region} | Protein: {protein}")
+
+# Convert results to a DataFrame for easier manipulation
+df = pd.DataFrame(results)
+
+save_path_csv = r"D:/Research/Stroke_PDGFR-B_Reactivity/Pdgfrb_Reactivity_DataAnalysis/Stroke_Pdgfrb_Reactivity/Data_Raw/Widefield_20x_ROIs_Pdgfrb/Raw_Widefield_20x_ROIs_Pdgfrb_Haralick.csv"
+
+# Save the results as CSV
+df.to_csv(save_path_csv, index=False)
+
+print(f"Haralick features results saved to {save_path_csv}")
+```
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
