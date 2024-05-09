@@ -1,0 +1,736 @@
+---
+title-block-banner: true
+title: "Analysis of KLF4 expression in the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - KLF4
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+Here, we analyze KLF4 expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+
+**Parent dataset:** KLF4, PDGFR-β and CD31 stained ischemic hemispheres imaged at 10x (with stitching). Samples were taken 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_KO_Klf4-Pdgfrb-CD31.zip`.
+
+**Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/` folder containing the raw output from CellProfiller [@stirling2021]. The CellProfiller pipeline used to perform the KLF4+ cell detection is available at OSF (https://osf.io/c8jga).
+
+We perform scientific inference based on the number of KLF4+ cells. We expect KLF4 to be reduced in KO animals.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Analysis of KLF4+ spatial inensity
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Cells.csv` and `Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Dapi_Cells.csv` datasets. These are heavy data sets containing information about individual cells detected in the ipsilateral hemisphere.
+
+```{r}
+#| label: tbl-Klf4_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Klf4_Cells <- read.csv(file = "Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Klf4_Cells.csv", header = TRUE)
+
+Dapi_Cells <- read.csv(file = "Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Dapi_Cells.csv", header = TRUE)
+
+gt::gt(Klf4_Cells[1:10,])
+```
+
+From the KLF4 table, we are interested in the `FileName_Raw`column containing the identification data for the images, and `Location_Center_X` and `Location_Center_Y`signaling the xy coordinates of each detection. From the Dapi table, we are interested in the metadata and the coordinates to set up the observation window. Next, we subset the dataset to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: tbl-Klf4_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Klf4_Data <- subset(Klf4_Cells, select = c("FileName_Raw", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Klf4_Data  <- cbind(Klf4_Data, do.call(rbind , strsplit(Klf4_Data$FileName_Raw, "[_\\.]"))[,1:3])
+
+Klf4_Data <- subset(Klf4_Data, select = -c(FileName_Raw))
+
+## We Rename the relevant columns 
+colnames(Klf4_Data) <- c("CenterX", "CenterY", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+Klf4_Data$DPI <- factor(Klf4_Data$DPI, levels = c("0D", "14D"))
+
+write.csv(Klf4_Data, "Data_Processed/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Klf4Density.csv", row.names = FALSE)
+
+
+## For DAPI
+
+## We subset the relevant columns (cell number)
+Dapi_Data <- subset(Dapi_Cells, select = c("FileName_Raw", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Dapi_Data  <- cbind(Dapi_Data, do.call(rbind , strsplit(Dapi_Data$FileName_Raw, "[_\\.]"))[,1:3])
+
+Dapi_Data <- subset(Dapi_Data, select = -c(FileName_Raw))
+
+## We Rename the relevant columns 
+colnames(Dapi_Data) <- c("CenterX", "CenterY", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+Dapi_Data$DPI <- factor(Dapi_Data$DPI, levels = c("0D", "14D"))
+
+write.csv(Dapi_Data, "Data_Processed/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_DapiDensity.csv", row.names = FALSE)
+
+```
+
+With the data handled, we create point patterns to perform Point Pattern Analysis (PPA) [@spatstat] and estimate the spatial intensity of cells. For more information on PPA, please refer to the `Widefield_10x_-Gfap-Pdgfrb_Covariance`notebook.
+
+## Generate and handle point patterns
+
+We use functions from the `spatstat` package [@baddeley2005] to create point patterns based on the coordinates of individual cells. The point patterns are then stored in a hyperframe and can be loaded into R as an R object.
+
+```{r}
+#| label: Klf4_PointPatterns
+#| include: true
+#| warning: false
+#| message: false
+
+# Initialize the hyperframe as NULL at the start
+Result_Hyperframe <- NULL
+
+# Adjusted add_to_hyperframe function to dynamically build the hyperframe
+add_to_hyperframe <- function(...) {
+  if (is.null(Result_Hyperframe)) {
+    Result_Hyperframe <<- hyperframe(...)
+  } else {
+    Result_Hyperframe <<- tryCatch({
+      rbind(Result_Hyperframe, hyperframe(...))
+    }, error = function(e) {
+      cat("Error in rbind: ", e$message, "\n")
+    })
+  }
+}
+
+# Adjusted function to create point patterns
+create_point_pattern <- function(Data_Subset) {
+  xlim <- range(Data_Subset$CenterX)
+  ylim <- range(Data_Subset$CenterY)
+
+  Cells_PPP <- spatstat.geom::ppp(x = Data_Subset$CenterX, y = Data_Subset$CenterY, xrange = xlim, yrange = ylim)
+  unitname(Cells_PPP) <- list("mm", "mm", 2.34264/5160)
+  Cells_PPP <- spatstat.geom::rescale(Cells_PPP)
+  
+  return(Cells_PPP)
+}
+
+# Iterate over unique MouseIDs to process and create point patterns for both Klf4 and Dapi
+mouse_ids <- unique(Klf4_Data$MouseID)
+
+for (mouse_id in mouse_ids) {
+  Subset_Klf4 <- Klf4_Data[Klf4_Data$MouseID == mouse_id, ]
+  Subset_Dapi <- Dapi_Data[Dapi_Data$MouseID == mouse_id, ]
+  
+  if(nrow(Subset_Klf4) > 0 && nrow(Subset_Dapi) > 0) {
+    Klf4_PPP <- create_point_pattern(Subset_Klf4)
+    Dapi_PPP <- create_point_pattern(Subset_Dapi)
+    
+    # Set the observation window for Klf4 based on Dapi's convex hull
+    Window(Klf4_PPP) <- convexhull(Dapi_PPP)
+    
+    dpi2_value <- unique(Subset_Klf4$DPI)[1]
+    Genotype_value <- unique(Subset_Klf4$Genotype)[1]
+    
+    add_to_hyperframe(Klf4 = Klf4_PPP, Dapi = Dapi_PPP, ID = as.character(mouse_id), DPI = as.factor(dpi2_value), Genotype = as.factor (Genotype_value), stringsAsFactors = TRUE)
+  } else {
+    message(sprintf("Skipping MouseID %s due to insufficient data.\n", mouse_id))
+  }
+}
+
+# Save the Result_Hyperframe
+Result_Hyperframe$DPI <- factor(Result_Hyperframe$DPI, levels = c("0D", "14D"))
+Result_Hyperframe$Genotype <- factor(Result_Hyperframe$Genotype, levels = c("WT", "KO"))
+
+
+saveRDS(Result_Hyperframe, "PointPatterns/Widefield_10x_Ipsilateral_KO_Klf4_PPP.rds")
+```
+
+The point patterns are created and stored. In the next, chunk, we load the point patterns and add density kernels. Please check the `Widefield_10x_Gfap-Pdgfrb_Covariance`notebook for more information in this regard.
+
+## Calculate density kernels
+
+We use the `density` function to calculate density kernels with a sigma of 0.02.
+
+```{r}
+#| label: Klf4_Densitykernels
+#| include: true
+#| warning: false
+#| message: false
+
+# Load the point patterns
+PointPatterns <- readRDS("PointPatterns/Widefield_10x_Ipsilateral_KO_Klf4_PPP.rds")
+
+# We change the row names
+row.names(PointPatterns) <- PointPatterns$ID 
+
+# We rotate the point patterns
+PointPatterns$Klf4 <- with(PointPatterns, rotate.ppp(Klf4, pi/2))
+PointPatterns$Klf4 <- with(PointPatterns, flipxy(Klf4))
+
+# Add density kernels to the hyperframe
+PointPatterns$Klf4_Density <- with (PointPatterns, density(Klf4, sigma = 0.02))
+```
+
+### Plot density kernels
+
+For visualization purposes, we plot some examples of the density kernels. 
+
+```{r}
+#| label: fig-Klf4_Plotkernels
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Example density kernels for KLF4
+#| fig-height: 5
+#| fig-width: 9
+
+Klf4_Colmap <- colourmap(topo.colors(256), range = c(0, 30000))
+
+par(mfrow = c(2,5), mar=c(1,1,1,1), oma=c(1,1,1,1))
+
+plot(PointPatterns$Klf4_Density$KL44, col = Klf4_Colmap, main = "Control")  
+plot(PointPatterns$Klf4_Density$KL35, col = Klf4_Colmap, main = "WT")
+plot(PointPatterns$Klf4_Density$KL48, col = Klf4_Colmap, main = "KLF4-KO")
+```
+## Modeling point pattern process
+
+In this section we use the `mppm` function from `spatstat` to fit a **log-linear models** for replicated point patterns. This model allow us to quantify KLF4 allocation changes conditional on the x coordinate of the ischemic hemisphere. In this case, we use a multilevel model with random intercepts and slopes for the x coordinate. Also, we exclude the control condition from this modeling as it is not of interest for us.
+
+The model specification is as follows: 
+
+## Statistical Model Specification
+
+The intensity function $\lambda(x, \text{DPI}_i)$ is modeled as:
+
+$$
+\log(\lambda(x, \text{Genotype}_i)) = \beta_0 + \beta_1 x + u_{0i} + u_{1i}x
+$$
+
+Where $\beta_0$ and $\beta_1$ are fixed effects, representing the baseline log intensity of KLF4 expression and the effect of the x-coordinate on this intensity, respectively.$u_{0i}$ and $u_{1i}$ are random effects for the intercept and slope, varying by DPI, to capture the variability in KLF4 expression intensity and its spatial variation across different injury stages.
+
+The current model specification is as follows:
+
+$$
+\lambda(u) = \exp(\beta_0 + \beta_x \times x_u + b_{\text{Genotype}[u]}) \\
+b_{\text{Genotype}[u]} \sim N(0, \sigma^2)
+$$
+Where $\lambda(u)$ denotes the intensity function of the point process at location $u$, which is assumed to be log-linearly dependent on the spatial covariate $x$ and varies by Genotype. $\beta_0$ is the intercept, $\beta_x$ is the coefficient for the spatial covariate $x$. $b_{\text{Genotype}[u]}$ is a random effect for Genotype, modeling additional variability in the intensity due to genetic differences, assumed to follow a normal distribution with mean zero and variance $\sigma^2$.
+ .
+### Fit the mppm model
+
+We fit the model excluding the control condition. We use the `mppm` function for treating replicated point patterns as those in out hyperframe. 
+
+```{r}
+#| label: Klf4_mppm
+#| include: true
+#| warning: false
+#| message: false
+
+PointPatterns_14D <- subset(PointPatterns, DPI=="14D", select = 1:5) 
+
+Klf4_mppm <- mppm(Klf4 ~ x, random = ~ x | Genotype, data = PointPatterns_14D)
+Klf4_Coef <- coef(Klf4_mppm) 
+
+summary(Klf4_mppm)
+```
+The results of this Poisson regression are presented in the log scale. Here, the slope (-2.05) indicates the spatial intensity of KLF4 changes as we move along the x-axis. The negative sign denotes that as x increases, the spatial intensity of KLF4 decreases. Now, the random effects coefficients account for variations in genotypes. The opposite sign for WT and KO indicates opposite effects as we mo move in the x-axis.  
+
+## Generate table for mean intensity
+
+Here, we extract the mean spatial intensity of each point pattern to perform a regression.
+
+```{r}
+#| label: tbl-Klf4_ExtractIntensity
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "KLF4 intensity table"
+
+# Initialize an empty data frame to store the results
+Klf4_Intensity <- data.frame(MouseID=character(), DPI=factor(), Genotype=factor(), Intensity=integer(), stringsAsFactors = FALSE)
+
+# Iterate over the rows of the hyperframe to calculate intensity for each Klf4 pattern
+for (i in 1:nrow(PointPatterns)) {
+  # Calculate the intensity of the Klf4 point pattern for the current row
+  current_intensity <- summary(PointPatterns$Klf4[[i]])$intensity
+  
+  # Round the intensity value to have no decimals
+  rounded_intensity <- round(current_intensity)
+  
+  # Extract MouseID and DPI2 for the current row
+  current_mouse_id <- PointPatterns$ID[i]
+  current_dpi2 <- PointPatterns$DPI[i]
+  current_Genotype <- PointPatterns$Genotype[i]
+  
+  # Add the results to the data frame
+  Klf4_Intensity  <- rbind(Klf4_Intensity, data.frame(MouseID=current_mouse_id, DPI2=current_dpi2, Genotype=current_Genotype, Intensity=rounded_intensity))
+}
+
+# View the final data frame
+print(Klf4_Intensity )
+
+write.csv(Klf4_Intensity, "Data_Processed/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Inten.csv", row.names = FALSE)
+
+gt::gt(Klf4_Intensity[1:10,])
+```
+
+## Exploratory data visualization
+
+We visualize the data to observe the distribution of the variables and have first ideas about modeling strategies.
+
+```{r}
+#| label: fig-Klf4_Int_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for Klf4 expression
+#| fig-width: 9
+#| fig-height: 4
+
+# Load the data set in case is not present in the environment
+
+Klf4KO_Intensity <- read.csv("Data_Processed/Widefield_10x_Ipsilateral_KO_Klf4/Widefield_10x_Ipsilateral_KO_Klf4_Inten.csv", header = TRUE)
+
+Klf4KO_Intensity$DPI <- factor(Klf4_Intensity$DPI, levels = c("0D", "14D"))
+Klf4KO_Intensity$Genotype <- factor(Klf4_Intensity$Genotype, levels = c("WT", "KO"))
+
+set.seed(8807)
+
+# Density plot
+################
+
+Klf4_Int_Dens <- 
+  ggplot(
+    data  = Klf4_Intensity, 
+    aes(x = Intensity,
+        color = Genotype)
+    ) +
+  geom_density(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="KLF4 (spatial intensity)") +
+  scale_y_continuous(name = "Density") +
+  Plot_theme
+
+
+# Boxplot
+##################
+
+Klf4_Int_box <- 
+  ggplot(
+    data  = Klf4_Intensity, 
+    aes(x = DPI2, 
+        y = Intensity,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+
+scale_y_continuous(name = "KLF4 (spatial intensity)") +
+scale_x_discrete(
+  name   ="DPI",
+  breaks = c("0D", "14D")
+  ) +
+Plot_theme
+
+#Plot the result
+Klf4_Int_Dens |  Klf4_Int_box
+```
+
+@fig-Klf4_Int_Expl shows differentiated peaks for the genotypes, including the control condition.On the right, we see a slight, similar increase of KLF4 at 14 DPI in WT and KO mice. At first glance, this shows that depletion of KLF4 in PDGFR-B cells does not have a meaningful impact in the overall KLF4 expression.
+
+## Statistical modeling for KLF4 spatial intensity
+
+We'll fit two different statistical models. 
+
+- **Klf4-KO_Int_Mdl1:** This is an only-intercept model that help to estimate a reference value for the analysis between Genotypes at 14 DPI. This model takes the following notation:
+
+$$
+Y_i \sim t(\nu, \mu, \sigma^2) \\ 
+\mu = \beta_0
+$$
+$Y_i$ denotes the observed values of Intensity. $t(\nu, \mu, \sigma^2)$ indicates that the response variable follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ$, and scale parameter $\sigma^2$. $\beta_0$ represents the intercept, which is the estimated mean level of Intensity when no other predictors are included in the model. The model takes the following priors based on our previous results using our transgenic TdTomato mice:
+
+$$
+\begin{align}
+\beta_{0} \sim Normal(5000,2000) \\
+\sigma \sim Student-t(3, 0, 600), \sigma > 0 \\
+\end{align}
+$$
+
+
+$$
+Y_i \sim t(\nu, \mu_{i}, \sigma_{i}^2) \\
+\mu_i = \beta_0 + \beta_{\text{Genotype}[i]} \\
+\log(\sigma_i) = \gamma_0 + \gamma_{\text{Genotype}[i]}
+$$
+In this model: $Y_i$ represents the observed Intensity values.$t(\nu, \mu_{i}, \sigma_{i}^2)$
+signifies that the response variable, Intensity, follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ_i$, and scale parameter $\sigma_{i}^2)$ for each observation $i$.$\mu_i$ denotes the mean of Intensity for each Genotype, with $\beta_0$   being the mean at the base value and $\beta_{\text{Genotype}[i]}$ representing the effect of KO. $\sigma_{i}$ denotes the scale parameter for each Genotype, with $γ0$ as the overall scale and $\gamma_{\text{Genotype}[i]}$ reflecting the effect of each Genotype on the variability of Intensity.
+
+This model uses priors based on the regression for 0D:
+
+$$
+\begin{align}
+\beta_{0} \sim Normal(8000,1000) \\
+\beta_{1}\sim Student-t(3, 0, 1000), \sigma > 0 \\
+\sigma \sim Student-t(3, 0, 1000), \sigma > 0
+\end{align}
+$$
+
+### Fit the models
+
+We employ `brms` to fit the model.
+
+```{r}
+#| label: Klf4_Int_Model
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1:Intercept-only model
+
+Klf4KO_Intensity_0D <- Klf4KO_Intensity[Klf4KO_Intensity$DPI =="0D",]
+
+Klf4KO_Int_Mdl1 <- bf(Intensity ~ 1)
+
+get_prior(Klf4KO_Int_Mdl1, Klf4KO_Intensity_0D, family = student)
+
+Klf4KO_Int_Prior1 <- 
+  c(prior(normal(5000,2000), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 600), class = sigma))
+
+# Fit model 1
+Klf4KO_Int_Fit1 <- 
+  brm(
+    family = student,
+    data    = Klf4KO_Intensity_0D,
+    formula = Klf4KO_Int_Mdl1,
+    prior   = Klf4KO_Int_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Fit1.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Klf4KO_Int_Fit1 <- 
+  add_criterion(Klf4KO_Int_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+
+# Model 2: Genotype as predictor
+
+Klf4KO_Intensity_14D <- Klf4KO_Intensity[Klf4KO_Intensity$DPI =="14D",]
+
+Klf4KO_Int_Mdl2 <- bf(Intensity ~ Genotype,
+                      sigma ~ Genotype)
+
+get_prior(Klf4KO_Int_Mdl2, Klf4KO_Intensity_14D, family = student)
+
+Klf4KO_Int_Prior2 <- 
+  c(prior(normal(8000,1000), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 1000), class = b),
+    prior(student_t(3, 0, 1000), class = b, dpar = "sigma"))
+
+# Fit model 1
+Klf4KO_Int_Fit2 <- 
+  brm(
+    family = student,
+    data    = Klf4KO_Intensity_14D,
+    formula = Klf4KO_Int_Mdl2,
+    prior   = Klf4KO_Int_Prior2,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Fit2.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Klf4KO_Int_Fit2 <- 
+  add_criterion(Klf4KO_Int_Fit2, c("loo", "waic", "bayes_R2"))
+```
+### Model diagnostics
+
+To evaluate sample predictions, we perform the model diagnostics for model 2 using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-Klf4_Int_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for KLF4 expression
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Klf4KO_Int_Fit2_pp <- 
+  brms::pp_check(Klf4KO_Int_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Intensity ~ Genotype") +
+  #scale_x_continuous(limits=c(0, 10000)) +
+  Plot_theme  
+
+Klf4KO_Int_Fit2_pp
+```
+
+We do not see meaningful deviations from the observed data. However, our first model is heavily impacted by an extreme observation.
+
+### Model results
+
+After validating the model, we plot the full posterior distribution for our second model. We set the ROPE considering the uncertainty in KLF4 expression in control animals:
+
+```{r}
+#| label: fig-Klf4-KO_Int_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for Klf4 expression
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Klf4KO_Int_Contrast <- Klf4KO_Int_Fit2 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 630))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-630, 630), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-2000, 3000),
+                      breaks = seq(-2000, 3000, 2000) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Klf4KO_Int_Contrast , 
+  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Intensity.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Klf4KO_Int_Contrast 
+```
+
+@fig-Klf4-KO_Int_Posterior shows there is no difference in the spatial intensity between KO and WT animals. 
+
+On the other hand, we can also plot the posterior distribution for the sigma parameter:
+
+```{r}
+#| label: fig-Klf4-KO_Int_PosteriorSigma
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for Klf4 expression (sigma)
+#| fig-width: 5
+#| fig-height: 4
+
+Klf4KO_Sigma_Contrast <- Klf4KO_Int_Fit2 %>%
+   spread_draws(b_sigma_GenotypeKO) %>%
+   mutate(Sigma_contrast =b_sigma_GenotypeKO) %>%
+  ggplot(aes(x = Sigma_contrast)) +
+   stat_halfeye() +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Sigma (KO-WT)",
+                     limits = c(-3, 2),
+                      breaks = seq(-3, 2, 1) ) +
+  Plot_theme
+
+ggsave(
+  plot     = Klf4KO_Sigma_Contrast, 
+  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Sigma.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Klf4KO_Sigma_Contrast 
+```
+
+We observe that the uncertainty (sigma in the log scale) for both groups have an overlap, but most of the probability function falls bellow 0, indicating that less uncertainty for KO mice. 
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Klf4KO_Int_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Klf4KO_Int_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Klf4KO_Int_Fit2, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Spatial intensity of KLF4 in the ipsilateral hemisphere",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.html",
+             )
+
+Klf4KO_Int_Fit2_Table <- modelsummary(Klf4KO_Int_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Klf4KO_Int_Fit2_Table, filename = "Tables/tex/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.tex")
+```
+The table displays the effect of KOLF-KO in the spatial intensity of KLF4 and its respective uncertainty. We can appreciate there is not evidence of difference between genotypes (248, CI95% = -805 - 139). 
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+
