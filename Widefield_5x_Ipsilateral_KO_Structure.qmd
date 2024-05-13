@@ -1,0 +1,820 @@
+---
+title-block-banner: true
+title: "Structural analysis of KLF4-KO brains in the ipsilateral hemisphere"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - GFAP
+  - PDGFR-β
+  - Brain injury
+  - Brain shrinkage
+  - Cell proliferation
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+In this notebook, we perform the analysis of the structural changes in KLF4 brain and related glial/fibrotic scar markers in the ipsilateral hemisphere following cerebral ischemia.
+
+**Parent dataset:** PDGFR-β and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFR-β/KLF4KO) and WT (Wild type controls). The mice were sacrificed 14 days post-ischemia (DPI) and four WT brains with no ischemia were added as a base control for measurement errors. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_KO:Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
+
+**Working dataset**: This notebook uses two datasets. First, the `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Shrinkage.csv` file containing measurements of the ipsilateral and contralateral hemispheres performed by the researchers in FIJI. Second, the `Data_Raw/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFR-β (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots.
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load the data sets
+
+We load the dataset and handle it the subset the columns of interest.
+
+```{r}
+#| label: Ki67-Pdgfrb_Load 
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+# Load the dataset for brain shrinkage
+Shrinkage <- read.csv(file = "Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Shrinkage.csv", header = TRUE)
+
+# We load the dataset for area and intensity measurements
+Area_Intensity <- read.csv(file = "Data_Raw/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Image.csv", header = TRUE)
+
+```
+
+Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFR-β labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
+
+```{r}
+#| label: Ki67-Pdgfrb_Handle 
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+## We subset the relevant columns (cell number)
+Area_Intensity <- subset(Area_Intensity, select = c("FileName_Gfap", "Intensity_MeanIntensity_Pdgfrb_Masked", "Intensity_MeanIntensity_Gfap_Masked",  "Intensity_TotalArea_Pdgfrb_Masked", "Intensity_TotalArea_Gfap_Masked"))
+
+## And extract metadata from the image name
+Area_Intensity  <- cbind(Area_Intensity, do.call(rbind , strsplit(Area_Intensity$FileName_Gfap, "[_\\.]"))[,1:3])
+
+Area_Intensity <- subset(Area_Intensity, select = -c(FileName_Gfap))
+
+## We Rename the relevant columns 
+colnames(Area_Intensity) <- c("Pdgfrb_Intensity", "Gfap_Intensity", "Pdgfrb_Area", "Gfap_Area", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+Area_Intensity$DPI <- factor(Area_Intensity$DPI, levels = c("0D", "14D"))
+Area_Intensity$Genotype <- factor(Area_Intensity$Genotype, levels = c("WT", "KO"))
+
+
+# We create column to related the area-intensity measurements
+Area_Intensity$Pdgfrb_IntDen <- (Area_Intensity$Pdgfrb_Area / Area_Intensity$Pdgfrb_Intensity) / 10000
+Area_Intensity$Gfap_IntDen <- (Area_Intensity$Gfap_Area / Area_Intensity$Gfap_Intensity) / 10000
+
+# We bind the two datasets
+
+Structure <- cbind (Area_Intensity, Shrinkage$Ratio)
+colnames(Structure)[10] <- "Shrinkage"
+
+write.csv(Structure, "Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Structure.csv", row.names = FALSE)
+
+gt::gt(Structure[1:10,])
+```
+
+## Analysis of brain shrinkage
+
+We start by analyzing the brain shrinkage in WT and KLF4-KO animals 14 days after injury.
+
+# Exploratory data visualization
+
+We plot the variable using boxplots
+
+```{r}
+#| label: fig-Shrinkage_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Exploratory data visualization for brain shrinkage 
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+Shrinkage_box <- 
+  ggplot(
+    data  = Structure, 
+    aes(x = DPI, 
+        y = Shrinkage,
+        color = Genotype)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter(width = 0.2) +
+  scale_y_continuous(name= expression("Ratio Ipsilateral/Contralateral")) +
+  scale_x_discrete(name="DPI",
+                     breaks=c("0D", "14D")) +
+  Plot_theme
+
+Shrinkage_box
+
+ggpairs(Structure, 8:10)
+
+```
+
+We observe that our reference sham animals show an atrophy ratio of about 1, which means both hemispheres are equal size, as expected. At 14 DPI, we do not see a clear difference between both genotypes. It seems as well that 1 WT animal (KL35) has an abnormal (incomplete) stroke, given that there is no atrophy. As this animal does not belong to the population, we exclude for further analysis
+
+```{r}
+Structure <- Structure[Structure$MouseID != "KL35",]
+
+```
+
+# Statistical modeling
+
+We'll fit a statistical model for the 14 DPI animals using a student-T distribution using the `brms` package [@burkner2018; @brms]. We fit the following model accounting for heteroscedasticity:
+
+-   **Shrinkage_Mdl1:** We employ `Genotype` as the unique predictor for the brain shrinkage.
+
+$$
+Coloc_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}
+$$
+
+This model uses the following weakly-informative priors:
+
+$$
+\begin{align}
+\beta_{1} \sim Normal(0, 10) \\
+\alpha \sim normal(0, 10) \\
+\sigma \sim Student-t(3, 0, 50), \sigma > 0 \\
+\end{align}
+$$
+
+-   **Ki67_Pdgfrb_Mdl2:** We fit a splines model with heteroscedasticity (sigma as additional response variable) keeping `DPI` the unique predictor:
+
+$$
+IntDen_{i} = f_{s(DPI)}(DPI_{i})   \\
+sigma_{i} = f_{s(DPI)}(DPI_{i})  
+$$
+
+This model uses the same priors for model 1. The election of this weakly informative priors is based on previous research [@Chandran2021a] suggesting that up to 50% of PDGFR-β+ cells proliferate in the subsequent days following ischemia.
+
+## Fit the models
+
+```{r}
+#| label: Ki67_Coloc_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Structure_0D <- Structure[Structure$DPI == "0D",]
+
+# Model 1: Genotype as a single predictor
+Shrinkage_0D <- bf(Shrinkage ~ 1)
+                     
+get_prior(Shrinkage_0D, data = Structure_0D, family = student)
+
+Shrinkage_0D_Prior1 <- 
+  c(prior(normal(1,0.1), class = Intercept))
+    
+# Fit model 1
+Shrinkage_0D <- 
+  brm(
+    data    = Structure_0D,
+    family  = student, 
+    formula = Shrinkage_0D,
+    prior   = Shrinkage_0D_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Shrinkage_0D.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Shrinkage_0D <- 
+  add_criterion(Shrinkage_0D, c("loo", "waic", "bayes_R2"))
+
+
+
+Structure_sub <- Structure[Structure$DPI == "14D",]
+
+# Model 1: Genotype as a single predictor
+Shrinkage_Mdl1 <- bf(Shrinkage ~ Genotype)
+                     
+
+get_prior(Shrinkage_Mdl1 , data = Structure_sub, family = student)
+
+Shrinkage_Prior1 <- 
+  c(prior(normal(0.6,0.1), class = b))
+    
+# Fit model 1
+Shrinkage_Fit1 <- 
+  brm(
+    data    = Structure_sub,
+    family  = student, 
+    formula = Shrinkage_Mdl1,
+    prior   = Shrinkage_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Shrinkage_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Shrinkage_Fit1 <- 
+  add_criterion(Shrinkage_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2: Genotype and Pdgfrb as predictors
+Shrinkage_Mdl2 <- bf(Shrinkage ~ Pdgfrb_IntDen * Genotype)
+
+get_prior(Shrinkage_Mdl2 , data = Structure_sub, family = student)
+
+# Fit model 2
+Shrinkage_Fit2 <- 
+  brm(
+    data    = Structure_sub,
+    family  = student, 
+    formula = Shrinkage_Mdl2,
+    #prior   = Shrinkage_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Shrinkage_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Shrinkage_Fit2 <- 
+  add_criterion(Shrinkage_Fit2, c("loo", "waic", "bayes_R2"))
+
+
+
+# Model 3: Genotype as predictor for Pdgfrb_IntDen
+Pdgfrb_Mdl1 <- bf(Pdgfrb_IntDen ~ Genotype)
+
+get_prior(Pdgfrb_Mdl1 , data = Structure_sub, family = student)
+
+# Fit model 1
+Pdgfrb_Fit1 <- 
+  brm(
+    data    = Structure_sub,
+    family  = student, 
+    formula = Pdgfrb_Mdl1,
+    #prior   = Shrinkage_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Fit1 <- 
+  add_criterion(Pdgfrb_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+
+
+# Model 3: Genotype as predictor for Gfap_IntDen
+Gfap_Mdl1 <- bf(Gfap_IntDen ~ Genotype)
+
+get_prior(Gfap_Mdl1 , data = Structure_sub, family = student)
+
+# Fit model 1
+Gfap_Fit1 <- 
+  brm(
+    data    = Structure_sub,
+    family  = student, 
+    formula = Gfap_Mdl1,
+    #prior   = Shrinkage_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Gfap_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_Fit1 <- 
+  add_criterion(Gfap_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+
+
+# Model 1: DPI as a single predictor
+Genotype_Mdl1 <- bf(Genotype ~ Pdgfrb_IntDen + Gfap_IntDen + Shrinkage)
+
+get_prior(Genotype_Mdl1 , data = Structure_sub, family = "categorical")
+
+# Fit model 1
+Genotype_Fit1 <- 
+  brm(
+    data    = Structure_sub,
+    family  = "categorical", 
+    formula = Genotype_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Genotype_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Genotype_Fit1 <- 
+  add_criterion(Genotype_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+```
+
+## Model comparison
+
+We perform model comparison using the WAIC criteria for estimating the out-of-sample prediction error. We use the `compare_performance` function from the `performance` package, part of the `easystats` environment [@makowski2019; @performance; @easystats]
+
+```{r}
+#| label: Ki67Pdgfrb_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Ki67_Pdgfrb_Comp <- 
+  compare_performance(
+    Ki67_Pdgfrb_Fit1, 
+    Ki67_Pdgfrb_Fit2, 
+    metrics = "all")
+
+Ki67_Pdgfrb_Comp
+```
+
+The results suggest that the first model is slightly less penalized by out-of-sample prediction. However, we judge that both models have a similar performance. We continue our inference with `Ki67_Pdgfrb_Fit1`.
+
+We visualize the same results as a graph:
+
+```{r}
+#| label: fig-Ki67_Pdgfrb_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model camparison by WAIC
+#| fig-height: 4
+#| fig-width: 5
+
+Ki67_Pdgfrb_W <- 
+loo_compare(
+  Ki67_Pdgfrb_Fit1, 
+  Ki67_Pdgfrb_Fit2, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Ki67_Pdgfrb_WAIC <- 
+  Ki67_Pdgfrb_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Ki67_Pdgfrb_Fit1", 
+             "Ki67_Pdgfrb_Fit2"), 
+            
+    labels=c("Mdl1", 
+             "Mdl2") 
+             
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+Ki67_Pdgfrb_WAIC
+```
+
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Ki67_Pdgfrb_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 5
+ 
+set.seed(8807)
+
+Ki67_Pdgfrb_Coloc_Fit1_pp <- 
+  brms::pp_check(Ki67_Pdgfrb_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Percentage_Pdgfrb ~ s(DPI_Cont, k = 5)") +
+  Plot_theme  
+  
+Ki67_Pdgfrb_Coloc_Fit1_pp
+```
+
+There are no significant deviations from the data. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfra_Coloc_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Ki67_Pdgfrb_Fit1)
+```
+
+# Model results
+
+## Visualization of conditional effects
+
+```{r}
+#| label: fig-Ki67_Coloc_CE 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for the percentage of ki67/PDGFR-β
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+Shrinkage_Contrast <- Shrinkage_Fit1 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 0.06))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-0.08, 0.08), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-0.2, 0.5),
+                      breaks = seq(-0.2, 0.5, 0.2) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Shrinkage_Contrast, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Shrinkage_Fit1.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Shrinkage_Contrast 
+
+
+Shrinkage_Pdgfrb <- 
+  conditional_effects(Shrinkage_Fit2)
+
+Shrinkage_Pdgfrb <- plot(Shrinkage_Pdgfrb, 
+       plot = FALSE)[[3]]
+
+Shrinkage_Pdgfrb_fig <- Shrinkage_Pdgfrb + 
+  scale_y_continuous(name = expression ("Shrinkage (ratio)")) +
+  scale_x_continuous(name="PDGFR-β (IntDen)") +
+  scale_color_manual(name = "",
+                       values = c("#4DB6D0", "#D9717D"),
+                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+ scale_fill_manual(name = "",
+                     values = c("#4DB6D0", "#D9717D"),
+   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+  
+  Plot_theme +
+  theme(
+  legend.position = c(0.7, 0.2), 
+  legend.direction = "vertical",
+  legend
+  )
+
+  ggsave(
+  plot     = Shrinkage_Pdgfrb_fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Shrinkage_Fit2.png",   width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+
+Shrinkage_Pdgfrb_fig 
+
+
+
+Pdgfrb_Contrast <- Pdgfrb_Fit1 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 90))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-90, 90), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-400, 250),
+                      breaks = seq(-400, 200, 200) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Pdgfrb_Contrast, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit1.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Pdgfrb_Contrast 
+
+
+Gfap_Contrast <- Gfap_Fit1 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 107))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-107, 107), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-200, 500),
+                      breaks = seq(-200, 500, 200) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Gfap_Contrast, 
+  filename = "Plots/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Gfap_Fit1.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Gfap_Contrast 
+```
+
+@fig-Ki67_Coloc_CE shows an increasing trend in the colocalization of Ki67/PDGFR-β peaking during the first week post-ischemia.
+
+## Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: tbl-Ki67_Pdgfrb_Coloc_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Ki67_Pdgfrb_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Ki67_Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Ki67/PDGFR-β+ cells following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.html",
+             )
+
+Ki67_Pdgfrb_Fit1_Table <- modelsummary(Ki67_Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Ki67_Pdgfrb_Fit1_Table, 
+            filename = "Tables/tex/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.tex")
+```
+
+## Estimate derivative
+
+We estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
+
+In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
+
+$$ 
+f'(x) = \lim\_{{\Delta x \to 0}} \frac{f(x + \Delta x) - f(x)}{\Delta x} 
+$$ {#eq-derivative}
+
+For a Bayesian model where $y = f(x)$, the derivative $\frac{dy}{dx}$ or $f'(x)$ represents the rate of change in the response variable $y$ for a unit change in the predictor variable $x$. If the model is non-linear, this derivative is a function of $x$ itself, allowing us to visualize how this rate of change varies across different values of $x$.
+
+First, we estimate point-to point derivatives:
+
+```{r}
+#| label: Pdgfra_Relation
+#| include: true
+#| warning: false
+#| message: false
+
+Ki67_Pdgfrb_est <- 
+  estimate_relation(
+    Ki67_Pdgfrb_Fit1, 
+    at = "DPI_Cont", 
+    ci = c(0.95))
+
+Ki67_Pdgfrb_est
+
+Ki67_Pdgfrb_Derivative <- estimate_smooth(Ki67_Pdgfrb_est, x = "DPI_Cont")
+
+gt::gt(round(Ki67_Pdgfrb_Derivative , digits = 2)) %>%
+gt::gtsave(filename = "Tables/html/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_Deriv.html")
+
+gt::gt(round(Ki67_Pdgfrb_Derivative, digits = 2)) %>%
+gt::gtsave(filename = "Tables/tex/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_Deriv.tex")
+```
+We see a sustained increase (slope = 2.06) for the colocalization of Ki67/PDGFR-β up to 3 DPI (Change of 6.87). This is followed by a decrease in slope (-0.23) up to 30 DPI (change of -6.10).
+
+## Visualize derivatives
+
+We can plot the derivative:
+
+```{r}
+#| label: fig-Pdgfra_Slopes
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Effect size od DPI for the percentage of ki67/PDGFR-β
+#| fig-height: 5
+#| fig-width: 5
+
+Ki67_Pdgfrb_deriv <- 
+  estimate_slopes(
+    Ki67_Pdgfrb_Fit1,
+    trend = "DPI_Cont",
+     at = "DPI_Cont",
+    length = 30
+    )
+
+# Visualize
+Ki67_Pdgfrb_deriv_Fig <- 
+  plot(Ki67_Pdgfrb_deriv) + 
+  labs(x = "DPI_Cont", 
+       y = "Effect of DPI",
+       title = NULL
+       ) +
+  Plot_theme +
+  theme(legend.position= "none")
+
+ggsave(
+  plot     = Ki67_Pdgfrb_deriv_Fig, 
+  filename = "Plots/Widefield_10x_Ki67-Pdgfrb_Coloc/Widefield_10x_Ki67-Pdgfrb_deriv.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Ki67_Pdgfrb_deriv_Fig 
+```
+
+@fig-Pdgfra_Slopes shows graphically the effects of DPI in the log scale.
+
+# References
+
+::: {#refs}
+:::
+
+
+```{r}
+sessionInfo()
+```
