@@ -536,7 +536,7 @@ Klf4_Int_Fit1_pp
 
 We see that the model predictions do not deviate meaningfully from the observations.
 
-### Model results
+## Model results
 
 After validating the model, we plot the full posterior distributions:
 

@@ -179,19 +179,20 @@ Area_Intensity$Gfap_IntDen <- (Area_Intensity$Gfap_Area / Area_Intensity$Gfap_In
 
 # We bind the two datasets
 
-Structure <- cbind (Area_Intensity, Shrinkage$Ratio)
+Structure <- cbind (Area_Intensity, Shrinkage$Ratio, Shrinkage$Ipsilateral)
 colnames(Structure)[10] <- "Shrinkage"
+colnames(Structure)[11] <- "Ipsilateral"
 
 write.csv(Structure, "Data_Processed/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Structure.csv", row.names = FALSE)
 
 gt::gt(Structure[1:10,])
 ```
 
-## Analysis of brain shrinkage
+# Analysis of brain shrinkage
 
 We start by analyzing brain shrinkage in WT and KLF4-KO animals 14 days after injury.
 
-# Exploratory data visualization
+## Exploratory data visualization
 
 We plot the variable of interest using boxplots
 
@@ -229,9 +230,9 @@ Structure <- Structure[Structure$MouseID != "KL35",]
 ```
 
 
-# Statistical modeling
+## Statistical modeling
 
-We'll fit a statistical model for the 14 DPI animals using a student-T distribution using the `brms` package [@burkner2018; @brms]. We fit the following model accounting for heteroscedasticity:
+We'll fit a statistical model for the 14 DPI animals using a student-T distribution using the `brms` package [@burkner2018; @brms]. We fit the following models:
 
 -   **Shrinkage_0D:** This is an intercept-only model with no predictors.
 
@@ -254,14 +255,14 @@ $$
 Shrinkage_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
 $$
 
-Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFR-β-TdTomato animals at 14 DPI, se use the following prior:
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFR-β-TdTomato animals at 14 DPI, the model uses the following prior:
 
 $$
 \begin{align}
 \beta_{0} \sim Normal(0.7,0.2) \\
 \end{align}
 $$
-## Fit the models
+### Fit the models
 
 ```{r}
 #| label: Klf4_Shrikage_Modeling
@@ -409,9 +410,9 @@ We observe no major deviations from the data in both cases. We can explore furth
 #launch_shinystan(Shrinkage_Fit1)
 ```
 
-# Model results
+## Model results
 
-## Visualization of conditional effects
+### Visualization of conditional effects
 
 ```{r}
 #| label: fig-Klf4_Shrikage_CE 
@@ -420,7 +421,7 @@ We observe no major deviations from the data in both cases. We can explore furth
 #| message: false
 #| fig-cap: Conditional effects for brain shrinkage
 #| fig-height: 5
-#| fig-width: 5
+#| fig-width: 10
 
 set.seed(8807)
 
@@ -432,8 +433,8 @@ Shrinkage_0D_fig <- Shrinkage_0D %>%
    stat_halfeye() +
    scale_y_continuous(name = "Probability density") +
    scale_x_continuous(name = "Hemispheric ratio",
-                     limits = c(0.7, 1.2),
-                      breaks = seq(0.7, 1.2, 0.2) ) +
+                     limits = c(0.8, 1.3),
+                      breaks = seq(0.8, 1.2, 0.2) ) +
 
   Plot_theme 
 
@@ -474,17 +475,17 @@ ggsave(
   height   = 7, 
   units    = "cm")
 
-Shrinkage_Contrast 
+Shrinkage_0D_fig | Shrinkage_Contrast 
 ```
 
 @fig-Klf4_Shrikage_CE shows that we have no evidence that KLF4 impacts brain shrinkage.
 
-## Posterior summary
+### Posterior summary
 
-Next, we plot the posterior summary using the `describe_posterior` function:
+Next, we plot the posterior summary using the `describe_posterior` function. We to this specifically for our 14 DPI animals. 
 
 ```{r}
-#| label: tbl-Ki67_Pdgfrb_Coloc_Posterior
+#| label: Shrinkage_Posterior
 #| include: true
 #| warning: false
 #| message: false
@@ -492,118 +493,60 @@ Next, we plot the posterior summary using the `describe_posterior` function:
 #| cache: true
 
 describe_posterior(
-  Ki67_Pdgfrb_Fit1,
+  Shrinkage_Fit1,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
 
-modelsummary(Ki67_Pdgfrb_Fit1, 
+modelsummary(Shrinkage_Fit1, 
              shape = term ~ model + statistic,
-             centrali2ty = "mean", 
-             title = "Ki67/PDGFR-β+ cells following MCAO",
+             centrality = "mean", 
+             title = "Hemisferic Shrinkage in PDGFR-β-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.html",
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Shrinkage_Fit1_Table.html",
              )
 
-Ki67_Pdgfrb_Fit1_Table <- modelsummary(Ki67_Pdgfrb_Fit1, 
+Shrinkage_Fit1_Table <- modelsummary(Shrinkage_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Ki67_Pdgfrb_Fit1_Table, 
-            filename = "Tables/tex/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.tex")
+gt::gtsave (Shrinkage_Fit1_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Shrinkage_Fit1_Table.tex")
 ```
 
-## Estimate derivative
+# Analysis of PDGFR-β and GFAP reactivity 
 
-We estimate the derivative to separate positive from negative trends in the fitted curve and obtain more clear linear fits. In statistical modeling, derivatives provide a measure of how a predictor variable influences the response variable, offering a more nuanced interpretation beyond the sign and magnitude of parameter estimates.
+Next, we analyze the integrated density of PDGFR-β and GFAP staining to visualize astroglial scar formation.  
 
-In mathematical terms, the derivative of a smooth function $f(x)$ is defined as:
+## Statistical model
 
-$$ 
-f'(x) = \lim\_{{\Delta x \to 0}} \frac{f(x + \Delta x) - f(x)}{\Delta x} 
-$$ {#eq-derivative}
+We fir the following models using `brms`:
 
-For a Bayesian model where $y = f(x)$, the derivative $\frac{dy}{dx}$ or $f'(x)$ represents the rate of change in the response variable $y$ for a unit change in the predictor variable $x$. If the model is non-linear, this derivative is a function of $x$ itself, allowing us to visualize how this rate of change varies across different values of $x$.
+-   **Pdgfrb_Fit1:** We fit a student family model to explore the relationship between Shrinkage and Genotype. The model takes the following notation:
 
-First, we estimate point-to point derivatives:
+$$
+Pdgfrb_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
+$$
 
-```{r}
-#| label: Pdgfra_Relation
-#| include: true
-#| warning: false
-#| message: false
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFR-β-TdTomato animals at 14 DPI, the model uses the default `brms` priors. 
 
-Ki67_Pdgfrb_est <- 
-  estimate_relation(
-    Ki67_Pdgfrb_Fit1, 
-    at = "DPI_Cont", 
-    ci = c(0.95))
+For GFAP expression, we fit an analogous model.
 
-Ki67_Pdgfrb_est
-
-Ki67_Pdgfrb_Derivative <- estimate_smooth(Ki67_Pdgfrb_est, x = "DPI_Cont")
-
-gt::gt(round(Ki67_Pdgfrb_Derivative , digits = 2)) %>%
-gt::gtsave(filename = "Tables/html/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_Deriv.html")
-
-gt::gt(round(Ki67_Pdgfrb_Derivative, digits = 2)) %>%
-gt::gtsave(filename = "Tables/tex/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_Deriv.tex")
-```
-We see a sustained increase (slope = 2.06) for the colocalization of Ki67/PDGFR-β up to 3 DPI (Change of 6.87). This is followed by a decrease in slope (-0.23) up to 30 DPI (change of -6.10).
-
-## Visualize derivatives
-
-We can plot the derivative:
+### Fit the models
 
 ```{r}
-#| label: fig-Pdgfra_Slopes
+#| label: Klf4_Pdgfrb-Gfap_Modeling
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Effect size od DPI for the percentage of ki67/PDGFR-β
-#| fig-height: 5
-#| fig-width: 5
+#| cache: true
 
-Ki67_Pdgfrb_deriv <- 
-  estimate_slopes(
-    Ki67_Pdgfrb_Fit1,
-    trend = "DPI_Cont",
-     at = "DPI_Cont",
-    length = 30
-    )
-
-# Visualize
-Ki67_Pdgfrb_deriv_Fig <- 
-  plot(Ki67_Pdgfrb_deriv) + 
-  labs(x = "DPI_Cont", 
-       y = "Effect of DPI",
-       title = NULL
-       ) +
-  Plot_theme +
-  theme(legend.position= "none")
-
-ggsave(
-  plot     = Ki67_Pdgfrb_deriv_Fig, 
-  filename = "Plots/Widefield_10x_Ki67-Pdgfrb_Coloc/Widefield_10x_Ki67-Pdgfrb_deriv.png", 
-  width    = 9, 
-  height   = 9, 
-  units    = "cm")
-
-Ki67_Pdgfrb_deriv_Fig 
-```
-
-@fig-Pdgfra_Slopes shows graphically the effects of DPI in the log scale.
-
-
-
-```{r}
-
-# Model 3: Genotype as predictor for Pdgfrb_IntDen
+# Model 1: Genotype as predictor for Pdgfrb_IntDen
 Pdgfrb_Mdl1 <- bf(Pdgfrb_IntDen ~ Genotype)
 
 get_prior(Pdgfrb_Mdl1 , data = Structure_sub, family = student)
@@ -614,7 +557,6 @@ Pdgfrb_Fit1 <-
     data    = Structure_sub,
     family  = student, 
     formula = Pdgfrb_Mdl1,
-    #prior   = Shrinkage_Prior1,
     chains  = 4,
     cores   = 4,
     warmup  = 2500, 
@@ -629,9 +571,7 @@ Pdgfrb_Fit1 <-
   add_criterion(Pdgfrb_Fit1, c("loo", "waic", "bayes_R2"))
 
 
-
-
-# Model 3: Genotype as predictor for Gfap_IntDen
+# Model 2: Genotype as predictor for Gfap_IntDen
 Gfap_Mdl1 <- bf(Gfap_IntDen ~ Genotype)
 
 get_prior(Gfap_Mdl1 , data = Structure_sub, family = student)
@@ -642,7 +582,6 @@ Gfap_Fit1 <-
     data    = Structure_sub,
     family  = student, 
     formula = Gfap_Mdl1,
-    #prior   = Shrinkage_Prior1,
     chains  = 4,
     cores   = 4,
     warmup  = 2500, 
@@ -655,141 +594,55 @@ Gfap_Fit1 <-
 # Add loo for model comparison
 Gfap_Fit1 <- 
   add_criterion(Gfap_Fit1, c("loo", "waic", "bayes_R2"))
-
-
-
-
-# Model 1: DPI as a single predictor
-Genotype_Mdl1 <- bf(Genotype ~ Pdgfrb_IntDen + Gfap_IntDen + Shrinkage)
-
-get_prior(Genotype_Mdl1 , data = Structure_sub, family = "categorical")
-
-# Fit model 1
-Genotype_Fit1 <- 
-  brm(
-    data    = Structure_sub,
-    family  = "categorical", 
-    formula = Genotype_Mdl1,
-    chains  = 4,
-    cores   = 4,
-    warmup  = 2500, 
-    iter    = 5000, 
-    seed    = 8807,
-    control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Genotype_Fit1.rds",
-    file_refit = "never") 
-                     
-# Add loo for model comparison
-Genotype_Fit1 <- 
-  add_criterion(Genotype_Fit1, c("loo", "waic", "bayes_R2"))
 ```
 
-## Model comparison
+## Model diagnostics
 
-We perform model comparison using the WAIC criteria for estimating the out-of-sample prediction error. We use the `compare_performance` function from the `performance` package, part of the `easystats` environment [@makowski2019; @performance; @easystats]
+We check the model fitting using posterior predictive checks
 
 ```{r}
-#| label: Ki67Pdgfrb_Compare
+#| label: fig-Klf4_Pdgfrb-Gfap_Diagnostics
 #| include: true
 #| warning: false
 #| message: false
-#| results: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 10
+ 
+set.seed(8807)
 
-Ki67_Pdgfrb_Comp <- 
-  compare_performance(
-    Ki67_Pdgfrb_Fit1, 
-    Ki67_Pdgfrb_Fit2, 
-    metrics = "all")
+Pdgfrb_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb ~ Genotype") +
+  Plot_theme  
 
-Ki67_Pdgfrb_Comp
+Gfap_Fit1_pp <- 
+  brms::pp_check(Gfap_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Gfap ~ Genotype") +
+  Plot_theme  
+  
+Pdgfrb_Fit1_pp | Gfap_Fit1_pp
 ```
 
-The results suggest that the first model is slightly less penalized by out-of-sample prediction. However, we judge that both models have a similar performance. We continue our inference with `Ki67_Pdgfrb_Fit1`.
+Se see no major deviations from the observed data.
 
-We visualize the same results as a graph:
+## Model results
+
+### Visualization of conditional effects
 
 ```{r}
-#| label: fig-Ki67_Pdgfrb_Compare
+#| label: fig-Klf4_Pdgfrb-Gfap_CE 
 #| include: true
 #| warning: false
 #| message: false
-#| results: false
-#| fig-cap: Model camparison by WAIC
-#| fig-height: 4
-#| fig-width: 5
-
-Ki67_Pdgfrb_W <- 
-loo_compare(
-  Ki67_Pdgfrb_Fit1, 
-  Ki67_Pdgfrb_Fit2, 
-  criterion = "waic")
-
-# Generate WAIC graph
-Ki67_Pdgfrb_WAIC <- 
-  Ki67_Pdgfrb_W[, 7:8] %>% 
-  data.frame() %>% 
-  rownames_to_column(var = "model_name") %>% 
-  
-ggplot(
-  aes(x    = model_name, 
-      y    = waic, 
-      ymin = waic - se_waic, 
-      ymax = waic + se_waic)
-  ) +
-  geom_pointrange(shape = 21) +
-  scale_x_discrete(
-    breaks=c("Ki67_Pdgfrb_Fit1", 
-             "Ki67_Pdgfrb_Fit2"), 
-            
-    labels=c("Mdl1", 
-             "Mdl2") 
-             
-    ) +
-  coord_flip() +
-  labs(x = "", 
-       y = "WAIC (score)",
-       title = "") +
-  Plot_theme
-
-Ki67_Pdgfrb_WAIC
-```
-
-
-```{r}
-
-Shrinkage_Pdgfrb <- 
-  conditional_effects(Shrinkage_Fit2)
-
-Shrinkage_Pdgfrb <- plot(Shrinkage_Pdgfrb, 
-       plot = FALSE)[[3]]
-
-Shrinkage_Pdgfrb_fig <- Shrinkage_Pdgfrb + 
-  scale_y_continuous(name = expression ("Shrinkage (ratio)")) +
-  scale_x_continuous(name="PDGFR-β (IntDen)") +
-  scale_color_manual(name = "",
-                       values = c("#4DB6D0", "#D9717D"),
-                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
- scale_fill_manual(name = "",
-                     values = c("#4DB6D0", "#D9717D"),
-   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
-  
-  Plot_theme +
-  theme(
-  legend.position = c(0.7, 0.2), 
-  legend.direction = "vertical",
-  legend
-  )
-
-  ggsave(
-  plot     = Shrinkage_Pdgfrb_fig, 
-  filename = "Plots/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Shrinkage_Fit2.png",   width    = 9, 
-  height   = 9, 
-  units    = "cm")
-
-
-Shrinkage_Pdgfrb_fig 
-
-
+#| fig-cap: Conditional effects for PDGFR-β and GFAP
+#| fig-height: 5
+#| fig-width: 10
 
 Pdgfrb_Contrast <- Pdgfrb_Fit1 %>%
    spread_draws(b_GenotypeKO) %>%
@@ -847,7 +700,331 @@ ggsave(
 Gfap_Contrast 
 ```
 
+### Posterior summary
 
+We plot the posterior summary and respective tables:
+
+```{r}
+#| label: Pdgfrb-Gfap_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+## For PDGFR-B
+
+describe_posterior(
+  Pdgfrb_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit1_Table.html",
+             )
+
+Pdgfrb_Fit1_Table <- modelsummary(Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Fit1_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit1_Table.tex")
+
+## For GFAP
+
+describe_posterior(
+  Gfap_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "Hemisferic Gfap in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Gfap_Fit1_Table.html",
+             )
+
+Gfap_Fit1_Table <- modelsummary(Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Gfap_Fit1_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Gfap_Fit1_Table.tex")
+```
+# Two additional models
+
+Finally, to control for possible covariates, specifically for PDGFR-β integrated density, we perform regressions conditioning on Shrinkage and the Ipsilateral area. To have more meaningful results, we scale the variable for the ipsilateral area. 
+
+## Statistical modeling
+
+We fit the following models:
+
+- **Pdgfrb_Fit2:** We condition the integrated density of PDGFR-β on the interaction between Genotype and Shrinkage. By incorporating the interaction term, this model allows us to explore how the relationship between `Genotype` and `Pdgfrb_IntDen` varies across different levels of `Shrinkage`. The model is formulated as follows
+
+$$
+Pdgfrb\_IntDen_i = \beta_0 + \beta_1 \times Genotype_i + \beta_2 \times Shrinkage_i + \beta_3 \times (Genotype_i \times Shrinkage_i) + \epsilon_i
+$$
+Where $\beta_0$ is the baseline integrated density of PDGFR-β at baseline values. $\beta_1$ represents the effect of Genotype on Pdgfrb_IntDen. $\beta_2$ indicates the effect of Shrinkage on Pdgfrb_IntDen, and $\beta_3$
+captures the interaction effect between Genotype and Shrinkage on Pdgfrb_IntDen. Finally, $\epsilon_i$ is the error term.
+
+The model uses the default `brms` priors.
+
+- **Pdgfrb_Fit3:** We condition the integrated density of PDGFR-β on the interaction between Genotype and the ipsilateral area.The model assumes the same formulation as the previous model.
+
+### Fit the models
+```{r}
+Structure_sub_Scaled <- scale(Structure_sub$Ipsilateral, scale = TRUE, center = TRUE)
+Structure_sub_Scaled <- cbind(Structure_sub, Structure_sub_Scaled)
+colnames(Structure_sub_Scaled)[12] <- "Ipsilateral_Scaled"
+
+# Model 1: Genotype and Shrinkage as predictors
+Pdgfrb_Mdl2 <- bf(Pdgfrb_IntDen ~  Genotype * Shrinkage)
+
+get_prior(Pdgfrb_Mdl2 , data = Structure_sub_Scaled, family = student)
+
+# Fit model 1
+Pdgfrb_Fit2 <- 
+  brm(
+    data    = Structure_sub_Scaled,
+    family  = student, 
+    formula = Pdgfrb_Mdl2,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Fit2 <- 
+  add_criterion(Pdgfrb_Fit2, c("loo", "waic", "bayes_R2"))
+
+
+# Model 2: Genotype and Ipsilateral area as predictors
+Pdgfrb_Mdl3 <- bf(Pdgfrb_IntDen ~  Genotype * Ipsilateral_Scaled)
+
+get_prior(Pdgfrb_Mdl3, data = Structure_sub_Scaled, family = student)
+
+# Fit model 1
+Pdgfrb_Fit3 <- 
+  brm(
+    data    = Structure_sub_Scaled,
+    family  = student, 
+    formula = Pdgfrb_Mdl3,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb_Fit3.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Fit3 <- 
+  add_criterion(Pdgfrb_Fit3, c("loo", "waic", "bayes_R2"))
+```
+
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Pdgfrb_Additional_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 10
+ 
+set.seed(8807)
+
+Pdgfrb_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb ~ Genotype * Shrinkage") +
+  Plot_theme  
+
+Pdgfrb_Fit3_pp <- 
+  brms::pp_check(Pdgfrb_Fit3, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Gfap ~ Genotype * Ipsilateral") +
+  Plot_theme  
+  
+Pdgfrb_Fit2_pp | Pdgfrb_Fit3_pp
+```
+We observe neither of the models present meaningful deviation from the observed data. 
+
+## Model results
+
+### Visualization of conditional effects
+
+```{r}
+#| label: fig-Klf4_Pdgfrb-Shrinkage-Ipsi_CE 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for interactions
+#| fig-height: 5
+#| fig-width: 10
+
+## For Genotype * Shrinkage
+
+Pdgfrb_Fit2_CE <- 
+  conditional_effects(Pdgfrb_Fit2)
+
+Pdgfrb_Fit2_CE <- plot(Pdgfrb_Fit2_CE, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Fit2_fig <- Pdgfrb_Fit2_CE + 
+  scale_y_continuous(name = "PDGFR-β (IntDen)") +
+  scale_x_continuous(name= expression ("Shrinkage (ratio)"),
+                     breaks = seq(0.6, 1, 0.1)) +
+  scale_color_manual(name = "",
+                       values = c("#4DB6D0", "#D9717D"),
+                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+ scale_fill_manual(name = "",
+                     values = c("#4DB6D0", "#D9717D"),
+   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+  
+  Plot_theme +
+  theme(
+  legend.position = "top", 
+  legend.direction = "horizontal",
+  legend
+  )
+
+  ggsave(
+  plot     = Pdgfrb_Fit2_fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit2.png",  
+  width    = 11, 
+  height   = 9, 
+  units    = "cm")
+
+
+## For Genotype * Ipsilateral area
+
+Pdgfrb_Fit3_CE <- 
+  conditional_effects(Pdgfrb_Fit3)
+
+Pdgfrb_Fit3_CE <- plot(Pdgfrb_Fit3_CE, 
+       plot = FALSE)[[3]]
+
+Pdgfrb_Fit3_fig <- Pdgfrb_Fit3_CE + 
+  scale_y_continuous(name = "PDGFR-β (IntDen)") +
+  scale_x_continuous(name= expression ("Ipsilateral area (scaled)"))+
+                     
+  scale_color_manual(name = "",
+                       values = c("#4DB6D0", "#D9717D"),
+                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+ scale_fill_manual(name = "",
+                     values = c("#4DB6D0", "#D9717D"),
+   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+  
+  Plot_theme +
+  theme(
+  legend.position = "top", 
+  legend.direction = "horizontal",
+  legend
+  )
+
+  ggsave(
+  plot     = Pdgfrb_Fit3_fig, 
+  filename = "Plots/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit3.png",  
+  width    = 11, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_Fit2_fig + Pdgfrb_Fit3_fig
+```
+
+### Posterior summary
+
+We plot the posterior summary and respective tables:
+
+```{r}
+#| label: Pdgfrb-Shrinkage-Genotype_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+## For Fit 2
+
+describe_posterior(
+  Pdgfrb_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit2_Table.html",
+             )
+
+Pdgfrb_Fit2_Table <- modelsummary(Pdgfrb_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Fit2_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit2_Table.tex")
+
+## For Fit 3
+
+describe_posterior(
+  Pdgfrb_Fit3,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Fit3, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit3_Table.html",
+             )
+
+Pdgfrb_Fit3_Table <- modelsummary(Pdgfrb_Fit3, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Fit3_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit3_Table.tex")
+```
 
 
 
