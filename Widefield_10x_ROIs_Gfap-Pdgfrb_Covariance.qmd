@@ -47,14 +47,13 @@ editor:
   markdown: 
     wrap: sentence
 ---
----
 
 # Preview
 
 In this notebook, we perform the analysis of PDGFR-β and GFAP covariance in specified ROIs in the injured cortex, striatum and perilesion. We performed automatic cell detection and classification using QuPath [@bankhead2017], and created point patterns the R-package `spatstat`[@baddeley2005; @spatstat]. The point patterns were saved as `.rds` object files.
 
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_Gfap-Pdgfrb.zip`. Individual cells were detected and classified into PDGFR-β^low^ (Pdgfrb_Neg) and PDGFR-β^high^ (Pdgfrb_Pos) using QuPath [@bankhead2017].The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/8cn6s
+**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_Gfap-Pdgfrb.zip`.The complete QuPath project, including classifiers and output data as .tsv files is available at https://osf.io/8cn6s
 
 **Working dataset:** The `Data_Raw/Widefield_10x_ROIs_Gfap-Pdgfrb/Raw_Widefield_10x_ROIs_Gfap-Pdgfrb_Tessellations.csv`data frame containing cell counts in defined (low / high) GFAP tessellations. The data was generated using integrated functions in the spatstat package [@baddeley2005].
 
