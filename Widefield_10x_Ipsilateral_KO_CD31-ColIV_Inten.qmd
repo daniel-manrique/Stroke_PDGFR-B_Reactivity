@@ -1,0 +1,488 @@
+---
+title-block-banner: true
+title: "Analysis of Collagen-IV expression in the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - Collagen-IV (ColIV)
+  - CD31
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+Here, we analyze Collagen-IV (ColIV) expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+
+**Parent dataset:** CD31, ColIV, and IBA1 stained brains were imaged at 5x (with stitching). We harvested brains from WT and KLF4-KO animals at 14 days post-ischemia (DPI) and added sham WT brains to measure baseline values. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_KO_CD31-ColIV-Iba1.zip`.
+
+**Working dataset**: The `Data_Raw/Widefield_5x_Ipsilateral_KO_CD31-ColIV/` folder containing the raw output from CellProfiller [@stirling2021]. The CellProfiler pipeline is available at OSF (https://osf.io/p962w/).
+
+We perform scientific inference based on the Integrated intensity (The sum of the pixel intensities within an object) of vascular (attached to CD31) or non-vascular ColIV and integrated density of CD31. We expect that ColIV change in KO animals.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load and handle the datasets
+
+We load the `Widefield_5x_Ipsilateral_KO_CD31-ColIV-Iba1_Image.csv` dataset, containing summary information about the Measured intensity per animal. We'll handle the data set to obtain the Intensity and Area for vascular ColIV and the total ColIV.
+
+```{r}
+#| label: tbl-ColIV_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+ColIV_df <- read.csv(file = "Data_Raw/Widefield_5x_Ipsilateral_KO_CD31-ColIV/Widefield_5x_Ipsilateral_KO_CD31-ColIV-Iba1_Image.csv", header = TRUE)
+
+gt::gt(ColIV_df[1:10,])
+```
+
+From the tables, we obtain the following columns:
+
+- `FileName_CD_Raw`: Name file contaiing the grouping variables
+- `Intensity_TotalArea_ColIV_Raw_ColIV_CD31_Colocalized`: The area of vascular-associated ColIV
+- `Intensity_TotalArea_ColIV_Raw_ColIV_CD31_Colocalized_ColIV_Objects`: The area of non vascular-associated ColIV
+- `Intensity_TotalIntensity_ColIV_Raw_ColIV_CD31_Colocalized`: The intensity of vascular-associated ColIV
+- `Intensity_TotalIntensity_ColIV_Raw_ColIV_CD31_Colocalized_ColIV_Objects`: The intensity of non vascular-associated ColIV
+
+We subset the relevant columns. 
+
+```{r}
+#| label: tbl-ColIV_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# For the total ColIV
+
+## We subset the relevant columns (cell number)
+ColIV_df <- subset(ColIV_df, select = c("FileName_CD31_Raw", 
+                                        "Intensity_TotalArea_ColIV_Raw_ColIV_CD31_Colocalized",
+                                        "Intensity_TotalArea_ColIV_Raw_ColIV_CD31_Colocalized_ColIV_Objects",
+                                        "Intensity_TotalIntensity_ColIV_Raw_ColIV_CD31_Colocalized",
+                                        "Intensity_TotalIntensity_ColIV_Raw_ColIV_CD31_Colocalized_ColIV_Objects"))
+
+## And extract metadata from the image name
+ColIV_df <- cbind(ColIV_df, do.call(rbind, strsplit(ColIV_df$FileName_CD31_Raw, "[_\\.]"))[,1:3])
+
+ColIV_df <- subset(ColIV_df, select = -c(FileName_CD31_Raw))
+
+## We Rename the relevant columns 
+colnames(ColIV_df) <- c("Area_Colocalized", "Area_Total", "Intensity_Colocalized", "Intensity_Total", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+ColIV_df$DPI <- factor(ColIV_df$DPI, levels = c("0D", "14D"))
+ColIV_df$Genotype <- factor(ColIV_df$Genotype, levels = c("WT", "KO"))
+
+ColIV_df$Intensity_Colocalized <- ColIV_df$Intensity_Colocalized / 1000
+ColIV_df$Intensity_Total <- ColIV_df$Intensity_Total / 1000
+
+ColIV_df$Area_Colocalized <- ColIV_df$Area_Colocalized / 1000
+ColIV_df$Area_Total <- ColIV_df$Intensity_Total / 1000
+
+ColIV_df$Intensity_Colocalized <- round(ColIV_df$Intensity_Colocalized, digits = 1)
+ColIV_df$Intensity_Total <- round(ColIV_df$Intensity_Total, digits = 1)
+
+ColIV_df$Area_Colocalized <- round(ColIV_df$Area_Colocalized, digits = 1)
+ColIV_df$Area_Total <- round(ColIV_df$Area_Total, digits = 1)
+
+# Reduce area and intensity numbers
+
+
+
+write.csv(ColIV_df, "Data_Processed/Widefield_5x_Ipsilateral_KO_CD31-ColIV/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Intensity.csv", row.names = FALSE)
+```
+
+With the data handled, we proceed to exploratory data visualization. 
+
+# Exploratory data visualization
+
+In the first place, we generate a scatter plot to check the relation ship between Intensity and area and verify if they are higly correlated. 
+
+```{r}
+#| label: fig-ColIV_Int_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization (Scatter plot) for ColIV expression
+#| fig-width: 9
+#| fig-height: 4
+
+# Load the data set in case is not present in the environment
+ColIV_df <- read.csv("Data_Processed/Widefield_5x_Ipsilateral_KO_CD31-ColIV/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Intensity.csv", header = TRUE)
+
+ColIV_df$DPI <- factor(ColIV_df$DPI, levels = c("0D", "14D"))
+ColIV_df$Genotype <- factor(ColIV_df$Genotype, levels = c("WT", "KO"))
+
+set.seed(8807)
+
+# Scatter plot for vascular ColIV
+################
+
+ColIV_Vas_Scatter <- 
+  ggplot(
+    data  = ColIV_df, 
+    aes(x = Intensity_Colocalized,
+        y = Area_Colocalized,
+        color = Genotype)
+    ) +
+  geom_point(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="Intensity") +
+  scale_y_continuous(name = "Labaled area") +
+  Plot_theme
+
+
+# Scatter plot for non-vascular ColIV
+################
+
+ColIV_nonVas_Scatter <- 
+  ggplot(
+    data  = ColIV_df, 
+    aes(x = Intensity_Total,
+        y = Area_Total,
+        color = Genotype)
+    ) +
+  geom_point(size = 1.5) +
+  geom_rug(size = 1) +
+  scale_x_continuous(name ="Intensity") +
+  scale_y_continuous(name = "Labaled area") +
+  Plot_theme
+
+#Plot the result
+ColIV_Vas_Scatter |  ColIV_nonVas_Scatter
+```
+
+@fig-ColIV_Int_Expl shows that there is a remarkable correlation between both variables. This justidy the use of only intensity for scientific inference. Next, we visualize the distribution of the intensity using box plots:
+
+```{r}
+#| label: fig-ColIV_boxplot
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization (box plot) for ColIV expression
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Box plot for vascular ColIV
+################
+
+ColIV_Vas_box <- 
+  ggplot(
+    data  = ColIV_df, 
+    aes(x = DPI,
+        y = Intensity_Colocalized,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+  scale_x_discrete(name ="DPI") +
+  scale_y_continuous(name = "Intensity") +
+  Plot_theme
+
+
+# Box plot for non-vascular ColIV
+################
+
+ColIV_nonVas_box <- 
+  ggplot(
+    data  = ColIV_df, 
+    aes(x = DPI,
+        y = Intensity_Total,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+  scale_x_discrete(name ="DPI") +
+  scale_y_continuous(name = "Intensity") +
+  Plot_theme
+
+#Plot the result
+ColIV_Vas_box |  ColIV_nonVas_box
+```
+@fig-ColIV_boxplot shows that ColIV expression (vascular associated and total) increases after injury in a similar way for WT and KO mice. We expect no further readout in the statistical modeling.  
+
+## Statistical modeling for KLF4 spatial intensity
+
+Given the previous readout, we'll fit a single model for the total ColIV expression using a student distribution.
+
+- **ColIV_Mdl1:** We estimate ColIV intensity (at 14 DPI) having Genotype as the sole predictor.The model takes the followin notation:
+
+$$
+Intensity = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
+$$
+Where $\beta_0$ is the intercept, representing the intensity baseline (for WT); $\beta_1$ indicates the impact of Genotype on ColIV intensity; and $\epsilon$ denotes the error term. This model take the default priors from brms. 
+
+
+### Fit the models
+
+We employ `brms` to fit the model.
+
+```{r}
+#| label: ColIV_Int_Model
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: Genotype as predictor
+
+ColIV_Inten_14D <- ColIV_df[ColIV_df$DPI =="14D",]
+
+ColIV_Int_Mdl1 <- bf(Intensity_Total ~ Genotype)
+
+get_prior(ColIV_Int_Mdl1, ColIV_Inten_14D, family = student)
+
+# Fit model 1
+ColIV_Int_Fit1 <- 
+  brm(
+    family = student,
+    data    = ColIV_Inten_14D,
+    formula = ColIV_Int_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Inten/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Inten_Fit1.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+ColIV_Int_Fit1 <- 
+  add_criterion(ColIV_Int_Fit1, c("loo", "waic", "bayes_R2"))
+```
+### Model diagnostics
+
+To evaluate sample predictions, we perform the model diagnostics for model 2 using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-ColIV_Int_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for ColIV expression
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+ColIV_Int_Fit1_pp <- 
+  brms::pp_check(ColIV_Int_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Intensity ~ Genotype") +
+  #scale_x_continuous(limits=c(0, 10000)) +
+  Plot_theme  
+
+ColIV_Int_Fit1_pp
+```
+
+We do not see meaningful deviations from the observed data. 
+
+### Model results
+
+After validating the model, we plot the full posterior distribution for our second model. We set the ROPE considering the uncertainty in KLF4 expression in control animals:
+
+```{r}
+#| label: fig-ColIV-KO_Int_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for ColIV expression
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+ColIV_Int_Contrast <- ColIV_Int_Fit1 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 120))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-120, 120), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-300, 400),
+                      breaks = seq(-300, 400, 200) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.82, 0.8))
+
+ggsave(
+  plot     = ColIV_Int_Contrast , 
+  filename = "Plots/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Inten/Widefield_5x_Ipsilateral_KO_CD31-ColIV_Inten.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+ColIV_Int_Contrast 
+```
+
+@fig-ColIV-KO_Int_Posterior shows there is no difference in the spatial intensity between KO and WT animals. 
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Klf4KO_Int_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  ColIV_Int_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(ColIV_Int_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Intensity of ColIV in the ipsilateral hemisphere",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_KO_ColIV_Inteb_Fit1_Table.html",
+             )
+
+ColIV_Int_Fit1_Table <- modelsummary(ColIV_Int_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (ColIV_Int_Fit1_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_ColIV_Inteb_Fit1_Table.tex")
+```
+The table displays the effect of KOLF-KO in the spatial intensity of KLF4 and its respective uncertainty. We can appreciate there is not evidence of difference between genotypes (9.88, CI95% = -111 - 136). 
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+
