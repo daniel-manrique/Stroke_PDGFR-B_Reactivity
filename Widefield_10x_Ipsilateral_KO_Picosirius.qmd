@@ -1,0 +1,499 @@
+---
+title-block-banner: true
+title: "Analysis of Picosirius staining (Collagens) in defined ROIs of the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - Picosirius staining
+  - Collagen-IV
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+Here, we analyze the picosirius staining to detect collagen in defined ROIs (injured cortex and striatum) of the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+
+**Parent dataset:** Picosirius stained ischemic brains imaged at 20x. Samples were taken 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_20x_ROIs_Picosirius.zip`. 
+
+**Working dataset**: The `Data_Raw/Widefield_20x_ROIs_Picosirius/Raw_Widefield_20x_ROIs_Picosirius_Area.csv` file containing the raw measurements performd in FIJI. The FIJI script for bacth processing is available at OSF (https://osf.io/kbctv).
+
+We perform scientific inference based on the stained area of Picosirius. We expect that KLF4 depletion affects Collagens expression.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Analysis of KLF4+ spatial intensity
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_20x_ROIs_Picosirius/Raw_Widefield_20x_ROIs_Picosirius_Area.csv` datasets containing the raw data for clearing and handling.
+
+```{r}
+#| label: tbl-Pico_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Pico_Area <- read.csv(file = "Data_Raw/Widefield_20x_ROIs_Picosirius/Raw_Widefield_20x_ROIs_Picosirius_Area.csv", header = TRUE)
+
+gt::gt(Pico_Area[1:10,])
+```
+
+From the table, we are interested in the `Label`column containing the identification data for the images, and `Area` depicting the stained area after image pre-processing. Next, we subset the dataset to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: tbl-Pico_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Pico_Area <- subset(Pico_Area, select = c("Label", "Area"))
+
+## And extract metaArea from the image name
+Pico_Area  <- cbind(Pico_Area, do.call(rbind , strsplit(Pico_Area$Label, "[_\\.]"))[,1:4])
+
+Pico_Area <- subset(Pico_Area, select = -c(Label))
+
+## We Rename the relevant columns 
+colnames(Pico_Area) <- c("Area", "MouseID", "DPI", "Genotype", "Region")
+
+## We set the factors
+Pico_Area$DPI <- factor(Pico_Area$DPI, levels = c("0D", "14D"))
+
+write.csv(Pico_Area, "Data_Processed/Widefield_20x_ROIs_Picosirius/Widefield_20x_ROIs_Picosirius_Area.csv", row.names = FALSE)
+```
+
+We the data handled, we perform exploratory data visualization.
+
+## Exploratory data visualization
+
+We visualize the data to observe the distribution of the sained area.
+
+```{r}
+#| label: fig-Pico_Area_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for Collagen (Picosirius) expression
+#| fig-width: 9
+#| fig-height: 4
+
+# Load the data set in case is not present in the environment
+
+Pico_Area <- read.csv("Data_Processed/Widefield_20x_ROIs_Picosirius/Widefield_20x_ROIs_Picosirius_Area.csv", header = TRUE)
+
+Pico_Area$DPI <- factor(Pico_Area$DPI, levels = c("0D", "14D"))
+Pico_Area$Genotype <- factor(Pico_Area$Genotype, levels = c("WT", "KO"))
+Pico_Area$Region <- factor(Pico_Area$Region, levels = c("Str", "Ctx"))
+
+set.seed(8807)
+
+# Boxplot
+################
+
+Pico_Area_Box <- 
+  ggplot(
+    data  = Pico_Area, 
+    aes(x = DPI,
+        y = Area,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+  geom_rug(size = 1) +
+  scale_x_discrete(name ="DPI") +
+  scale_y_continuous(name = "Picosirius (area)") +
+  Plot_theme +
+  facet_grid(~ Region)
+
+Pico_Area_Box
+
+```
+
+@fig-Klf4_Int_Expl shows differentiated peaks for the genotypes, including the control condition.On the right, we see a slight, similar increase of KLF4 at 14 DPI in WT and KO mice. At first glance, this shows that depletion of KLF4 in PDGFR-B cells does not have a meaningful impact in the overall KLF4 expression.
+
+## Statistical modeling for KLF4 spatial intensity
+
+We'll fit two different statistical models. 
+
+- **Klf4-KO_Int_Mdl1:** This is an only-intercept model that help to estimate a reference value for the analysis between Genotypes at 14 DPI. This model takes the following notation:
+
+$$
+Y_i \sim t(\nu, \mu, \sigma^2) \\ 
+\mu = \beta_0
+$$
+$Y_i$ denotes the observed values of Intensity. $t(\nu, \mu, \sigma^2)$ indicates that the response variable follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ$, and scale parameter $\sigma^2$. $\beta_0$ represents the intercept, which is the estimated mean level of Intensity when no other predictors are included in the model. The model takes the following priors based on our previous results using our transgenic TdTomato mice:
+
+$$
+\begin{align}
+\beta_{0} \sim Normal(5000,2000) \\
+\sigma \sim Student-t(3, 0, 600), \sigma > 0 \\
+\end{align}
+$$
+
+
+$$
+Y_i \sim t(\nu, \mu_{i}, \sigma_{i}^2) \\
+\mu_i = \beta_0 + \beta_{\text{Genotype}[i]} \\
+\log(\sigma_i) = \gamma_0 + \gamma_{\text{Genotype}[i]}
+$$
+In this model: $Y_i$ represents the observed Intensity values.$t(\nu, \mu_{i}, \sigma_{i}^2)$
+signifies that the response variable, Intensity, follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ_i$, and scale parameter $\sigma_{i}^2)$ for each observation $i$.$\mu_i$ denotes the mean of Intensity for each Genotype, with $\beta_0$   being the mean at the base value and $\beta_{\text{Genotype}[i]}$ representing the effect of KO. $\sigma_{i}$ denotes the scale parameter for each Genotype, with $γ0$ as the overall scale and $\gamma_{\text{Genotype}[i]}$ reflecting the effect of each Genotype on the variability of Intensity.
+
+This model uses priors based on the regression for 0D:
+
+$$
+\begin{align}
+\beta_{0} \sim Normal(8000,1000) \\
+\beta_{1}\sim Student-t(3, 0, 1000), \sigma > 0 \\
+\sigma \sim Student-t(3, 0, 1000), \sigma > 0
+\end{align}
+$$
+
+### Fit the models
+
+We employ `brms` to fit the model.
+
+```{r}
+#| label: Klf4_Int_Model
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1:Intercept-only model
+
+Klf4KO_Intensity_0D <- Klf4KO_Intensity[Klf4KO_Intensity$DPI =="0D",]
+
+Klf4KO_Int_Mdl1 <- bf(Intensity ~ 1)
+
+get_prior(Klf4KO_Int_Mdl1, Klf4KO_Intensity_0D, family = student)
+
+Klf4KO_Int_Prior1 <- 
+  c(prior(normal(5000,2000), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 600), class = sigma))
+
+# Fit model 1
+Klf4KO_Int_Fit1 <- 
+  brm(
+    family = student,
+    data    = Klf4KO_Intensity_0D,
+    formula = Klf4KO_Int_Mdl1,
+    prior   = Klf4KO_Int_Prior1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Fit1.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Klf4KO_Int_Fit1 <- 
+  add_criterion(Klf4KO_Int_Fit1, c("loo", "waic", "bayes_R2"))
+
+
+
+# Model 2: Genotype as predictor
+
+Klf4KO_Intensity_14D <- Klf4KO_Intensity[Klf4KO_Intensity$DPI =="14D",]
+
+Klf4KO_Int_Mdl2 <- bf(Intensity ~ Genotype,
+                      sigma ~ Genotype)
+
+get_prior(Klf4KO_Int_Mdl2, Klf4KO_Intensity_14D, family = student)
+
+Klf4KO_Int_Prior2 <- 
+  c(prior(normal(8000,1000), class = Intercept, lb= 0),
+    prior(student_t(3, 0, 1000), class = b),
+    prior(student_t(3, 0, 1000), class = b, dpar = "sigma"))
+
+# Fit model 1
+Klf4KO_Int_Fit2 <- 
+  brm(
+    family = student,
+    data    = Klf4KO_Intensity_14D,
+    formula = Klf4KO_Int_Mdl2,
+    prior   = Klf4KO_Int_Prior2,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Fit2.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+Klf4KO_Int_Fit2 <- 
+  add_criterion(Klf4KO_Int_Fit2, c("loo", "waic", "bayes_R2"))
+```
+### Model diagnostics
+
+To evaluate sample predictions, we perform the model diagnostics for model 2 using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-Klf4_Int_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for KLF4 expression
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Klf4KO_Int_Fit2_pp <- 
+  brms::pp_check(Klf4KO_Int_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Intensity ~ Genotype") +
+  #scale_x_continuous(limits=c(0, 10000)) +
+  Plot_theme  
+
+Klf4KO_Int_Fit2_pp
+```
+
+We do not see meaningful deviations from the observed data. However, our first model is heavily impacted by an extreme observation.
+
+### Model results
+
+After validating the model, we plot the full posterior distribution for our second model. We set the ROPE considering the uncertainty in KLF4 expression in control animals:
+
+```{r}
+#| label: fig-Klf4-KO_Int_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for Klf4 expression
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Klf4KO_Int_Contrast <- Klf4KO_Int_Fit2 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 630))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-630, 630), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-2000, 3000),
+                      breaks = seq(-2000, 3000, 2000) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Klf4KO_Int_Contrast , 
+  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Intensity.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Klf4KO_Int_Contrast 
+```
+
+@fig-Klf4-KO_Int_Posterior shows there is no difference in the spatial intensity between KO and WT animals. 
+
+On the other hand, we can also plot the posterior distribution for the sigma parameter:
+
+```{r}
+#| label: fig-Klf4-KO_Int_PosteriorSigma
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for Klf4 expression (sigma)
+#| fig-width: 5
+#| fig-height: 4
+
+Klf4KO_Sigma_Contrast <- Klf4KO_Int_Fit2 %>%
+   spread_draws(b_sigma_GenotypeKO) %>%
+   mutate(Sigma_contrast =b_sigma_GenotypeKO) %>%
+  ggplot(aes(x = Sigma_contrast)) +
+   stat_halfeye() +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Sigma (KO-WT)",
+                     limits = c(-3, 2),
+                      breaks = seq(-3, 2, 1) ) +
+  Plot_theme
+
+ggsave(
+  plot     = Klf4KO_Sigma_Contrast, 
+  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Sigma.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+Klf4KO_Sigma_Contrast 
+```
+
+We observe that the uncertainty (sigma in the log scale) for both groups have an overlap, but most of the probability function falls bellow 0, indicating that less uncertainty for KO mice. 
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Klf4KO_Int_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Klf4KO_Int_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Klf4KO_Int_Fit2, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "Spatial intensity of KLF4 in the ipsilateral hemisphere",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.html",
+             )
+
+Klf4KO_Int_Fit2_Table <- modelsummary(Klf4KO_Int_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Klf4KO_Int_Fit2_Table, filename = "Tables/tex/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.tex")
+```
+The table displays the effect of KOLF-KO in the spatial intensity of KLF4 and its respective uncertainty. We can appreciate there is not evidence of difference between genotypes (248, CI95% = -805 - 139). 
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+
