@@ -68,7 +68,7 @@ Install and load all required packages. Please uncomment (delete #) the line cod
 #install.packages("devtools")
 library(devtools)
 
-#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse"))
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "scales", "tidybayes", "tidyverse"))
 
 
 library(bayesplot)
@@ -85,7 +85,7 @@ library(modelsummary)
 library(patchwork)
 library(poorman)
 library(plyr)
-library(spatstat)
+library(scales)
 library(tidybayes)
 library(tidyverse)
 ```
