@@ -477,7 +477,7 @@ $$
 \sigma \sim Student-t(3, 0, 600), \sigma > 0 \\
 \end{align}
 $$
-
+- **Klf4-KO_Int_Mdl2:** This model uses Genotype as a predictor of intensity and sigma. This model takes the following notation:
 
 $$
 Y_i \sim t(\nu, \mu_{i}, \sigma_{i}^2) \\

@@ -19,9 +19,7 @@ keywords:
   - Collagen-IV (ColIV)
   - Brain injury
   - Bayesian modeling 
-   
 license: "CC BY"
-
 format:
    pdf: 
     toc: true
@@ -35,29 +33,45 @@ format:
     toc-location: left
     number-sections: true
     theme: spacelab
-
 knitr:
   opts_chunk: 
+    
     warning: false
     message: false
-    
 csl: science.csl
 bibliography: references.bib
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
 # Preview
 
-In this notebook, we analyze the expression of CD31 and collagen-IV (ColIV) in the cortex of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+In this notebook, we analyze the expression of CD31 and collagen-IV
+(ColIV) in the cortex of KLF4-KO animals following cerebral ischemia.The
+experimental group was treated with tamoxifen between 4-7 DPI to deplete
+KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14
+DPI.
 
-**Parent dataset:** CD31, ColIV and IBA1 stained ischemic cortex (ROI) imaged at 10x. Samples were taken 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_KO_CD31-ColIV-Iba1.zip`. 
+**Parent dataset:** CD31, ColIV and IBA1 stained ischemic cortex (ROI)
+imaged at 10x. Samples were taken 14 days post-ischemia (DPI). The raw
+images and pre-processing scripts (if applicable) are available at the
+Zenodo repository (10.5281/zenodo.10553084) under the name
+`Widefield_10x_ROIs_KO_CD31-ColIV-Iba1.zip`.
 
-**Working dataset**: The `Data_Raw/Widefield_10x_ROIs_CD31-ColIV/` folder containing the raw output from CellProfiler [@stirling2021]. The CellProfiler pipeline used to perform the KLF4+ cell detection is available at OSF (https://osf.io/d45n3).
+**Working dataset**: The `Data_Raw/Widefield_10x_ROIs_CD31-ColIV/`
+folder containing the raw output from CellProfiler [@stirling2021]. The
+CellProfiler pipeline used to perform the KLF4+ cell detection is
+available at OSF (https://osf.io/d45n3).
 
-We perform scientific inference based on the labeled area for CD31 and ColIV.
+We perform scientific inference based on the labeled area for CD31 and
+ColIV.
 
 # Install and load required packages
 
-Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+Install and load all required packages. Please uncomment (delete #) the
+line code if installation is required. Load the installed libraries each
+time you start a new R session.
 
 ```{r}
 #| label: Install_Packages
@@ -133,7 +147,9 @@ Plot_theme <- theme_classic() +
 
 ## Load and handle the datasets
 
-We load the `Data_Raw/Widefield_10x_ROIs_CD31-ColIV_CD31_Merged.csv` file containing area measurements for all the detected objects in CellProfiler.
+We load the `Data_Raw/Widefield_10x_ROIs_CD31-ColIV_CD31_Merged.csv`
+file containing area measurements for all the detected objects in
+CellProfiler.
 
 ```{r}
 #| label: tbl-CD31_Table
@@ -148,7 +164,10 @@ CD31_Cells <- read.csv(file = "Data_Raw/Widefield_10x_ROIs_CD31-ColIV/Widefield_
 gt::gt(CD31_Cells[1:10,])
 ```
 
-From the KLF4 table, we are interested in the `FileName_CD31_Raw`column containing the identification data for the images, and `AreaShape_Area` depicting the area for each object. We handle the data set to select the columns of interest and make a per MouseID.
+From the table, we are interested in the `FileName_CD31_Raw`column
+containing the identification data for the images, and `AreaShape_Area`
+depicting the area for each object. We handle the data set to select the
+columns of interest and make a per MouseID.
 
 ```{r}
 #| label: tbl-CD31_Handle
@@ -191,7 +210,7 @@ With the data handled, we perform exploratory data visualization.
 
 ## Exploratory data visualization
 
-We visualize the data to observe the distribution CD31 area.
+We visualize the data to observe the distribution of CD31 area.
 
 ```{r}
 #| label: fig-CD31_Area_Expl
@@ -238,43 +257,53 @@ theme(legend.position = c(0.2, 0.8))
 CD31_Area_box
 ```
 
-@fig-CD31_Area_Expl shows that CD31 increases following injury. Remarkably at 14 DPI, KO animals exhibit higher variability than WT in CD31 stained area. 
+@fig-CD31_Area_Expl shows that CD31 increases following injury.
+Remarkably at 14 DPI, KO animals exhibit higher variability than WT in
+CD31 stained area.
 
 ## Statistical modeling for CD31 stained area
 
-We'll fit two different statistical models. 
+We'll fit two different statistical models.
 
-- **Klf4-KO_Int_Mdl1:** This is an only-intercept model that help to estimate a reference value for the analysis between Genotypes at 14 DPI. This model takes the following notation:
+-   **CD31_Area_Mdl1:** This is an only-intercept model that estimates a
+    reference value for the analysis between Genotypes at 14 DPI. This
+    model takes the following notation:
 
 $$
 Y_i \sim t(\nu, \mu, \sigma^2) \\ 
 \mu = \beta_0
-$$
-$Y_i$ denotes the observed values of Intensity. $t(\nu, \mu, \sigma^2)$ indicates that the response variable follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ$, and scale parameter $\sigma^2$. $\beta_0$ represents the intercept, which is the estimated mean level of Intensity when no other predictors are included in the model. The model takes the following priors based on our previous results using our transgenic TdTomato mice:
+$$ $Y_i$ denotes the observed values of stained area.
+$t(\nu, \mu, \sigma^2)$ indicates that the response variable follows a
+Student-t distribution with degrees of freedom $ν$, location parameter
+$μ$, and scale parameter $\sigma^2$. $\beta_0$ represents the intercept,
+which is the estimated mean level of CD31 stained area when no other
+predictors are included in the model. The model takes the default `brms`
+priors.
 
-$$
-\begin{align}
-\beta_{0} \sim Normal(5000,2000) \\
-\sigma \sim Student-t(3, 0, 600), \sigma > 0 \\
-\end{align}
-$$
-
+-   **CD31_Area_Mdl2:** This model uses Genotype as a predictor of CD31
+    stained area and sigma taking the following notation:
 
 $$
 Y_i \sim t(\nu, \mu_{i}, \sigma_{i}^2) \\
-\mu_i = \beta_0 + \beta_{\text{Genotype}[i]} \\
+\mu_i = \beta_0 + \beta_{\text{Genotype}[i]}\\
 \log(\sigma_i) = \gamma_0 + \gamma_{\text{Genotype}[i]}
-$$
-In this model: $Y_i$ represents the observed Intensity values.$t(\nu, \mu_{i}, \sigma_{i}^2)$
-signifies that the response variable, Intensity, follows a Student-t distribution with degrees of freedom $ν$, location parameter $μ_i$, and scale parameter $\sigma_{i}^2)$ for each observation $i$.$\mu_i$ denotes the mean of Intensity for each Genotype, with $\beta_0$   being the mean at the base value and $\beta_{\text{Genotype}[i]}$ representing the effect of KO. $\sigma_{i}$ denotes the scale parameter for each Genotype, with $γ0$ as the overall scale and $\gamma_{\text{Genotype}[i]}$ reflecting the effect of each Genotype on the variability of Intensity.
+$$ In this model: $Y_i$ represents the observed Intensity
+values.$t(\nu, \mu_{i}, \sigma_{i}^2)$ signifies that the response
+variable, Intensity, follows a Student-t distribution with degrees of
+freedom $ν$, location parameter $μ_i$, and scale parameter
+$\sigma_{i}^2)$ for each observation $i$.$\mu_i$ denotes the mean of
+CD31 stained area for each Genotype, with $\beta_0$ being the mean at
+the base value and $\beta_{\text{Genotype}[i]}$ representing the effect
+of KO. $\sigma_{i}$ denotes the scale parameter for each Genotype, with
+$γ0$ as the overall scale and $\gamma_{\text{Genotype}[i]}$ reflecting
+the effect of each Genotype on the variability of CD31 stained area.
 
 This model uses priors based on the regression for 0D:
 
 $$
 \begin{align}
-\beta_{0} \sim Normal(8000,1000) \\
-\beta_{1}\sim Student-t(3, 0, 1000), \sigma > 0 \\
-\sigma \sim Student-t(3, 0, 1000), \sigma > 0
+\beta_{0} \sim Normal(3000,1000) \\
+\sigma \sim Student-t(3, 0, 250), \sigma > 0
 \end{align}
 $$
 
@@ -352,9 +381,12 @@ CD31_Area_Fit2 <-
 CD31_Area_Fit2 <- 
   add_criterion(CD31_Area_Fit2, c("loo", "waic", "bayes_R2"))
 ```
+
 ### Model diagnostics
 
-To evaluate sample predictions, we perform the model diagnostics for model 2 using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+To evaluate sample predictions, we perform the model diagnostics for
+model 2 using the `pp_check` (posterior predictive checks) function from
+`brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
 
 ```{r}
 #| label: fig-CD31_Area_Diagnostics
@@ -381,13 +413,14 @@ CD31_Area_Fit2_pp
 
 We do not see meaningful deviations from the observed data.
 
+## Model results
 
-### Model results
-
-After validating the model, we plot the full posterior distribution for our second model. First, we visualize the values by Genotypes for the CD31 area and sigma
+After validating the model, we plot the full posterior distribution for
+our second model. First, we visualize the values by Genotypes for the
+CD31 area and sigma
 
 ```{r}
-#| label: fig-Klf4-KO_Int_Posterior
+#| label: fig-CD31-KO_Area_Posterior
 #| include: true
 #| warning: false
 #| message: false
@@ -451,90 +484,60 @@ ggsave(
 CD31_Area_fig + CD31_Area_sigma
 ```
 
-@fig-Klf4-KO_Int_Posterior shows there is no difference in the spatial intensity between KO and WT animals. 
-
+@fig-CD31-KO_Area_Posterior shows that although the means do not differ
+meaningfully, KO animals exhibit a more heterogeneous response than WT
+mice. We can also plot the contrast.
 
 ```{r}
-
-
-
-
+#| label: fig-CD31-KO_Area_Posterior2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for CD31 stained area (contrast)
+#| fig-width: 5
+#| fig-height: 4
 
 set.seed(8807)
 
-Klf4KO_Int_Contrast <- Klf4KO_Int_Fit2 %>%
+CD31_Area_Contrast <- CD31_Area_Fit2 %>%
    spread_draws(b_GenotypeKO) %>%
    mutate(Genotype_contrast = b_GenotypeKO) %>%
-   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 630))) +
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 340))) +
    stat_halfeye() +
-  geom_vline(xintercept = c(-630, 630), linetype = "dashed") +
+  geom_vline(xintercept = c(-340, 340), linetype = "dashed") +
   scale_fill_manual(
     name="ROPE", 
     values = c("gray80", "skyblue"),
     labels = c("False", "True")) +
   scale_y_continuous(name = "Probability density") +
-  scale_x_continuous(name = "CD31 area (pixels)",
-                     limits = c(2000, 7000),
-                      breaks = seq(2000, 7000, 2000) ) +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-1500, 2500),
+                     breaks = seq(-1000, 1000, 1000) ) +
 
   Plot_theme +
   theme (legend.position = c(0.8, 0.8))
 
 ggsave(
-  plot     = Klf4KO_Int_Contrast , 
-  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Intensity.png", 
+  plot     = CD31_Area_Contrast , 
+  filename = "Plots/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_CD31-ColIV_CD31_contrast.png", 
   width    = 7, 
   height   = 7, 
   units    = "cm")
 
-Klf4KO_Int_Contrast 
+CD31_Area_Contrast 
 ```
 
+@fig-CD31-KO_Area_Posterior2 shown that we have not enough evidence of a
+difference between the means of CD31 area for WT and KO mice.
 
+## Posterior summary
 
-
-
-On the other hand, we can also plot the posterior distribution for the sigma parameter:
-
-```{r}
-#| label: fig-Klf4-KO_Int_PosteriorSigma
-#| include: true
-#| warning: false
-#| message: false
-#| results: false
-#| fig-cap: Posterior distribution for Klf4 expression (sigma)
-#| fig-width: 5
-#| fig-height: 4
-
-Klf4KO_Sigma_Contrast <- Klf4KO_Int_Fit2 %>%
-   spread_draws(b_sigma_GenotypeKO) %>%
-   mutate(Sigma_contrast =b_sigma_GenotypeKO) %>%
-  ggplot(aes(x = Sigma_contrast)) +
-   stat_halfeye() +
-  scale_y_continuous(name = "Probability density") +
-  scale_x_continuous(name = "Sigma (KO-WT)",
-                     limits = c(-3, 2),
-                      breaks = seq(-3, 2, 1) ) +
-  Plot_theme
-
-ggsave(
-  plot     = Klf4KO_Sigma_Contrast, 
-  filename = "Plots/Widefield_10x_Ipsilateral_KO_Klf4_Exp/Widefield_10x_Ipsilateral_KO_Klf4_Sigma.png", 
-  width    = 7, 
-  height   = 7, 
-  units    = "cm")
-
-Klf4KO_Sigma_Contrast 
-```
-
-We observe that the uncertainty (sigma in the log scale) for both groups have an overlap, but most of the probability function falls bellow 0, indicating that less uncertainty for KO mice. 
-
-### Posterior summary
-
-Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+Next, we plot the posterior summary using the `describe_posterior`
+function from `bayestestR` package [@bayestestR; @makowski2019].
 
 ```{r}
-#| label: Klf4KO_Int_DescribePosterior
+#| label: CD31_Area_DescribePosterior
 #| include: true
 #| warning: false
 #| message: false
@@ -542,30 +545,465 @@ Next, we plot the posterior summary using the `describe_posterior` function from
 #| cache: true
 
 describe_posterior(
-  Klf4KO_Int_Fit2,
+  CD31_Area_Fit2,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
 
-modelsummary(Klf4KO_Int_Fit2, 
+modelsummary(CD31_Area_Fit2, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "Spatial intensity of KLF4 in the ipsilateral hemisphere",
+             title = "CD31 stained area in the cortex of WT and KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.html",
+             output = "Tables/html/Widefield_10x_ROIs_CD31-ColIV_CD31_Fit2_Table.html",
              )
 
-Klf4KO_Int_Fit2_Table <- modelsummary(Klf4KO_Int_Fit2, 
+CD31_Area_Fit2_Table <- modelsummary(CD31_Area_Fit2, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Klf4KO_Int_Fit2_Table, filename = "Tables/tex/Widefield_10x_Ipsilateral_KO_Klf4_SpatialInt_Fit2_Table.tex")
+gt::gtsave (CD31_Area_Fit2_Table, filename = "Tables/tex/Widefield_10x_ROIs_CD31-ColIV_CD31_Fit2_Table.tex")
 ```
-The table displays the effect of KOLF-KO in the spatial intensity of KLF4 and its respective uncertainty. We can appreciate there is not evidence of difference between genotypes (248, CI95% = -805 - 139). 
+
+The table displays the effect of KLF4-KO in CD31 expression (stained
+are) with its respective uncertainty. We can appreciate there is not
+evidence of difference between genotypes (270, CI95% = -472 - 999).
+
+# Analysis of vascular Collagen-IV (ColIV) area
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_10x_ROIs_CD31-ColIV_ColIV_Masked.csv`
+file containing area measurements for the vascular-associated collagen-IV.
+
+```{r}
+#| label: tbl-VascularColIV_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+ColIV_Cells <- read.csv(file = "Data_Raw/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_CD31-ColIV_ColIV_Masked.csv", header = TRUE)
+
+gt::gt(ColIV_Cells[1:10,])
+```
+
+We perform the same procedure as before to subset the relevant columns.
+
+```{r}
+#| label: tbl-ColIV_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+ColIV_Data <- subset(ColIV_Cells, select = c("FileName_CD31_Raw", "AreaShape_Area"))
+
+## And extract metadata from the image name
+ColIV_Data  <- cbind(ColIV_Data, do.call(rbind , strsplit(ColIV_Data$FileName_CD31_Raw, "[_\\.]"))[,1:3])
+
+ColIV_Data <- subset(ColIV_Data, select = -c(FileName_CD31_Raw))
+
+## We Rename the relevant columns 
+colnames(ColIV_Data) <- c("ColIV_Area", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+ColIV_Data$DPI <- factor(ColIV_Data$DPI, levels = c("0D", "14D"))
+ColIV_Data$Genotype <- factor(ColIV_Data$Genotype, levels = c("WT", "KO"))
+
+
+# Summarize the dataset
+setDT(ColIV_Data)
+ColIV_Summary <- ColIV_Data[, .(Sum_ColIV_Area = sum(ColIV_Area, na.rm = TRUE)), by = .(MouseID, DPI, Genotype)]
+
+# Divide by 100 to reduce the number
+ColIV_Summary$Sum_ColIV_Area <- round(ColIV_Summary$Sum_ColIV_Area/100, digits = 0)
+
+# We bind the CD31 area column to use in the regression
+
+ColIV_Summary <- cbind(ColIV_Summary, CD31_Summary$Sum_CD31_Area)
+names(ColIV_Summary)[names(ColIV_Summary) == 'V2'] <- 'CD31_Area'
+
+write.csv(ColIV_Summary , "Data_Processed/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_ColIV_Area.csv", row.names = FALSE)
+
+gt::gt(ColIV_Summary [1:10,])
+
+```
+
+With the data handled, we perform exploratory data visualization.
+
+## Exploratory data visualization
+
+We visualize the data to observe the distribution of ColIV area as a box plot and its relation to CD31 area as scatter plot.
+
+```{r}
+#| label: fig-ColIV_Area_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for ColIV area and its relation ship with CD31
+#| fig-width: 10
+#| fig-height: 4
+
+# Load the data set in case is not present in the environment
+
+ColIV_Summary <- read.csv("Data_Processed/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_ColIV_Area.csv", header = TRUE)
+ColIV_Summary$DPI <- factor(ColIV_Summary $DPI, levels = c("0D", "14D"))
+ColIV_Summary$Genotype <- factor(ColIV_Summary $Genotype, levels = c("WT", "KO"))
+
+set.seed(8807)
+
+# Boxplot
+##################
+cols <- hue_pal()(2)
+
+ColIV_Area_box <- 
+  ggplot(
+    data  = ColIV_Summary, 
+    aes(x = DPI, 
+        y = Sum_ColIV_Area,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+  geom_jitter() +
+
+scale_y_continuous(name = "ColIV area (AU/pixels)") +
+scale_x_discrete(
+  name   ="DPI",
+  breaks = c("0D", "14D")
+  ) +
+scale_color_manual(values = rev(cols)) +
+Plot_theme +
+theme(legend.position = c(0.2, 0.8))
+
+
+# Scatter plot
+##################
+cols <- hue_pal()(2)
+
+ColIV_Area_sct <- 
+  ggplot(
+    data  = ColIV_Summary, 
+    aes(x = Sum_ColIV_Area, 
+        y = CD31_Area,
+        color = Genotype)
+    ) +
+  geom_point() +
+
+scale_x_continuous(name = "ColIV area (AU/pixels)") +
+scale_y_continuous(name = "CD31 area (AU/pixels)") +
+scale_color_manual(values = rev(cols)) +
+Plot_theme +
+theme(legend.position = c(0.2, 0.8))
+
+#Plot the result
+ColIV_Area_box + ColIV_Area_sct
+```
+
+@fig-ColIV_Area_Expl shows that ColIV expression is extremely low in sham animals. Otherwise, this protein is upregulated after ischemia, with an apparent higher mean in KO mice. On the right side, we observed that the relation between CD31 and ColIV area is strong (excluding the 0D mice). Therefore, we'll expect multicollinearity if we condition on CD31.
+
+
+## Statistical modeling for ColIV stained area
+
+We'll fit a single statistical model:
+
+
+  **ColIV_Area_Mdl1:** This model uses Genotype as a predictor of ColIV
+    stained area and sigma taking the following notation:
+
+$$
+Y_i \sim t(\nu, \mu_{i}, \sigma_{i}^2) \\
+\mu_i = \beta_0 + \beta_{\text{Genotype}[i]} + \epsilon_i\\
+$$ 
+
+In this model: $Y_i$ represents the observed Intensity
+values.$t(\nu, \mu_{i}, \sigma_{i}^2)$ signifies that the response
+variable, Intensity, follows a Student-t distribution with degrees of
+freedom $ν$, location parameter $μ_i$, and scale parameter
+$\sigma_{i}^2)$ for each observation $i$.$\mu_i$ denotes the mean of
+CD31 stained area for each Genotype, with $\beta_0$ being the mean at
+the base value and $\beta_{\text{Genotype}[i]}$ representing the effect
+of KO; $+ \epsilon_i$ is the error term. 
+
+### Fit the models
+
+We employ `brms` to fit the model.
+
+```{r}
+#| label: ColIV_Area_Model
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 2: CD31 area and Genotype as predictors
+
+ColIV_Area_14D <- ColIV_Summary[ColIV_Summary$DPI =="14D",]
+
+ColIV_Area_Mdl1 <- bf(Sum_ColIV_Area ~ Genotype)
+                     
+get_prior(ColIV_Area_Mdl1, ColIV_Area_14D, family = student)
+
+# Fit model 1
+ColIV_Area_Fit1 <- 
+  brm(
+    family = student,
+    data    = ColIV_Area_14D,
+    formula = ColIV_Area_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_CD31-ColIV_ColIV_Fit2.rds",
+    file_refit = "never")
+
+# Add loo for model comparison
+ColIV_Area_Fit1 <- 
+  add_criterion(ColIV_Area_Fit1, c("loo", "waic", "bayes_R2"))
+```
+
+### Model diagnostics
+
+To evaluate sample predictions, we perform model diagnostics using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-ColIV_Area_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for ColIV stained area expression
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+ColIV_Area_Fit1_pp <- 
+  brms::pp_check(ColIV_Area_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Area ~ Genotype") +
+  #scale_x_continuous(limits=c(0, 10000)) +
+  Plot_theme  
+
+ColIV_Area_Fit1_pp
+```
+
+We do not see meaningful deviations from the observed data.
+
+## Model results
+
+After validating the model, we plot the full posterior distribution using `conditional effects`.
+
+```{r}
+#| label: fig-CD31-KO_Area_Posterior2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for CD31 stained area (contrast)
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+ColIV_Area_Contrast <- ColIV_Area_Fit1 %>%
+   spread_draws(b_GenotypeKO) %>%
+   mutate(Genotype_contrast = b_GenotypeKO) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 1155))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-1155, 1155), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-1500, 3500),
+                     breaks = seq(-1000, 3000, 2000) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = ColIV_Area_Contrast , 
+  filename = "Plots/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_CD31-ColIV_ColIV_contrast.png", 
+  width    = 7, 
+  height   = 7, 
+  units    = "cm")
+
+ColIV_Area_Contrast 
+```
+
+
+@fig-ColIV_Area_Posterior shows that, conditioning on CD31 area, there are not meaningful differences between genotypes, but we observe a more spread response of WT animals.
+
+## Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior`
+function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: ColIV_Area_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  ColIV_Area_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(ColIV_Area_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "ColIV stained area in the cortex of WT and KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_CD31-ColIV_ColIV_Fit1_Table.html",
+             )
+
+ColIV_Area_Fit1_Table <- modelsummary(ColIV_Area_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (ColIV_Area_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_CD31-ColIV_ColIV_Fit1_Table.tex")
+```
+
+Please not that there are not meaningful differences in the effect of KO mice (701, 95% CI = -466 - 1825)
+
+
+# Analysis of total Collagen-IV (ColIV) area
+
+Finally, we'll explore the non-vascular associated ColIV by resting the vascular-associated to the total ColIV according to our cellProfiller results. First, we handle the dataset for total ColIV as done previously.
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_10x_ROIs_CD31-ColIV_ColIV_Objects.csv`
+file containing area measurements for total collagen-IV.
+
+```{r}
+#| label: tbl-TotalColIV_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+ColIV_Area <- read.csv(file = "Data_Raw/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_CD31-ColIV_ColIV_Objects.csv", header = TRUE)
+
+gt::gt(ColIV_Area[1:10,])
+```
+
+We perform the same procedure as before to subset the relevant columns.
+
+```{r}
+#| label: tbl-TotalColIV_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+ColIV_Total <- subset(ColIV_Area, select = c("FileName_CD31_Raw", "AreaShape_Area"))
+
+## And extract metadata from the image name
+ColIV_Total  <- cbind(ColIV_Total, do.call(rbind , strsplit(ColIV_Total$FileName_CD31_Raw, "[_\\.]"))[,1:3])
+
+ColIV_Total <- subset(ColIV_Total, select = -c(FileName_CD31_Raw))
+
+## We Rename the relevant columns 
+colnames(ColIV_Total) <- c("ColIV_Area", "MouseID", "DPI", "Genotype")
+
+## We set the factors
+ColIV_Total$DPI <- factor(ColIV_Total$DPI, levels = c("0D", "14D"))
+ColIV_Total$Genotype <- factor(ColIV_Total$Genotype, levels = c("WT", "KO"))
+
+
+# Summarize the dataset
+setDT(ColIV_Total)
+ColIV_Total <- ColIV_Total[, .(ColIV_Total_Area = sum(ColIV_Area, na.rm = TRUE)), by = .(MouseID, DPI, Genotype)]
+
+# Divide by 100 to reduce the number
+ColIV_Total$ColIV_Total_Area <- round(ColIV_Total$ColIV_Total_Area/100, digits = 0)
+
+# We bind the ColIV_Total_Area column the ColIV summary table previusly generated
+
+ColIV_Summary <- cbind(ColIV_Summary, ColIV_Total$ColIV_Total_Area)
+names(ColIV_Summary)[names(ColIV_Summary) == 'V2'] <- 'ColIV_Total_Area'
+
+ColIV_Summary$ColIV_Extra <- ColIV_Summary$ColIV_Total_Area - ColIV_Summary$Sum_ColIV_Area
+
+write.csv(ColIV_Summary , "Data_Processed/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_ColIV_Area.csv", row.names = FALSE)
+
+gt::gt(ColIV_Summary [1:10,])
+```
+
+## Exploratory data visualization
+
+We visualize the data to observe the distribution of the non-vascular associated ColIV.
+
+```{r}
+#| label: fig-ColIVExtra_Area_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for non-vascular ColIV
+#| fig-width: 5
+#| fig-height: 4
+
+# Load the data set in case is not present in the environment
+
+ColIV_Summary <- read.csv("Data_Processed/Widefield_10x_ROIs_CD31-ColIV/Widefield_10x_ROIs_ColIV_Area.csv", header = TRUE)
+ColIV_Summary$DPI <- factor(CD31_Summary $DPI, levels = c("0D", "14D"))
+ColIV_Summary$Genotype <- factor(CD31_Summary $Genotype, levels = c("WT", "KO"))
+
+set.seed(8807)
+
+# Boxplot
+##################
+cols <- hue_pal()(2)
+
+ColIV_Extra_box <- 
+  ggplot(
+    data  = ColIV_Summary, 
+    aes(x = DPI, 
+        y = ColIV_Tot,
+        color = Genotype)
+    ) +
+  geom_boxplot() +
+  geom_jitter() +
+
+scale_y_continuous(name = "ColIV area (AU/pixels)") +
+scale_x_discrete(
+  name   ="DPI",
+  breaks = c("0D", "14D")
+  ) +
+scale_color_manual(values = rev(cols)) +
+Plot_theme +
+theme(legend.position = c(0.2, 0.8))
+
+#Plot the result
+ColIV_Extra_box
+```
+Here, we see that the trends are similar to those of vascular collagen-IV. Therefore, we conclude that extravascular collagen IV does not play a meaningful role in this condition. 
 
 # References
 
@@ -575,4 +1013,3 @@ The table displays the effect of KOLF-KO in the spatial intensity of KLF4 and it
 ```{r}
 sessionInfo()
 ```
-
