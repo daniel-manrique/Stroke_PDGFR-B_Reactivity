@@ -444,7 +444,7 @@ ColIV_Int_Contrast
 Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
 
 ```{r}
-#| label: Klf4KO_Int_DescribePosterior
+#| label: ColIVKO_Int_DescribePosterior
 #| include: true
 #| warning: false
 #| message: false
