@@ -74,10 +74,6 @@ from skimage import transform
 dir_path = "D:/Research/Stroke_PDGFR-B_Reactivity/Images_Raw/Confocal_40x_ROIs_CD31-Pdgfrb-CD13/Images_Cells"
 save_dir = "D:/Research/Stroke_PDGFR-B_Reactivity/Images_Raw/Confocal_40x_ROIs_CD31-Pdgfrb-CD13/Images_Morphology"
 
-# Specify your directory
-#dir_path = "C:/Users/danie/Desktop/Test/"
-#save_dir = "C:/Users/danie/Desktop/Test/Results/"
-
 # Initialize an empty DataFrame for the results
 all_results = pd.DataFrame()
 
@@ -222,6 +218,7 @@ all_results.to_csv(os.path.join(save_dir, 'Pdgfrb_Morphology.csv'), index=False)
 all_branch_data.to_csv(os.path.join(save_dir, 'Pdgfrb_Skeleton.csv'), index=False)
 
 ```
+
 ```{r}
 sessionInfo()
 ```

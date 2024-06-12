@@ -49,7 +49,7 @@ bibliography: references.bib
 
 This notebook reports the analysis of PDGFR-β expression (by FISH) in the injured brain following cerebral ischemia. Previous results using PDGFR-β(Td-tomato from transgenic animals) suggest that KLF4 depletion reduces PDGFR-β expression. To confirm those results we evaluated PDGFR-β at mRNA levels. 
 
-**Parent dataset:** PDGFR-β(FISH) stained ischemic hemispheres imaged at 10x (with stitching). We took regions of interest (ROIs) from three different areas in the injure cortex/striatum to quantify PDGFR-β expression. Samples are grouped at 0 (Sham), and 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_KO_Fish_Pdgfrb.zip`.
+**Parent dataset:** PDGFR-β(FISH) stained ischemic hemispheres imaged at 10x (with stitching). We took regions of interest (ROIs) from three different areas in the injure cortex/striatum to quantify PDGFR-β expression. Samples are grouped at 0 (Sham), and 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_KO_Fish_Pdgfrb.zip`. Please note that we excluded mice `KL31` because of an inefficient staining (the section dried during the staining procedure).
 
 **Working dataset**: The `Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_Pdgfrb_Objects.csv dataframes containing the raw output from CellProfiller [@stirling2021]. The CellProfiler pipeline is available at https://osf.io/yndua.
 
@@ -430,83 +430,114 @@ The table displays the regression coefficients o the log scale.
 
 # Analysis of PDGFR-B area and intensity
 
-## Dataset handling
+## Load and handle the dataset 
 
-We handle the `Klf4_Data` to add scaled coordinates
+Now, we handle the `Widefield_10x_ROIs_KO_Fish_Pdgfrb_Pdgfrb_Objects.csv` to analyze the area and intensity of the PDGFR-B+ cells
 
 ```{r}
-#| label: Klf4_Int_Scale
+#| label: Pdgfrb_AreaInt_Load
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
 #| cache: true
 
-Klf4_Data <- read.csv("Data_Processed/Widefield_10x_Ipsilateral_Klf4/Widefield_10x_Ipsilateral_Klf4_Klf4Inten.csv", header = TRUE)
+Pdgfrb_AreaInt_df <- read.csv("Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_Pdgfrb_Objects.csv", header = TRUE)
+
+gt::gt(Pdgfrb_AreaInt_df[1:10,])
+```
+We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images, the `AreaShape_Area` and `Intensity_IntegratedIntensity_Pdgfrb_Raw` indicating the area and intensity per cell, respectively. Next, we subset the data frame to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: Pdgfrb_Counts_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt_df, select = c("FileName_Pdgfrb_Raw", "AreaShape_Area", "Intensity_IntegratedIntensity_Pdgfrb_Raw"))
+
+## And extract metadata from the image name
+Pdgfrb_AreaInt  <- cbind(Pdgfrb_AreaInt, do.call(rbind , strsplit(Pdgfrb_AreaInt$FileName_Pdgfrb_Raw, "[_\\.]"))[,1:4])
+
+Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt, select = -c(FileName_Pdgfrb_Raw))
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_AreaInt) <- c("Area", "Intensity", "MouseID", "DPI", "Genotype", "Section")
 
 ## We set the factors
-Klf4_Data$DPI <- factor(Klf4_Data$DPI, levels = c("0D", "3D", "7D", "14D", "30D"))
+Pdgfrb_AreaInt$DPI <- factor(Pdgfrb_AreaInt$DPI, levels = c("0D", "14D"))
+Pdgfrb_AreaInt$Genotype <- factor(Pdgfrb_AreaInt$Genotype, levels = c("WT", "KO"))
+Pdgfrb_AreaInt$Section <- factor(Pdgfrb_AreaInt$Section, levels = c("S1", "S2", "S3"))
 
-Klf4_Data <- Klf4_Data %>%
-  group_by(MouseID) %>%
-  mutate(Scaled_CenterX = (CenterX - min(CenterX)) / (max(CenterX) - min(CenterX)),
-         Scaled_CenterY = (CenterY - min(CenterY)) / (max(CenterY) - min(CenterY))) %>%
-  ungroup()
+write.csv(Pdgfrb_AreaInt, "Data_Processed/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_AreaInt.csv", row.names = FALSE)
 
-Klf4_Data$MouseID <- factor(Klf4_Data$MouseID)
 ```
 
 ## Exploratory data visualization
 
-Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
+Next, we visualize the raw data to guide the statistical modeling. 
 
 ```{r}
-#| label: fig-Klf4_CellInt_Expl
+#| label: fig-Pdgfrb_AreaInt_Expl
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Exploratory data visualization for Klf4 intensity
+#| fig-cap: Exploratory data visualization for PDGFR-B area and intensity
 #| fig-width: 9
 #| fig-height: 4
 
 set.seed(8807)
 
-# Density plot
-################
-
-Klf4_Int_Dens <- 
-  ggplot(
-    data  = Klf4_Data, 
-    aes(x = Intensity)
-    ) +
-  geom_density(size = 1.5) +
-  geom_rug(size = 1) +
-  scale_x_continuous(name ="KLF4 (Intensity)") +
-  scale_y_continuous(name = "Density") +
-  Plot_theme
-
-
-# Box plot
+# Box plot for area
 ##################
 
-Klf4_Int_Box <- 
+Pdgfrb_Area_Box <- 
   ggplot(
-    data  = Klf4_Data, 
+    data  = Pdgfrb_AreaInt, 
     aes(x = DPI, 
-        y = Intensity)
+        y = Area,
+        color = Genotype)
+    ) +
+  geom_boxplot()+
+
+Plot_theme
+
+# Box plot for intensity
+##################
+
+Pdgfrb_Intensity_Box <- 
+  ggplot(
+    data  = Pdgfrb_AreaInt, 
+    aes(x = DPI, 
+        y = Intensity,
+        color = Genotype)
     ) +
   geom_boxplot()+
 
 Plot_theme
 
 #Plot the result
-Klf4_Int_Dens |  Klf4_Int_Box 
+Pdgfrb_Area_Box + Pdgfrb_Intensity_Box
+
+
+Pdgfrb_Intensity_scr <- 
+  ggplot(
+    data  = Pdgfrb_AreaInt, 
+    aes(x = Area, 
+        y = Intensity,
+        color = Genotype)
+    ) +
+  geom_point()
+
+Pdgfrb_Intensity_scr 
 ```
 
-@fig-Klf4_CellInt_Expl shows a range of \~ 0 - 10 in the KFL4 intensity. Without accounting for days-post ischemia (DPI), the response variable exhibits a single concentrated peak. On the other hand, the scatter shows that there are no substantial differences between the fitted lines. We speculate that the median (per object) intensity of KLF4 does not vary meaningfully by DPI.
+@fig-Pdgfrb_AreaInt_Expl shows that both area and intensity of the cells change after MCAO. On the other hand, while the area seems similar for both genotypes at 14 DPI, there is an apparent change in the intensity of the cells that is worth modeling. 
 
-## Statistical modeling for Klf4 expression
+## Statistical modeling for PDGFR-B area
 
 We use the `brms` package [@brms; @burkner2018] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. Given the exploratory data visualization, we fit a linear model to explore the variability of KLF4 by DPI. We build a multilevel model to take into consideration the clustering of cells per animal:
 
@@ -580,67 +611,42 @@ Next, we fit the models using `brms`:
 
 # Model 1
 
-Klf4_CellInt_Mdl1 <- bf(Intensity ~ 0 + DPI + (1 | MouseID))
+Pdgfrb_AreaInt_14D <- Pdgfrb_AreaInt[Pdgfrb_AreaInt$DPI == "14D",]
 
-get_prior(Klf4_CellInt_Mdl1, Klf4_Subsample, family = hurdle_lognormal())
+Pdgfrb_AreaInt_Mdl1 <- bf(Intensity ~ Area * Genotype + (1 | MouseID))
 
-Klf4_CellInt_Prior1 <- 
-  c(prior(normal(0,1), class = b, lb = 0),
-    prior(student_t(3, 0, 1), class = sd, lb= 0),
-    prior(student_t(3, 0, 1), class = sigma, lb=0))
+get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaInt, family = student)
+
+Pdgfrb_AreaInt_Prior1 <- 
+  c(prior(normal(0,1), class = b),
+    prior(student_t(3, 0, 10), class = sd),
+    prior(student_t(3, 0, 10), class = sigma))
 
 # Fit model 1
-Klf4_CellInt_Fit1 <- 
+Pdgfrb_AreaInt_Fit1 <- 
   brm(
-    family  = hurdle_lognormal(),
-    data    = Klf4_Subsample,
-    formula = Klf4_CellInt_Mdl1,
-    prior   = Klf4_CellInt_Prior1,
+    family  = student,
+    data    = Pdgfrb_AreaInt_14D,
+    formula = Pdgfrb_AreaInt_Mdl1,
+    #prior   = Pdgfrb_Area_Prior1, 
     chains  = 4,
     cores   = 4,
     warmup  = 2500, 
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Widefield_10x_Ipsilateral_Klf4_Exp/Widefield_10x_Ipsilateral_Klf4_CellInt_Fit1.rds",
+    file    = "Models/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_AreaInt_Fit1.rds",
     file_refit = "never")
 
-                     
-#Klf4_CellInt_Fit1 <- 
-#  add_criterion(Klf4_CellInt_Fit1, c("loo", "waic", "bayes_R2"))
 
 
-# Model 2
-
-Klf4_CellInt_Mdl2 <- bf(Intensity ~ 0 + DPI * Scaled_CenterX + (1 | MouseID))
-
-get_prior(Klf4_CellInt_Mdl2, Klf4_Subsample, family = lognormal())
-
-# Fit model 1
-Klf4_CellInt_Fit2 <- 
-  brm(
-    family = hurdle_lognormal(),
-    data    = Klf4_Subsample,
-    formula = Klf4_CellInt_Mdl2,
-    prior   = Klf4_CellInt_Prior1,
-    chains  = 4,
-    cores   = 4,
-    warmup  = 2500, 
-    iter    = 5000, 
-    seed    = 8807,
-    control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Widefield_10x_Ipsilateral_Klf4_Exp/Widefield_10x_Ipsilateral_Klf4_CellInt_Fit2.rds",
-    file_refit = "never")
-
-#Klf4_CellInt_Fit2 <- 
-#  add_criterion(Klf4_CellInt_Fit2, c("loo", "waic", "bayes_R2"))
 ```
 ## Model diagnostics
 
 We perform model diagnostics:
 
 ```{r}
-#| label: fig-Klf4_CellInt_Diagnostics
+#| label: fig-Pdgfrb__Diagnostics
 #| include: true
 #| warning: false
 #| message: false

@@ -772,7 +772,7 @@ Klf4_Data$MouseID <- factor(Klf4_Data$MouseID)
 
 ## Exploratory data visualization
 
-Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
+Next, we visualize the raw data to guide the statistical modeling. 
 
 ```{r}
 #| label: fig-Klf4_CellInt_Expl

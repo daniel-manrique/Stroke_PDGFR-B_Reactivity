@@ -219,7 +219,7 @@ $$
 
 First, we explore the variation specifically in the contralateral hemispheres. For this purpose, we subset the dataset to obtain row with `Region==Contra`, exclusively. The model takes the following notation: 
 
--   **Klf4_Coloc_Mdl1:** We use `DPI` to calculate the probability of colocalization in contralateral regions using a logistic function:
+-   **Klf4_Coloc_Mdl1:** We use `DPI` to calculate the probability of colocalization conditioning on DPI:
 
 $$
 \text{Coloc} | \text{trials}(Klf4) \sim \text{Binomial}(Klf4, p) 
