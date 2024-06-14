@@ -3,16 +3,11 @@ title: "Supplementary tables"
 editor: visual
 
 format: html
-
 ---
 
-```{r}
-
-```
 
 
-::: {#tbl-panel layout-ncol=2}
-
+::: {#tbl-panel layout-ncol="2"}
 | **Parameter**   | **Est.** | **2.5 %** | **97.5 %** |
 |-----------------|----------|-----------|------------|
 | Intercept       | 11.9     | 11.5      | 12.45      |
@@ -23,46 +18,209 @@ format: html
 | Num.Obs.        | 49       |           |            |
 | R2              | 0.76     |           |            |
 
-: Splines model {#tbl-first}
+: Splines model {#tbl-Shrinkage_splines}
 
 | **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
 |-----------|---------|------------|------------|-----------|--------|
 | 0.00      | 23.33   | 0.7        | -7.91      | -0.34     | 0.9    |
 | 23.33     | 30.00   | 0.2        | 0.17       | 0.03      | 0.9    |
 
-: Model derivatives {#tbl-second}
+: Model derivatives {#tbl-Shrinkage_Deriv}
 
-**Hemispheric area following MCAO**. a) Parameter estimates (population level effects) for the non-linear (splines) model *Area ~ s(DPI, K=5), sigma  ~ DPI*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+**Hemispheric area following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *Area \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
 :::
 
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
-::: {#tbl-panel layout-ncol=2}
-
-| **Parameter**     | **Est.** | **2.5 %** | **97.5 %** |
-|-------------------|----------|-----------|------------|
-| Intercept         | 620      | 533       | 702        |
-| sigma_Intercept   | 5.4      | 5.2       | 5.6        |
-| sDPI_1            | 0.003    | -1.9      | 1.9        |
-| sigma_sDPI_1      | 11.06    | 1.52      | 24.6       |
-| sds_sDPI_1        | 2084     | 920       | 4734       |
-| sds_sigma_sDPI_1  | 10.9     | 1.1       | 46.5       |
+::: {#tbl-panel layout-ncol="2"}
+| **Parameter**       | **Est.** | **2.5 %** | **97.5 %** |
+|---------------------|----------|-----------|------------|
+| Intercept           | 620      | 533       | 702        |
+| sigma_Intercept     | 5.4      | 5.2       | 5.6        |
+| sDPI_1              | 0.003    | -1.9      | 1.9        |
+| sigma_sDPI_1        | 11.06    | 1.52      | 24.6       |
+| sds_sDPI_1          | 2084     | 920       | 4734       |
+| sds_sigma_sDPI_1    | 10.9     | 1.1       | 46.5       |
 | s_sigma_sDPI_1[1] | -5.5     | -14.8     | 1.1        |
 | s_sigma_sDPI_1[2] | -1.2     | -19.7     | 14.3       |
 | s_sigma_sDPI_1[3] | -2.1     | -5.1      | 0.6        |
-| Num.Obs.          | 49       |           |            |
-| R2                | 0.599    |           |            |
-| R2 Adj.           | 0.570    |           |            |
+| Num.Obs.            | 49       |           |            |
+| R2                  | 0.59     |           |            |
+| R2 Adj.             | 0.57     |           |            |
 
-: Splines model {#tbl-first}
+: Splines model {#tbl-Pdgfrb_IntDen_Splines}
 
 | **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
 |-----------|---------|------------|------------|-----------|--------|
 | 0         | 23      | 0.66       | 841        | 36.07     | 0.84   |
 | 23        | 30      | 0.24       | -29.4      | -4.42     | 0.84   |
 
+: Model derivatives {#tbl-Pdgfrb_IntDen_Deriv}
 
-: Model derivatives {#tbl-second}
+**PDGFR-β integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+:::
 
-**PDGFR-β integrated density following MCAO.**. a) Parameter estimates (population level effects) for the non-linear (splines) model *IntDen ~ s(DPI, K=5), sigma  ~ DPI*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
-::: 
+------------------------------------------------------------------------
+------------------------------------------------------------------------
 
+::: {#tbl-panel layout-ncol="2"}
+| **Parameter**       | **Est.** | **2.5 %** | **97.5 %** |
+|---------------------|----------|-----------|------------|
+| b_Intercept         | 490      | 381       | 615        |
+| b_sigma_Intercept   | 5.2      | 5.08      | 5.5        |
+| bs_sDPI_1           | 0.003    | -1.9      | 1.9        |
+| bs_sigma_sDPI_1     | 26.4     | 6.1       | 49.6       |
+| sds_sDPI_1          | 1698     | 817       | 3576       |
+| sds_sigma_sDPI_1    | 22.7     | 4.9       | 85.8       |
+| s_sigma_sDPI_1[1] | -14.7    | -25.9     | -4.2       |
+| s_sigma_sDPI_1[2] | 5.1      | -19.2     | 33.3       |
+| s_sigma_sDPI_1[3] | -2.9     | -8.1      | 1.7        |
+| Num.Obs.            | 49       |           |            |
+| R2                  | 0.51     |           |            |
+| R2 Adj.             | 0.18     |           |            |
+
+: Splines model {#tbl-Gfap_IntDen_Splines}
+
+| **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
+|-----------|---------|------------|------------|-----------|--------|
+| 0         | 16      | 0.46       | 835.13     | 50.11     | 0.24   |
+| 16        | 30      | 0.44       | -480.65    | -36.05    | 0.24   |
+
+: Model derivatives {#tbl-Gfap_IntDen_Deriv}
+
+**GFAP integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are shown in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-16 DPI and 16-30 DPI.
+:::
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+| **Parameter** | **Est.** | **2.5 %** | **97.5 %** |
+|---------------|----------|-----------|------------|
+| b_Intercept   | 61.1     | 56.4      | 65.9       |
+| b_DPI         | -0.100   | -0.38     | 0.17       |
+| sigma         | 8.20     | 6.33      | 10.47      |
+| Num.Obs.      | 38       |           |            |
+| R2            | 0.02     |           |            |
+
+: **GFAP convex hull following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the linear model *Healthy_Ratio \~ DPI, family = student*. {#tbl-Gfap_Convex}
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 1.130    | 1.114     | 1.146      |
+| bs_sDPI_1      | 25.6     | 23.9      | 27.3       |
+| sds_sDPI_1     | 9.5      | 5.1       | 18.4       |
+| Num.Obs.       | 49       |           |            |
+| R2             | 0.97     |           |            |
+
+: **PDGFR-β^high likelihood following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ s(DPI, k =5), family = binomial*. {#tbl-Pdgfrb_lowhigh}
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+::: {#tbl-panel layout-ncol="2" layout-nrow="2"}
+
+| **Paremeters**             | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------------|----------|-----------|------------|
+| b_Intercept                | 3.7      | 3.5       | 4.0        |
+| b_Striatum                 | 0.4      | 0.1       | 0.8        |
+| b_Cortex                   | 1.06     | 0.66      | 1.45       |
+| b_Gfap_High                | -0.46    | -0.83     | -0.09      |
+| b_Striatum × Gfap_High     | 0.45     | -0.06     | 0.97       |
+| b_RegionCortex × Gfap_High | -0.64    | -1.19     | -0.06      |
+| sigma                      | 1.20     | 1.10      | 1.31       |
+| Num.Obs.                   | 262      |           |            |
+| R2                         | 0.43     |           |            |
+
+: Model for all regions {#tbl-Pdgfrb_Gfap_Regions}
+
+| **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------|----------|-----------|------------|
+| b_Intercept          | 3.53     | 3.08      | 3.99       |
+| b_DPI7D              | 0.29     | -0.35     | 0.93       |
+| b_DPI14D             | 0.51     | -0.09     | 1.12       |
+| b_DPI30D             | 0.09     | -0.53     | 0.73       |
+| b_Gfap_High          | -0.40    | -1.05     | 0.25       |
+| b_DPI7D × Gfap_High  | 0.48     | -0.41     | 1.37       |
+| b_DPI14D × Gfap_High | 0.07     | -0.79     | 0.93       |
+| b_DPI30D × Gfap_High | -0.75    | -1.62     | 0.13       |
+| sigma                | 0.99     | 0.84      | 1.17       |
+| Num.Obs.             | 88       |           |            |
+| R2                   | 0.391    |           |            |
+
+: Model for perilesion {#tbl-Pdgfrb_Gfap_Peri}
+
+| **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------|----------|-----------|------------|
+| b_Intercept          | 3.38     | 2.95      | 3.81       |
+| b_DPI7D              | 0.88     | 0.30      | 1.44       |
+| b_DPI14D             | 1.19     | 0.62      | 1.75       |
+| b_DPI30D             | 1.27     | 0.70      | 1.85       |
+| b_Gfap_High          | -1.47    | -2.08     | -0.87      |
+| b_DPI7D × Gfap_High  | 1.47     | 0.67      | 2.29       |
+| b_DPI14D × Gfap_High | 2.05     | 1.25      | 2.86       |
+| b_DPI30D × Gfap_High | 2.01     | 1.21      | 2.82       |
+| sigma                | 0.92     | 0.79      | 1.09       |
+| Num.Obs.             | 88       |           |            |
+| R2                   | 0.241    |           |            |
+
+: Model for striatum {#tbl-Pdgfrb_Gfap_Str}
+
+| **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------|----------|-----------|------------|
+| b_Intercept          | -12.51   | -49.35    | 0.74       |
+| b_DPI7D              | 16.45    | 3.20      | 53.36      |
+| b_DPI14D             | 17.98    | 4.72      | 54.96      |
+| b_DPI30D             | 18.48    | 5.21      | 55.41      |
+| b_Gfap_High          | -24.25   | -76.36    | -5.43      |
+| b_DPI7D × Gfap_High  | 21.41    | 2.51      | 73.70      |
+| b_DPI14D × Gfap_High | 22.79    | 3.95      | 74.85      |
+| b_DPI30D × Gfap_High | 23.72    | 4.92      | 75.88      |
+| shape                | 0.76     | 0.54      | 1.04       |
+| Num.Obs.             | 86       |           |            |
+| R2                   | 0.575    |           |            |
+
+: Model for cortex {#tbl-Pdgfrb_Gfap_Ctx}
+
+**PDGFR-β counts in tesselated GFAP regions.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the model *Pdgfrb ~ Region x Gfap, family = hurdle_lognormal()*. b-d) Posterior summary for models by region *Pdgfrb ~ DPI x Gfap, family = hurdle_lognormal()*.
+:::
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | -0.65    | -0.73     | -0.57      |
+| b_DPI          | 0.02     | 0.02      | 0.02       |
+| Num.Obs.       | 14       |           |            |
+| R2             | 0.640    |           |            |
+
+: **PDGFR-β^high likelihood in striatal-only lesions**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the binomial model *Pdgfrb_high | trials(Pdgfrb_Total) ~ DPI, family = binomial*. {#tbl-Pdgfrb_Dtr_lowhigh}
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+
+::: {#tbl-panel layout-ncol="2" layout-nrow="2"}
+
+| **Parameters** | **Est.** | **2.5 \%** | **97.5 \%** |
+|----------------|----------|------------|-------------|
+| b_Intercept    | -2.84    | -2.98      | -2.70       |
+| bs_sDPI2_1     | 0.059    | -3.93      | 4.71        |
+| sds_sDPI2_1    | 3.22     | 1.13       | 7.70        |
+| Num.Obs.       | 43       |            |             |
+| R2             | 0.207    |            |             |
+
+: Model for perilesion {#tbl-Pdgfrb_CD31_Peri}
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | -1.37    | -1.44     | -1.30      |
+| bs_sDPI2_1     | 4.19     | 1.08      | 7.64       |
+| sds_sDPI2_1    | 2.92     | 0.96      | 7.07       |
+| Num.Obs.       | 43       |           |            |
+| R2             | 0.69     |           |            |
+
+: Model for perilesion {#tbl-Pdgfrb_CD31_Str}
