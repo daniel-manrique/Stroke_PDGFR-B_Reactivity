@@ -1,0 +1,68 @@
+---
+title: "Supplementary tables"
+editor: visual
+
+format: html
+
+---
+
+```{r}
+
+```
+
+
+::: {#tbl-panel layout-ncol=2}
+
+| **Parameter**   | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------|----------|-----------|------------|
+| Intercept       | 11.9     | 11.5      | 12.45      |
+| sigma_Intercept | 0.2      | -0.25     | 0.63       |
+| sigma_DPI       | 0.005    | 0.000     | 0.01       |
+| sDPI_1          | 0.079    | -1.91     | 1.99       |
+| sds_sDPI_1      | 14.7     | 7.66      | 28.7       |
+| Num.Obs.        | 49       |           |            |
+| R2              | 0.76     |           |            |
+
+: Splines model {#tbl-first}
+
+| **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
+|-----------|---------|------------|------------|-----------|--------|
+| 0.00      | 23.33   | 0.7        | -7.91      | -0.34     | 0.9    |
+| 23.33     | 30.00   | 0.2        | 0.17       | 0.03      | 0.9    |
+
+: Model derivatives {#tbl-second}
+
+**Hemispheric area following MCAO**. a) Parameter estimates (population level effects) for the non-linear (splines) model *Area ~ s(DPI, K=5), sigma  ~ DPI*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+:::
+
+
+::: {#tbl-panel layout-ncol=2}
+
+| **Parameter**     | **Est.** | **2.5 %** | **97.5 %** |
+|-------------------|----------|-----------|------------|
+| Intercept         | 620      | 533       | 702        |
+| sigma_Intercept   | 5.4      | 5.2       | 5.6        |
+| sDPI_1            | 0.003    | -1.9      | 1.9        |
+| sigma_sDPI_1      | 11.06    | 1.52      | 24.6       |
+| sds_sDPI_1        | 2084     | 920       | 4734       |
+| sds_sigma_sDPI_1  | 10.9     | 1.1       | 46.5       |
+| s_sigma_sDPI_1[1] | -5.5     | -14.8     | 1.1        |
+| s_sigma_sDPI_1[2] | -1.2     | -19.7     | 14.3       |
+| s_sigma_sDPI_1[3] | -2.1     | -5.1      | 0.6        |
+| Num.Obs.          | 49       |           |            |
+| R2                | 0.599    |           |            |
+| R2 Adj.           | 0.570    |           |            |
+
+: Splines model {#tbl-first}
+
+| **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
+|-----------|---------|------------|------------|-----------|--------|
+| 0         | 23      | 0.66       | 841        | 36.07     | 0.84   |
+| 23        | 30      | 0.24       | -29.4      | -4.42     | 0.84   |
+
+
+: Model derivatives {#tbl-second}
+
+**PDGFR-β integrated density following MCAO.**. a) Parameter estimates (population level effects) for the non-linear (splines) model *IntDen ~ s(DPI, K=5), sigma  ~ DPI*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+::: 
+
