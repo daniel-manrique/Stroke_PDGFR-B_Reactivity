@@ -5,9 +5,7 @@ editor: visual
 format: html
 ---
 
-
-
-::: {#tbl-panel layout-ncol="2"}
+::: {#tbl-panel_shrinkage layout-ncol="2"}
 | **Parameter**   | **Est.** | **2.5 %** | **97.5 %** |
 |-----------------|----------|-----------|------------|
 | Intercept       | 11.9     | 11.5      | 12.45      |
@@ -27,13 +25,12 @@ format: html
 
 : Model derivatives {#tbl-Shrinkage_Deriv}
 
-**Hemispheric area following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *Area \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+**Hemispheric area following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Area \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
 :::
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
-::: {#tbl-panel layout-ncol="2"}
+::: {#tbl-panel_Pdgfrb_IntDen layout-ncol="2"}
 | **Parameter**       | **Est.** | **2.5 %** | **97.5 %** |
 |---------------------|----------|-----------|------------|
 | Intercept           | 620      | 533       | 702        |
@@ -42,9 +39,9 @@ format: html
 | sigma_sDPI_1        | 11.06    | 1.52      | 24.6       |
 | sds_sDPI_1          | 2084     | 920       | 4734       |
 | sds_sigma_sDPI_1    | 10.9     | 1.1       | 46.5       |
-| s_sigma_sDPI_1[1] | -5.5     | -14.8     | 1.1        |
-| s_sigma_sDPI_1[2] | -1.2     | -19.7     | 14.3       |
-| s_sigma_sDPI_1[3] | -2.1     | -5.1      | 0.6        |
+| s_sigma_sDPI_1\[1\] | -5.5     | -14.8     | 1.1        |
+| s_sigma_sDPI_1\[2\] | -1.2     | -19.7     | 14.3       |
+| s_sigma_sDPI_1\[3\] | -2.1     | -5.1      | 0.6        |
 | Num.Obs.            | 49       |           |            |
 | R2                  | 0.59     |           |            |
 | R2 Adj.             | 0.57     |           |            |
@@ -58,13 +55,12 @@ format: html
 
 : Model derivatives {#tbl-Pdgfrb_IntDen_Deriv}
 
-**PDGFR-β integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+**PDGFR-β integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
 :::
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
-::: {#tbl-panel layout-ncol="2"}
+::: {#tbl-panel_Gfap_IntDen layout-ncol="2"}
 | **Parameter**       | **Est.** | **2.5 %** | **97.5 %** |
 |---------------------|----------|-----------|------------|
 | b_Intercept         | 490      | 381       | 615        |
@@ -73,9 +69,9 @@ format: html
 | bs_sigma_sDPI_1     | 26.4     | 6.1       | 49.6       |
 | sds_sDPI_1          | 1698     | 817       | 3576       |
 | sds_sigma_sDPI_1    | 22.7     | 4.9       | 85.8       |
-| s_sigma_sDPI_1[1] | -14.7    | -25.9     | -4.2       |
-| s_sigma_sDPI_1[2] | 5.1      | -19.2     | 33.3       |
-| s_sigma_sDPI_1[3] | -2.9     | -8.1      | 1.7        |
+| s_sigma_sDPI_1\[1\] | -14.7    | -25.9     | -4.2       |
+| s_sigma_sDPI_1\[2\] | 5.1      | -19.2     | 33.3       |
+| s_sigma_sDPI_1\[3\] | -2.9     | -8.1      | 1.7        |
 | Num.Obs.            | 49       |           |            |
 | R2                  | 0.51     |           |            |
 | R2 Adj.             | 0.18     |           |            |
@@ -89,24 +85,10 @@ format: html
 
 : Model derivatives {#tbl-Gfap_IntDen_Deriv}
 
-**GFAP integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are shown in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-16 DPI and 16-30 DPI.
+**GFAP integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are shown in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-16 DPI and 16-30 DPI.
 :::
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-
-| **Parameter** | **Est.** | **2.5 %** | **97.5 %** |
-|---------------|----------|-----------|------------|
-| b_Intercept   | 61.1     | 56.4      | 65.9       |
-| b_DPI         | -0.100   | -0.38     | 0.17       |
-| sigma         | 8.20     | 6.33      | 10.47      |
-| Num.Obs.      | 38       |           |            |
-| R2            | 0.02     |           |            |
-
-: **GFAP convex hull following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the linear model *Healthy_Ratio \~ DPI, family = student*. {#tbl-Gfap_Convex}
-
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
 | **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
 |----------------|----------|-----------|------------|
@@ -116,13 +98,23 @@ format: html
 | Num.Obs.       | 49       |           |            |
 | R2             | 0.97     |           |            |
 
-: **PDGFR-β^high likelihood following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ s(DPI, k =5), family = binomial*. {#tbl-Pdgfrb_lowhigh}
+: **PDGFR-β\^high likelihood following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ s(DPI, k =5), family = binomial*. {#tbl-Pdgfrb_lowhigh}
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
-::: {#tbl-panel layout-ncol="2" layout-nrow="2"}
+| **Parameter** | **Est.** | **2.5 %** | **97.5 %** |
+|---------------|----------|-----------|------------|
+| b_Intercept   | 61.1     | 56.4      | 65.9       |
+| b_DPI         | -0.100   | -0.38     | 0.17       |
+| sigma         | 8.20     | 6.33      | 10.47      |
+| Num.Obs.      | 38       |           |            |
+| R2            | 0.02     |           |            |
 
+: **GFAP convex hull following MCAO.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the linear model *Healthy_Ratio \~ DPI, family = student*. {#tbl-Gfap_Convex}
+
+## ------------------------------------------------------------------------
+
+::: {#tbl-panel_Pdgfrb_Gfap layout-ncol="2" nrow="2"}
 | **Paremeters**             | **Est.** | **2.5 %** | **97.5 %** |
 |----------------------------|----------|-----------|------------|
 | b_Intercept                | 3.7      | 3.5       | 4.0        |
@@ -185,11 +177,10 @@ format: html
 
 : Model for cortex {#tbl-Pdgfrb_Gfap_Ctx}
 
-**PDGFR-β counts in tesselated GFAP regions.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the model *Pdgfrb ~ Region x Gfap, family = hurdle_lognormal()*. b-d) Posterior summary for models by region *Pdgfrb ~ DPI x Gfap, family = hurdle_lognormal()*.
+**PDGFR-β counts in tesselated GFAP regions.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb \~ Region x Gfap, family = hurdle_lognormal()*. b-d) Posterior summary for models by region *Pdgfrb \~ DPI x Gfap, family = hurdle_lognormal()*.
 :::
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
 | **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
 |----------------|----------|-----------|------------|
@@ -198,20 +189,18 @@ format: html
 | Num.Obs.       | 14       |           |            |
 | R2             | 0.640    |           |            |
 
-: **PDGFR-β^high likelihood in striatal-only lesions**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% 97.5%) for the binomial model *Pdgfrb_high | trials(Pdgfrb_Total) ~ DPI, family = binomial*. {#tbl-Pdgfrb_Dtr_lowhigh}
+: **PDGFR-β\^high likelihood in striatal-only lesions**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ DPI, family = binomial*. {#tbl-Pdgfrb_Str_lowhigh}
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
+## ------------------------------------------------------------------------
 
-::: {#tbl-panel layout-ncol="2" layout-nrow="2"}
-
-| **Parameters** | **Est.** | **2.5 \%** | **97.5 \%** |
-|----------------|----------|------------|-------------|
-| b_Intercept    | -2.84    | -2.98      | -2.70       |
-| bs_sDPI2_1     | 0.059    | -3.93      | 4.71        |
-| sds_sDPI2_1    | 3.22     | 1.13       | 7.70        |
-| Num.Obs.       | 43       |            |             |
-| R2             | 0.207    |            |             |
+::: {#tbl-panel_Pdgfrb_CD31 layout-ncol="2"}
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | -2.84    | -2.98     | -2.70      |
+| bs_sDPI2_1     | 0.059    | -3.93     | 4.71       |
+| sds_sDPI2_1    | 3.22     | 1.13      | 7.70       |
+| Num.Obs.       | 43       |           |            |
+| R2             | 0.207    |           |            |
 
 : Model for perilesion {#tbl-Pdgfrb_CD31_Peri}
 
@@ -223,4 +212,319 @@ format: html
 | Num.Obs.       | 43       |           |            |
 | R2             | 0.69     |           |            |
 
-: Model for perilesion {#tbl-Pdgfrb_CD31_Str}
+: Model for striatum {#tbl-Pdgfrb_CD31_Str}
+
+| Parameters  | Est.  | 2.5 % | 97.5 % |
+|-------------|-------|-------|--------|
+| b_Intercept | -0.93 | -0.97 | -0.89  |
+| bs_sDPI2_1  | 17.37 | 15.07 | 19.75  |
+| sds_sDPI2_1 | 8.71  | 4.42  | 18.52  |
+| Num.Obs.    | 40    |       |        |
+| R2          | 0.83  |       |        |
+
+: Model for cortex {#tbl-Pdgfrb_CD31_Ctx}
+
+: **Parenchymal PDGFR-β likelihood following MCAO**. a-C) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial models *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* for perilesion, sriatum and cortex, respectively.
+:::
+
+## ------------------------------------------------------------------------
+
+LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE MUERTE CELULAR EN FLO CYTOMETRY.
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 1.130    | 1.114     | 1.146      |
+| bs_sDPI_1      | 25.6     | 23.9      | 27.3       |
+| sds_sDPI_1     | 9.5      | 5.1       | 18.4       |
+| Num.Obs.       | 49       |           |            |
+| R2             | 0.97     |           |            |
+
+: FALTA la LEYENDA {#tbl-Pdgfrb_Death_Flow}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**    | **Est.** | **2.5 %** | **97.5 %** |
+|-------------------|----------|-----------|------------|
+| b_Intercept       | -1.58    | -1.79     | -1.38      |
+| b_DPI30D          | 0.38     | 0.15      | 0.60       |
+| b_Cortex          | 0.52     | 0.30      | 0.74       |
+| b_DPI30D × Cortex | -0.68    | -0.93     | -0.43      |
+| Num.Obs.          | 38       |           |            |
+| R2                | 0.653    |           |            |
+
+: **Parenchymal PDGFR-β likelihood in striatal-only lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Parenchymal}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**          | **Est.** | **2.5 %** | **97.5 %** |
+|-------------------------|----------|-----------|------------|
+| b_Intercept             | 159      | 25        | 269        |
+| b_sigma_Intercept       | 4.40     | 3.21      | 5.66       |
+| b_DPI30D                | 64.4     | -61.2     | 211.6      |
+| b_Cortex                | 59.7     | -82.4     | 229.5      |
+| b_DPI30D × Cortex       | -20.3    | -228.2    | 180.2      |
+| b_sigma_DPI30D          | -0.07    | -1.46     | 1.11       |
+| b_sigma_Cortex          | 0.37     | -1.16     | 1.51       |
+| b_sigma_DPI30D × Cortex | 0.50     | -0.90     | 2.17       |
+| Num.Obs.                | 38       |           |            |
+| R2                      | 0.065    |           |            |
+
+: **Number of PDGFR-β+ cells in striatal-only and cortico-striatal lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb_Total \~ DPI x Lesion, sigma \~ DPI x Lesion, family = student* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Total}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**  | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------|----------|-----------|------------|
+| b_Intercept     | 1.006    | 0.44      | 1.52       |
+| b_DPI7D         | -0.001   | -0.75     | 0.73       |
+| b_DPI14D        | 0.29     | -0.40     | 0.98       |
+| b_DPI30D        | 0.04     | -0.81     | 0.85       |
+| b_MCAO          | 0.73     | 0.16      | 1.34       |
+| b_DPI7D × MCAO  | 0.11     | -0.68     | 0.91       |
+| b_DPI14D × MCAO | -1.02    | -1.83     | -0.20      |
+| b_DPI30D × MCAO | 0.10     | -0.74     | 1.02       |
+| Num.Obs.        | 60       |           |            |
+| R2              | 0.154    |           |            |
+
+: **Number of parechymal PDGFR-β+ cells in sham and MCAO mice**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Parenchymal \~ DPI x Condition, family = student* in sham and MCAO mice. {#tbl-Pdgfrb_CD31_ShamMCAO}
+
+## ------------------------------------------------------------------------
+
+::: {#tbl-panel_Ki67_Psgfrb layout-ncol="2"}
+| **Parameters**  | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------|----------|-----------|------------|
+| b_Intercept     | 0.74     | 0.59      | 0.88       |
+| bs_sDPI_Cont_1  | 65.7     | 48.6      | 80.9       |
+| sds_sDPI_Cont_1 | 33.7     | 16.6      | 67.4       |
+| sigma           | 0.52     | 0.42      | 0.66       |
+| Num.Obs.        | 50       |           |            |
+| R2              | 0.528    |           |            |
+
+: Splines model {#tbl-Ki67_Pdgfrb_splines}
+
+| **Start** | **End** | **Length** | **Change** | **Slope** | **R2** |
+|-----------|---------|------------|------------|-----------|--------|
+| 0         | 3       | 0.08       | 6.87       | 2.06      | 0.24   |
+| 3         | 30      | 0.82       | -6.10      | -0.23     | 0.24   |
+
+: Model derivatives {#tbl-Ki67_Pdgfrb_deriv}
+
+**PDGFR-β+ cells proliferation in the ischemic hemispheric following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Percentage_Pdgfrb \~ s(DPI_Cont, k = 5), family = lognormal*. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-3 DPI and 3-30 DPI.
+:::
+
+## ------------------------------------------------------------------------
+
+::: {#tbl-panel_Ki67_Pdgfrb_20x layout-ncol="2"}
+| Parameters          | Est.  | 2.5 % | 97.5 % |
+|---------------------|-------|-------|--------|
+| b_Intercept         | -1.55 | -3.46 | -0.01  |
+| b_DPI7D             | 0.37  | -1.56 | 2.51   |
+| b_RegionStr         | 2.22  | 0.43  | 4.31   |
+| b_RegionCtx         | 2.75  | 0.99  | 4.82   |
+| b_DPI7D × RegionStr | -0.95 | -3.45 | 1.41   |
+| b_DPI7D × RegionCtx | 0.20  | -2.19 | 2.48   |
+| shape               | 1.01  | 0.45  | 2.04   |
+| Num.Obs.            | 59    |       |        |
+| R2                  | 0.391 |       |        |
+
+: Model for total PDGFR-β/Ki67+ cells {#tbl-Ki67_Pdgfrb_Total}
+
+| Parameters          | Est.  | 2.5 %  | 97.5 % |
+|---------------------|-------|--------|--------|
+| b_Intercept         | 95.8  | 3.3    | 437.3  |
+| b_DPI7D             | -57.3 | -346.1 | 72.3   |
+| b_RegionStr         | -92.8 | -434.7 | -0.14  |
+| b_RegionCtx         | -94.4 | -436.3 | -1.7   |
+| b_DPI7D × RegionStr | 56.2  | -73.8  | 343.3  |
+| b_DPI7D × RegionCtx | 56.06 | -73.68 | 345    |
+| Num.Obs.            | 31    |        |        |
+| R2                  | 0.813 |        |        |
+
+: Model for vascular PDGFR-β/Ki67+ cells {#tbl-Ki67_Pdgfrb_Vascular}
+
+**PDGFR-β+ cells proliferation in defined ROIs following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Cells \~ DPI x Region, family = negbinomial* showing the total amount of colocalized cells. b) Shows the same estimates for the model *Vascular \| trials(Total) \~ DPI x Region, family = binomial* showing the proportion of vascular PDGFR-β+ cells relative to the total number of PDGFR-β.
+:::
+
+## ------------------------------------------------------------------------
+
+| **Parameters**   | **Est.** | **2.5 %** | **97.5 %** |
+|------------------|----------|-----------|------------|
+| b_Intercept      | 143      | 123       | 164        |
+| b_DPI            | 10.8     | 9.6       | 12.0       |
+| b_Striatum       | -0.3     | -36.6     | 38.9       |
+| b_Cortex         | -9.3     | -40.3     | 22.4       |
+| b_DPI × Striatum | 14.6     | 12.6      | 16.6       |
+| b_DPI × Cortex   | 4.5      | 2.4       | 6.4        |
+| sigma            | 58.1     | 43.4      | 76.8       |
+| Num.Obs.         | 143      |           |            |
+| R2               | 0.698    |           |            |
+
+: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Area \~ DPI_cont x Region, family = student*. {#tbl-Pdgfrb_Haralick_Area}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|------------------------|----------|-----------|------------|
+| b_muStriatum_Intercept | 0.49     | -0.011    | 1.04       |
+| b_muCortex_Intercept   | 0.25     | -0.29     | 0.82       |
+| b_muStriatum_entropy   | 2.54     | 0.54      | 4.68       |
+| b_muStriatum_contrast  | -0.79    | -1.92     | 0.27       |
+| b_muStriatum_IDM       | 1.43     | -0.13     | 3.09       |
+| b_muCortex_entropy     | 5.26     | 3.21      | 7.55       |
+| b_muCortex_contrast    | -1.12    | -2.22     | -0.03      |
+| b_muCortex_IDM         | 2.92     | 1.13      | 4.83       |
+| Num.Obs.               | 146      |           |            |
+
+: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region ~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
+
+## ------------------------------------------------------------------------
+
+::: {#tbl-panel_Pdgfbr_TDA layout-ncol="2" nrow="2"}
+
+| **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
+|----------|----------|------------|------------|-----------|------------|
+| 0D       | 3D       | Ctx        | 211        | 150       | 323        |
+| 3D       | 7D       | Ctx        | 603        | 507       | 669        |
+| 7D       | 14D      | Ctx        | 208        | 146       | 280        |
+| 14D      | 30D      | Ctx        | 156        | 119       | 225        |
+| 0D       | 3D       | Str        | 385        | 168       | 548        |
+| 3D       | 7D       | Str        | 348        | 222       | 784        |
+| 7D       | 14D      | Str        | 227        | 184       | 315        |
+| 14D      | 30D      | Str        | 243        | 177       | 318        |
+| 3D       | 7D       | Peri       | 230        | 172       | 308        |
+| 7D       | 14D      | Peri       | 182        | 150       | 229        |
+| 14D      | 30D      | Peri       | 239        | 189       | 304        |
+
+: Wasserstein distance - 0D homology {#tbl-Pdgfrb_TDA_Wasserstein_0D}
+
+
+| **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
+|----------|----------|------------|------------|-----------|------------|
+| 0D       | 3D       | Ctx        | 126        | 111       | 168        |
+| 3D       | 7D       | Ctx        | 216        | 194       | 232        |
+| 7D       | 14D      | Ctx        | 135        | 111       | 166        |
+| 14D      | 30D      | Ctx        | 122        | 94        | 153        |
+| 0D       | 3D       | Str        | 134        | 115       | 162        |
+| 3D       | 7D       | Str        | 158        | 129       | 194        |
+| 7D       | 14D      | Str        | 146        | 137       | 171        |
+| 14D      | 30D      | Str        | 166        | 143       | 183        |
+| 3D       | 7D       | Peri       | 127        | 111       | 159        |
+| 7D       | 14D      | Peri       | 121        | 106       | 132        |
+| 14D      | 30D      | Peri       | 138        | 122       | 158        |
+
+: Wasserstein distance - 1D homology {#tbl-Pdgfrb_TDA_Wasserstein_1D}
+
+| **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
+|----------|----------|------------|------------|-----------|------------|
+| 0D       | 3D       | Str        | 127        | 45        | 320        |
+| 3D       | 7D       | Str        | 112        | 70        | 438        |
+| 7D       | 14D      | Str        | 68         | 48        | 85         |
+| 14D      | 30D      | Str        | 62         | 50        | 78         |
+| 0D       | 3D       | Ctx        | 56         | 25        | 85         |
+| 3D       | 7D       | Ctx        | 116        | 87        | 151        |
+| 7D       | 14D      | Ctx        | 35         | 26        | 74         |
+| 14D      | 30D      | Ctx        | 27         | 20        | 36         |
+| 3D       | 7D       | Peri       | 60         | 48        | 80         |
+| 7D       | 14D      | Peri       | 44         | 34        | 55         |
+| 14D      | 30D      | Peri       | 58         | 44        | 71         |
+
+: Bottleneck distance - 0D homology {#tbl-Pdgfrb_TDA_Bottleneck_0D}
+
+| **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
+|----------|----------|------------|------------|-----------|------------|
+| 0D       | 3D       | Str        | 75         | 67        | 127        |
+| 3D       | 7D       | Str        | 86         | 71        | 127        |
+| 7D       | 14D      | Str        | 71         | 65        | 82         |
+| 14D      | 30D      | Str        | 82         | 66        | 102        |
+| 0D       | 3D       | Ctx        | 64         | 46        | 76         |
+| 3D       | 7D       | Ctx        | 74         | 66        | 87         |
+| 7D       | 14D      | Ctx        | 59         | 47        | 66         |
+| 14D      | 30D      | Ctx        | 48         | 38        | 69         |
+| 3D       | 7D       | Peri       | 64         | 47        | 94         |
+| 7D       | 14D      | Peri       | 60         | 49        | 70         |
+| 14D      | 30D      | Peri       | 64         | 57        | 75         |
+
+: Bottleneck distance - 1D homology {#tbl-Pdgfrb_TDA_Bottleneck_1D}
+
+: **Topological assessment of PDGFR-β+ cells following injury:** Wasserstein (a-b) and Bottleneck (c-d) distances for 0 and 1 dimension homology. We boostraped the estimates (1000 replications) to show the median Betti curve distance with 95% credible intervals (2.5% - 97.5%).
+:::
+
+## ------------------------------------------------------------------------
+
+| **Parameters**  | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------|----------|-----------|------------|
+| b_DPI_0D        | 5214     | 4756      | 5667       |
+| b_DPI_3D        | 3281     | 2966      | 3658       |
+| b_DPI_7D        | 4177     | 3652      | 4729       |
+| b_DPI_14D       | 5787     | 4652      | 6835       |
+| b_DPI_30D       | 4928     | 4427      | 5439       |
+| b_sigma_DPI_0D  | 6.41     | 5.81      | 7.06       |
+| b_sigma_DPI_3D  | 6.09     | 5.38      | 6.77       |
+| b_sigma_DPI_7D  | 6.74     | 6.28      | 7.27       |
+| b_sigma_DPI_14D | 7.63     | 7.19      | 8.13       |
+| b_sigma_DPI_30D | 6.73     | 6.27      | 7.23       |
+| Num.Obs.        | 53       |           |            |
+| R2              | 0.35     |           |            |
+
+
+: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity ~ 0 + DPI, sigma ~ 0 + DPI, family = student*. Note that the sigma coefficients are in the log scale {#tbl-KLF4_Ipsilateral}
+
+## ------------------------------------------------------------------------
+
+| **Parameter** | **Est.** | **2.5 %** | **97.5%** |
+|---------------|----------|--------|------------|
+| 0 DPI         | -4.79    | -4.94  | -4.64      |
+| 3 DPI         | -4.8     | -4.94  | -4.66      |
+| 7 DPI         | -4.63    | -4.76  | -4.51      |
+| 14 DPI        | -4.52    | -4.65  | -4.4       |
+| 30 DPI        | -4.64    | -4.76  | -4.51      |
+
+: **Staining intensity of KLF4+ nuclei following injury:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity ~ 0 + DPI + (1 | MouseID), family = hurdle_lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_CellIInt}
+
+## ------------------------------------------------------------------------
+
+| **Parameter**   | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------|----------|-----------|------------|
+| 0 DPI           | -4.8     | -4.95     | -4.65      |
+| 3 DPI           | -4.84    | -4.99     | -4.7       |
+| 7 DPI           | -4.63    | -4.75     | -4.5       |
+| 14 DPI          | -4.42    | -4.54     | -4.3       |
+| 30 DPI          | -4.59    | -4.71     | -4.46      |
+| Scaled_x        | 0.06     | -0.01     | 0.14       |
+| 3 DPI:Scaled_x  | 0.06     | -0.05     | 0.16       |
+| 7 DPI:Scaled_x  | -0.1     | -0.21     | 0.01       |
+| 14 DPI:Scaled_x | -0.54    | -0.67     | -0.41      |
+| 30 DPI:Scaled_x | -0.31    | -0.47     | -0.15      |
+
+: **Staining intensity of KLF4+ nuclei relative to the x-coordinates:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity ~ 0 + DPI x Scaled_CenterX + (1 | MouseID), family = lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_X_CellIInt}
+
+## ------------------------------------------------------------------------
+
+| **Parameter**      | **Est.** | **2.5 %** | **97.5 %** |
+|--------------------|----------|-----------|------------|
+| b_Intercept        | -2.27    | -2.41     | -2.13      |
+| b_14D              | 0.06     | 0.01      | 0.16       |
+| b_30D              | 0.12     | 0.02      | 0.28       |
+| b_Perilesion       | 0.07     | 0.01      | 0.17       |
+| b_Injury           | 0.52     | 0.37      | 0.66       |
+| b_14D × Perilesion | 0.11     | 0.01      | 0.27       |
+| b_30D × Perilesion | 0.07     | 0.01      | 0.20       |
+| b_14D × Injury     | 0.05     | 0.008     | 0.14       |
+| b_30D × Injury     | 0.34     | 0.15      | 0.53       |
+| Num.Obs.           | 64       |           |            |
+| R2                 | 0.595    |           |            |
+
+: **KLF4/PDGFR-β colocalization in defined ROIs:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Coloc | trials(Klf4) ~ DPI x Region, family = binomial*. {#tbl-KLF4_Pdgfrb_Coloc}
+
+## ------------------------------------------------------------------------
+
+| **Parameter**      | **Est.** | **2.5 %** | **97.5 %** |
+|--------------------|----------|-----------|------------|
+| b_Intercept        | 9478     | 8435      | 10475      |
+| b_sigma_Intercept  | 7.2      | 6.7       | 7.9        |
+| b_GenotypeKO       | 258      | -805      | 1392       |
+| b_sigma_GenotypeKO | -0.5     | -1.3      | 0.2        |
+| Num.Obs.           | 19       |           |            |
+| R2                 | 0.03     |           |            |
+
+: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity ~ Genotype,sigma ~ Genotype, family = student*. {#tbl-KLF4_KO_Ipsilateral}

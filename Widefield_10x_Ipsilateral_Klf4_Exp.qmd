@@ -351,6 +351,8 @@ The results of this Poisson regression are present in the log scale. Here, we se
 Overall, these results show a more pronounced increase of KLF4 at 14D and 7D as we move away from the infarct zone, indicating an aggregation of KLF4 in the ischemic zones.
 
 
+# Bayesian analysis of KLF4 spatial intensity
+
 ## Generate table for mean intensity
 
 Here, we extract the mean spatial intensity of each point pattern to perform a regression.
@@ -1134,7 +1136,7 @@ describe_posterior(
 The table displays the regression coefficients without a baseline (intercept value).It also shows he coefficients for individual animals included as group-level effects.
 
 
-### Visluazing the results for the second model
+## Visluazing the results for the second model
 
 On the other hand, we can also plot the posterior distribution for the sigma parameter:
 

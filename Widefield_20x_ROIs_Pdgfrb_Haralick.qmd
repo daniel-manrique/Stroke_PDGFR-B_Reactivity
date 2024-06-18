@@ -741,7 +741,11 @@ $$
 \beta_{1} \sim Normal(0, 1) \\
 \alpha \sim normal(0, 1) \\
 \end{align}
-$$ \## Fit the model
+$$ \
+
+
+
+## Fit the model
 
 ```{r}
 #| label: Pdgfrb_Haralick_Modeling

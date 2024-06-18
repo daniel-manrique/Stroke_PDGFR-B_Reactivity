@@ -201,7 +201,7 @@ following variables:
     occlusion. Sham = Healthy animals. For Sham animals, DPI equalizes
     time of tamoxifen recombination to MCAO animals.
 -   **Lesion**: Lesion type. L0 = No lesion. L1 = Cortico-striatal
-    lesion. L2 = triatal lesion.
+    lesion. L2 = Striatal-only lesion.
 -   **Region**: Brain region where imaging was performed. Ctx = Cortex
     (injured). Str = Striaum (injured). Peri = Perilesion (healthy).
 -   **Pdgfr_Perivascular**: PDGFR-β+ cells attached (colocalizing) with

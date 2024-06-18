@@ -535,7 +535,7 @@ modelsummary(Ki67_Pdgfrb_Fit1,
              title = "Ki67/PDGFR-β+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.html",
+             output = "Tables/html/Widefield_10x_Ki67-Pdgfrb_Fit1_Table.html",
              )
 
 Ki67_Pdgfrb_Fit1_Table <- modelsummary(Ki67_Pdgfrb_Fit1, 
@@ -545,7 +545,7 @@ Ki67_Pdgfrb_Fit1_Table <- modelsummary(Ki67_Pdgfrb_Fit1,
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
 gt::gtsave (Ki67_Pdgfrb_Fit1_Table, 
-            filename = "Tables/tex/Widefield_10x_ROIs_Ki67-Pdgfrb_Fit1_Table.tex")
+            filename = "Tables/tex/Widefield_10x_Ki67-Pdgfrb_Fit1_Table.tex")
 ```
 
 ## Estimate derivative
