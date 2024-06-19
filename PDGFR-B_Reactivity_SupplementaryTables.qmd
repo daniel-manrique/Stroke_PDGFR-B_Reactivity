@@ -375,12 +375,11 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | b_muCortex_IDM         | 2.92     | 1.13      | 4.83       |
 | Num.Obs.               | 146      |           |            |
 
-: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region ~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
+: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region \~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
 
 ## ------------------------------------------------------------------------
 
 ::: {#tbl-panel_Pdgfbr_TDA layout-ncol="2" nrow="2"}
-
 | **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
 |----------|----------|------------|------------|-----------|------------|
 | 0D       | 3D       | Ctx        | 211        | 150       | 323        |
@@ -396,7 +395,6 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | 14D      | 30D      | Peri       | 239        | 189       | 304        |
 
 : Wasserstein distance - 0D homology {#tbl-Pdgfrb_TDA_Wasserstein_0D}
-
 
 | **Day1** | **Day2** | **Region** | **Median** | **2.5 %** | **97.5 %** |
 |----------|----------|------------|------------|-----------|------------|
@@ -466,20 +464,19 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.        | 53       |           |            |
 | R2              | 0.35     |           |            |
 
-
-: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity ~ 0 + DPI, sigma ~ 0 + DPI, family = student*. Note that the sigma coefficients are in the log scale {#tbl-KLF4_Ipsilateral}
+: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity \~ 0 + DPI, sigma \~ 0 + DPI, family = student*. Note that the sigma coefficients are in the log scale {#tbl-KLF4_Ipsilateral}
 
 ## ------------------------------------------------------------------------
 
 | **Parameter** | **Est.** | **2.5 %** | **97.5%** |
-|---------------|----------|--------|------------|
-| 0 DPI         | -4.79    | -4.94  | -4.64      |
-| 3 DPI         | -4.8     | -4.94  | -4.66      |
-| 7 DPI         | -4.63    | -4.76  | -4.51      |
-| 14 DPI        | -4.52    | -4.65  | -4.4       |
-| 30 DPI        | -4.64    | -4.76  | -4.51      |
+|---------------|----------|-----------|-----------|
+| 0 DPI         | -4.79    | -4.94     | -4.64     |
+| 3 DPI         | -4.8     | -4.94     | -4.66     |
+| 7 DPI         | -4.63    | -4.76     | -4.51     |
+| 14 DPI        | -4.52    | -4.65     | -4.4      |
+| 30 DPI        | -4.64    | -4.76     | -4.51     |
 
-: **Staining intensity of KLF4+ nuclei following injury:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity ~ 0 + DPI + (1 | MouseID), family = hurdle_lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_CellIInt}
+: **Staining intensity of KLF4+ nuclei following injury:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity \~ 0 + DPI + (1 \| MouseID), family = hurdle_lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_CellIInt}
 
 ## ------------------------------------------------------------------------
 
@@ -496,7 +493,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | 14 DPI:Scaled_x | -0.54    | -0.67     | -0.41      |
 | 30 DPI:Scaled_x | -0.31    | -0.47     | -0.15      |
 
-: **Staining intensity of KLF4+ nuclei relative to the x-coordinates:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity ~ 0 + DPI x Scaled_CenterX + (1 | MouseID), family = lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_X_CellIInt}
+: **Staining intensity of KLF4+ nuclei relative to the x-coordinates:** Population-level posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity \~ 0 + DPI x Scaled_CenterX + (1 \| MouseID), family = lognormal*. Note that the group-level (mouse-level) coefficients are shown in the respective QN {#tbl-KLF4_X_CellIInt}
 
 ## ------------------------------------------------------------------------
 
@@ -514,7 +511,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.           | 64       |           |            |
 | R2                 | 0.595    |           |            |
 
-: **KLF4/PDGFR-β colocalization in defined ROIs:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Coloc | trials(Klf4) ~ DPI x Region, family = binomial*. {#tbl-KLF4_Pdgfrb_Coloc}
+: **KLF4/PDGFR-β colocalization in defined ROIs:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Coloc \| trials(Klf4) \~ DPI x Region, family = binomial*. {#tbl-KLF4_Pdgfrb_Coloc}
 
 ## ------------------------------------------------------------------------
 
@@ -527,4 +524,69 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.           | 19       |           |            |
 | R2                 | 0.03     |           |            |
 
-: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity ~ Genotype,sigma ~ Genotype, family = student*. {#tbl-KLF4_KO_Ipsilateral}
+: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity \~ Genotype, sigma \~ Genotype, family = student*. {#tbl-KLF4_KO_Ipsilateral}
+
+## ------------------------------------------------------------------------
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 0.76     | 0.71      | 0.81       |
+| b_GenotypeKO   | 0.02     | -0.04     | 0.09       |
+| sigma          | 0.06     | 0.04      | 0.10       |
+| Num.Obs.       | 18       |           |            |
+| R2             | 0.04     |           |            |
+
+: **Hemispheric ratio in PDGFR-β^KLF4-KO mice.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Shrinkage ~ Genotype, family = student*. {#tbl-KLF4_KO_Shrinkage} 
+
+## ------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 763      | 681       | 844        |
+| b_GenotypeKO   | 122      | 12        | 233        |
+| sigma          | 107      | 73        | 158        |
+| Num.Obs.       | 18       |           |            |
+| R2             | 0.26     |           |            |
+
+: **GFAP integrated density in PDGFR-β^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Gfap ~ Genotype, family = student*. {#tbl-KLF4_KO_GfapIntDen}
+
+## ------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 539      | 473       | 601        |
+| b_GenotypeKO   | -148     | -239      | -57        |
+| sigma          | 89       | 60        | 130        |
+| Num.Obs.       | 18       |           |            |
+| R2             | 0.43     |           |            |
+
+: **PDGFR-β integrated density in PDGFR-β^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb ~ Genotype, family = student*. {#tbl-KLF4_KO_PdgfrbIntDen}
+
+::: {#tbl-panel_KO_shrinkage layout-ncol="2"}
+
+| **Parameters**           | **Est.** | **2.5 %** | **97.5 %** |
+|--------------------------|----------|-----------|------------|
+| b_Intercept              | 447      | -250      | 1134       |
+| b_GenotypeKO             | -766     | -2060     | 567        |
+| b_Shrinkage              | 117      | -767      | 998        |
+| b_GenotypeKO × Shrinkage | 787      | -912      | 2418       |
+| sigma                    | 89       | 58        | 135        |
+| Num.Obs.                 | 18       |           |            |
+| R2                       | 0.49     |           |            |
+
+: Model conditioning on brain shrinkage {#tbl-PdgfrbIntDEn_KO_Shrinkage}
+
+| **Parameter**                     | **Est.** | **2.5 %** | **97.5 %** |
+|-----------------------------------|----------|-----------|------------|
+| b_Intercept                       | 537      | 470       | 604        |
+| b_GenotypeKO                      | -145     | -239      | -52        |
+| b_Ipsilateral_Scaled              | 29       | -35       | 92         |
+| b_GenotypeKO × Ipsilateral_Scaled | -19      | -113      | 77         |
+| sigma                             | 92       | 60        | 137        |
+| Num.Obs.                          | 18       |           |            |
+| R2                                | 0.47     |           |            |
+
+: Model conditioning on ipsilateral area {#tbl-PdgfrbIntDEn_KO_IpsiArea}
+
+**PDGFR-β integrated density in PDGFR-β^KLF4-KO mice with additional predictors.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the models a) *Pdgfrb ~  Genotype x Shrinkage, family = student* and b) *Pdgfrb ~  Genotype x Ipsilateral_Scaled, family student*.
+:::
+

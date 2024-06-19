@@ -895,12 +895,16 @@ Pdgfrb_Fit2_CE <-
   conditional_effects(Pdgfrb_Fit2)
 
 Pdgfrb_Fit2_CE <- plot(Pdgfrb_Fit2_CE, 
-       plot = FALSE)[[3]]
+       plot = FALSE, points = TRUE)[[3]]
 
 Pdgfrb_Fit2_fig <- Pdgfrb_Fit2_CE + 
+  
+
+  
   scale_y_continuous(name = "PDGFR-β (IntDen)") +
   scale_x_continuous(name= expression ("Shrinkage (ratio)"),
                      breaks = seq(0.6, 1, 0.1)) +
+  
   scale_color_manual(name = "",
                        values = c("#4DB6D0", "#D9717D"),
                        labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
@@ -918,7 +922,7 @@ Pdgfrb_Fit2_fig <- Pdgfrb_Fit2_CE +
   ggsave(
   plot     = Pdgfrb_Fit2_fig, 
   filename = "Plots/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit2.png",  
-  width    = 11, 
+  width    = 9, 
   height   = 9, 
   units    = "cm")
 
@@ -929,7 +933,7 @@ Pdgfrb_Fit3_CE <-
   conditional_effects(Pdgfrb_Fit3)
 
 Pdgfrb_Fit3_CE <- plot(Pdgfrb_Fit3_CE, 
-       plot = FALSE)[[3]]
+       plot = FALSE, points = TRUE)[[3]]
 
 Pdgfrb_Fit3_fig <- Pdgfrb_Fit3_CE + 
   scale_y_continuous(name = "PDGFR-β (IntDen)") +
@@ -952,7 +956,7 @@ Pdgfrb_Fit3_fig <- Pdgfrb_Fit3_CE +
   ggsave(
   plot     = Pdgfrb_Fit3_fig, 
   filename = "Plots/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Structure/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit3.png",  
-  width    = 11, 
+  width    = 9, 
   height   = 9, 
   units    = "cm")
 
