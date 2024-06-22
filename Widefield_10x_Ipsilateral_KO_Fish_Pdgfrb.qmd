@@ -395,8 +395,8 @@ describe_posterior(
 
 modelsummary(Pdgfrb_Counts_Fit1, 
              shape = term ~ model + statistic,
-             centrali2ty = "mean", 
-             title = "Nuber of PDGFR-B cells in defined ROIs of the ipsilateral hemisphere",
+             centrality = "mean", 
+             title = "Number of PDGFR-B+ nuclei in defined ROIs of the ipsilateral hemisphere",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_10x_ROIs_KO_Fish_Pdgfrb_Counts_Fit1_Table.html",
@@ -431,7 +431,7 @@ Pdgfrb_AreaInt_df <- read.csv("Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefi
 
 gt::gt(Pdgfrb_AreaInt_df[1:10,])
 ```
-We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images, the `AreaShape_Area` and `Intensity_IntegratedIntensity_Pdgfrb_Raw` indicating the area and intensity per cell, respectively. Next, we subset the data frame to select the columns of interest and give them meaningful names.
+We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images, the `AreaShape_Area` and `Intensity_IntegratedIntensity_Pdgfrb_Raw` indicating the area and intensity per cell, respectively. We also add `Location_Center_X` and `Location_Center_X` to get the cell's coordinates. Next, we subset the data frame to select the columns of interest and give them meaningful names.
 
 ```{r}
 #| label: Pdgfrb_Counts_Handle
@@ -441,7 +441,7 @@ We are interested in the `FileName_Pdgfrb_Raw`column containing the identificati
 #| tbl-cap: "Data set"
 
 ## We subset the relevant columns (cell number)
-Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt_df, select = c("FileName_Pdgfrb_Raw", "AreaShape_Area", "Intensity_IntegratedIntensity_Pdgfrb_Raw"))
+Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt_df, select = c("FileName_Pdgfrb_Raw", "AreaShape_Area", "Intensity_IntegratedIntensity_Pdgfrb_Raw", "Location_Center_X", "Location_Center_Y"))
 
 ## And extract metadata from the image name
 Pdgfrb_AreaInt  <- cbind(Pdgfrb_AreaInt, do.call(rbind , strsplit(Pdgfrb_AreaInt$FileName_Pdgfrb_Raw, "[_\\.]"))[,1:4])
@@ -449,7 +449,7 @@ Pdgfrb_AreaInt  <- cbind(Pdgfrb_AreaInt, do.call(rbind , strsplit(Pdgfrb_AreaInt
 Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt, select = -c(FileName_Pdgfrb_Raw))
 
 ## We Rename the relevant columns 
-colnames(Pdgfrb_AreaInt) <- c("Area", "Intensity", "MouseID", "DPI", "Genotype", "Section")
+colnames(Pdgfrb_AreaInt) <- c("Area", "Intensity","x-coord", "y-coord", "MouseID", "DPI", "Genotype", "Section")
 
 ## We set the factors
 Pdgfrb_AreaInt$DPI <- factor(Pdgfrb_AreaInt$DPI, levels = c("0D", "14D"))
@@ -547,7 +547,7 @@ Pdgfrb_AreaInt_14D <- Pdgfrb_AreaInt[Pdgfrb_AreaInt$DPI == "14D",]
 
 Pdgfrb_AreaInt_Mdl1 <- bf(Intensity ~ Area * Genotype + (1 | MouseID))
 
-get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaIn_14Dt, family = student)
+get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaInt_14D, family = student)
 
 # Fit model 1
 Pdgfrb_AreaInt_Fit1 <- 
@@ -592,31 +592,7 @@ Pdgfrb_AreaInt_Fit1_pp <-
 Pdgfrb_AreaInt_Fit1_pp 
 ```
 
-We see that the model captures the overall trend but deviates slightly. We verify further the model:
-
-```{r}
-#| label: fig-Pdgfrb_Diagnostics2
-#| include: true
-#| warning: false
-#| message: false
-#| results: false
-#| fig-cap: Model diagnostics for PDGFR-B expression in individual cells
-#| fig-height: 5
-#| fig-width: 10
-
-# We obtain the posterior
-Pdgfrb_AreaInt_Posterior <- posterior_predict (Pdgfrb_AreaInt_Fit1, ndraws = 1000)
-
-# We plot the mean per Genotype
-Pdgfrb_mean_Prod <- ppc_stat_grouped(y=Pdgfrb_AreaInt_14D_Scaled$Intensity,yrep=Pdgfrb_AreaInt_Posterior, group = Pdgfrb_AreaInt_14D_Scaled$Genotype, stat = "mean", binwidth = 0.01)+
-xlab("Mean intensity")+
-#scale_x_continuous(limits=c(10, 40)) +
-Plot_theme 
-
-Pdgfrb_mean_Prod
-```
-We see that our model is not capturing accurately the mean for WT. Therefore, it worth to explore an additional model:
-
+We see that this model does not align with the observed data. Therefore, we fit an additional model with scaled predictors.
 
 ### Fit the new model
 
@@ -638,8 +614,8 @@ Pdgfrb_AreaInt_Mdl2 <- bf(Intensity ~ Area * Genotype + (1 | MouseID))
 get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaInt_14D_Scaled, family = student)
 
 Pdgfrb_AreaInt_Prior <- 
-  c(prior(normal(0,1), class = b),
-    prior(normal(0,1), class = Intercept, lb= 0))
+  c(prior(normal(0,5), class = b),
+    prior(normal(0,5), class = Intercept, lb= 0))
 
 # Fit model 2
 Pdgfrb_AreaInt_Fit2 <- 
@@ -658,7 +634,7 @@ Pdgfrb_AreaInt_Fit2 <-
     file_refit = "never")
 ```
 ```{r}
-#| label: fig-Pdgfrb_Diagnostics3
+#| label: fig-Pdgfrb_Diagnostics2
 #| include: true
 #| warning: false
 #| message: false
@@ -683,7 +659,7 @@ Pdgfrb_AreaInt_Fit1_pp
 We see that the model captures the overall trend but deviates slightly. We verify further the model:
 
 ```{r}
-#| label: fig-Pdgfrb_Diagnostics4
+#| label: fig-Pdgfrb_Diagnostics3
 #| include: true
 #| warning: false
 #| message: false
@@ -703,140 +679,65 @@ Plot_theme
 
 Pdgfrb_mean_Prod
 ```
-
+We see this models captures better the mean for WT than for KO.
 
 ## Model results
 
-After validating the model, we plot the full posterior distributions:
+After model diagnostics, we plot the full posterior distributions:
 
 ### Visualizing the results
 
 ```{r}
-#| label: fig-Klf4_CellInt_Posterior
+#| label: fig-Pdgfrb_AreaInt_Posterior
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior distribution for Klf4 expression
+#| fig-cap: Posterior distribution for PDGFR-B expression
 #| fig-width: 5
 #| fig-height: 4
 
 set.seed(8807)
 
-Klf4_CellInt_DPI <- 
-  conditional_effects(Klf4_CellInt_Fit1)
+Pdgfrb_AreaInt_DPI <- 
+  conditional_effects(Pdgfrb_AreaInt_Fit2)
 
-Klf4_CellInt_DPI <- plot(Klf4_CellInt_DPI, 
-       plot = FALSE)[[1]]
+Pdgfrb_AreaInt_DPI <- plot(Pdgfrb_AreaInt_DPI, 
+       plot = FALSE, points = TRUE, point_args = list(size =0.1))[[3]]
 
-Klf4_CellInt_fig <- Klf4_CellInt_DPI + 
-  scale_y_continuous(name = expression ("KLF4 intensity (cells)"),
-                     limits = c(0.005, 0.015)) +
-  scale_x_discrete(name="DPI") +
+Pdgfrb_AreaInt_fig <- Pdgfrb_AreaInt_DPI + 
+  scale_y_continuous(name = expression ("PDGFR-β intensity"),
+                     limits = c(0, 10)) +
+  scale_x_continuous(name="Nuclei area") +
   
-  Plot_theme 
+  scale_color_manual(name = "",
+                       values = c("#4DB6D0", "#D9717D"),
+                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+ scale_fill_manual(name = "",
+                     values = c("#4DB6D0", "#D9717D"),
+   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+  
+  Plot_theme +
+  theme(legend.position = "top",
+        legend.direction = "horizontal")
 
   ggsave(
-  plot     = Klf4_CellInt_fig, 
-  filename = "Plots/Widefield_10x_Ipsilateral_Klf4_Exp/Widefield_10x_Ipsilateral_Klf4_CellIntensity.png",   width    = 12, 
+  plot     = Pdgfrb_AreaInt_fig, 
+  filename = "Plots/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_Fish_Pdgfrb_IntArea.png",   width    = 9, 
   height   = 9, 
   units    = "cm")
 
-Klf4_CellInt_fig 
+Pdgfrb_AreaInt_fig 
 ```
 
-@fig-Klf4_CellInt_Posterior shows 95% intervals for the posterior distribution of KLF4 expression by cell. We can observe an increase from the second week post ischemia.
+@fig-Pdgfrb_AreaInt_Posterior shows the posterior distribution of PDGFR-B expression by cell, accouting for the nuclei size.
 
-Now, we calculate the relevant contrast using the `emmeans` package [@emmeans].
-
-```{r}
-#| label: Klf4_CellInt_Contrast
-#| include: true
-#| warning: false
-#| message: false
-#| results: false
-
-# We generate a data frame with the contrast
-Klf4_CellInt_Contrast <- Klf4_CellInt_Fit1%>%
-emmeans(~ DPI, var = "Intensity", epred = TRUE) %>%
-contrast(method = "revpairwise") %>%
-gather_emmeans_draws() %>% sample_n(100)
-
-# Subset relevant data fo the contrast graph
-Klf4_CellInt_Contrast_Sub <- Klf4_CellInt_Contrast[
-  (Klf4_CellInt_Contrast$contrast=="3D - 0D"|
-   Klf4_CellInt_Contrast$contrast=="7D - 3D"|
-   Klf4_CellInt_Contrast$contrast=="14D - 7D"|
-   Klf4_CellInt_Contrast$contrast=="30D - 14D"|
-  Klf4_CellInt_Contrast$contrast=="30D - 0D"),]
-
-Klf4_CellInt_Contrast_Sub$contrast <- 
-  factor(Klf4_CellInt_Contrast_Sub$contrast, 
-         levels = c("3D - 0D", "7D - 3D", "14D - 7D", "30D - 14D", "30D - 0D")) 
-```
-
-Next, we generate the graph:
-
-```{r}
-#| label: Klf4_CellInt_ContrastGraph
-#| include: true
-#| warning: false
-#| message: false
-#| results: false
-#| fig-cap: Contrast by DPI for KLF4 spatial intensity
-#| fig-width: 5
-#| fig-height: 4
-
-Klf4_CellInt_Contrast_Fig <- 
-  Klf4_CellInt_Contrast_Sub %>%
-  ggplot(
-    aes(x    = .value, 
-        y    = contrast
-        #fill = after_stat(abs(x) < 800)
-        )) +
-  
-  stat_slab() +
-  
-  #geom_vline(xintercept = c(-0.54, 0.54), linetype = "dashed") +
-  
-  stat_pointinterval(
-    point_interval = mode_hdi, 
-    position = position_dodge(width = .95, preserve = "single")) +
-  
-    #scale_fill_manual(
-    #name="ROPE", 
-    #values = c("gray80", "skyblue"),
-    #labels = c("False", "True")) +
-  
-  scale_y_discrete(
-    name= "",
-    labels = c("3D - 0D", "7D - 3D", "14D - 7D", "30D - 14D", "30D - 0D")) +
-  
-  scale_x_continuous(
-   name = "KLF4 cell intensity (contrast)",
-   limits=c(-0.005, 0.006), 
-   breaks=seq(-0.005, 0.005, 0.003)) +
-  Plot_theme +
-  
-  theme (legend.position = c(0.8, 0.8))
-
-ggsave(
-  plot     = Klf4_CellInt_Contrast_Fig , 
-  filename = "Plots/Widefield_10x_Ipsilateral_Klf4_Exp/Widefield_10x_Ipsi_Klf4_CellInt_Contrast_Fig.png", 
-  width    = 12, 
-  height   = 9, 
-  units    = "cm")
-
-Klf4_CellInt_Contrast_Fig
-
-```
 
 ### Posterior summary
 
-Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
-
+Next, we plot the posterior summary:
 ```{r}
-#| label: Klf4_CellInt_Fit1_DescribePosterior
+#| label: Pdgfrb_AreaInt_DescribePosterior
 #| include: true
 #| warning: false
 #| message: false
@@ -844,16 +745,30 @@ Next, we plot the posterior summary using the `describe_posterior` function from
 #| cache: true
 
 describe_posterior(
-  Klf4_CellInt_Fit1,
+  Pdgfrb_AreaInt_Fit2,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
+
+modelsummary(Pdgfrb_AreaInt_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "PDGFR-B+ LABELING INTENSITY in defined ROIs of the ipsilateral hemisphere",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_KO_Fish_Pdgfrb_AreaInt_Fit1_Table.html",
+             )
+
+Pdgfrb_AreaInt_Fit2_Table <- modelsummary(Pdgfrb_AreaInt_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_AreaInt_Fit2_Table, filename = "Tables/tex/Widefield_10x_ROIs_KO_Fish_Pdgfrb_AreaInt_Fit1_Table.tex")
 ```
 The table displays the regression coefficients without a baseline (intercept value).It also shows he coefficients for individual animals included as group-level effects.
-
-
-
 
 # References
 
