@@ -1,0 +1,204 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+# Analysis of the percentaje of PDGFR-β+ cells
+
+## Exploratory data visualization
+
+```{r}
+#| label: fig-Pdgfrb_Percentage_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for the number of PDGFR-β+ cells
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Fcas_Pdgfrb_Cells-Dead.csv", header = TRUE)
+Facs_Dataset$Hemisphere <- factor (Facs_Dataset$Hemisphere, levels = c("Contra", "Ipsi"))
+
+Pdgfrb_Cells <- 
+  ggplot(
+    data  = Facs_Dataset, 
+    aes(x = Hemisphere, 
+        y = Cells)) +
+  geom_boxplot() +
+  scale_y_continuous(name= expression("Percentage of PDGFR-β+ cells")) +
+  scale_x_discrete(name="Hemisphere",
+                     breaks=c("Contra","Ipsi")) +
+  Plot_theme 
+
+Pdgfrb_Cells
+```
+
+As expected, we witness that th ipsilateral hemisphere registers the double of PDGFR-β+ cells.  
+
+### Statistical modeling
+
+
+
+#### Fit the model
+
+```{r}
+#| label: Pdgfrb_Percentage_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+set.seed(8807)
+
+# Model 1: Hemisphere as a linear predictor
+Pdgfrb_Percentage_Mdl1 <- bf(Cells ~ Hemisphere)
+
+get_prior(Pdgfrb_Percentage_Mdl1, Facs_Dataset, family = student)
+
+# Fit model 1
+Pdgfrb_Percentage_Fit1 <- 
+  brm(
+    data    = Facs_Dataset,
+    family  = student, 
+    formula = Pdgfrb_Percentage_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Facs_Pdgfrb/Facs_Pdgfrb_Cells_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Percentage_Fit1  <- 
+  add_criterion(Pdgfrb_Percentage_Fit1 , c("loo", "waic", "bayes_R2"))
+```
+
+#### Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Pdgfrb_StrMCAO_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization (Striatum)
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_StrMCAO_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_StrMCAO_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Formula: PDGFR_Parenchymal | PDGFR_Total ~ s(DPI, k = 4)") +
+  Plot_theme  
+  
+Pdgfrb_StrMCAO_Fit2_pp
+```
+
+We observe no significant deviations from the data. We can explore
+further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfrb_StrMCAO_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_StrMCAO_Fit2)
+```
+
+### Model results
+
+#### Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfrb_StrMCAO_CE
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+# We create the graph for convex hull
+Pdgfrb_StrMCAO_DPI <- 
+  conditional_effects(Pdgfrb_StrMCAO_Fit2)
+
+Pdgfrb_StrMCAO_DPI <- plot(Pdgfrb_StrMCAO_DPI, 
+       plot = FALSE)[[1]]
+
+Pdgfrb_StrMCAO_fig <- Pdgfrb_StrMCAO_DPI  + 
+  scale_y_continuous(name = expression ("(p) parenchymal PDGFR-β")) +
+    scale_x_continuous(name="DPI"                   ,
+                     breaks = c(3, 10, 20, 30),
+                     labels = c("3", "10", "20", "30")) +
+
+  Plot_theme +
+  theme(legend.position = "top", legend.direction = "horizontal")
+
+ggsave(
+  plot     = Pdgfrb_StrMCAO_fig, 
+  filename = "Plots/Widefield_10x_ROIs_CD31-Pdgfrb_Coloc/Widefield_10x_ROIs_CD31-Pdgfrb_StrMCAO_Fit2.png", 
+  width    = 9, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_StrMCAO_fig
+```
+
+@fig-Pdgfrb_StrMCAO_CE show an increasing probability for parenchymal
+PDGFR-β+ cells with a peak during the second weeks post injury in 0.25.
+
+#### Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior`
+function:
+
+```{r}
+#| label: Pdgfr_StrMCAO_DescribePosterior_Ipsi5x
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_StrMCAO_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_StrMCAO_Fit2, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "PDGFR-β+ parenchymal cells following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_CD31-Pdgfrb_Str_Fit2_Table.html",
+             )
+
+Pdgfrb_StrMCAO_Fit2_Table <- modelsummary(Pdgfrb_StrMCAO_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_StrMCAO_Fit2_Table, 
+            filename = "Tables/tex/Widefield_10x_ROIs_CD31-Pdgfrb_Str_Fit2_Table.tex")
+```
