@@ -1,10 +1,66 @@
 ---
 title: "Untitled"
 format: html
-editor: visual
+editor: source
 ---
 
+
+
+# Load the required packages
+
+```{r}
+#| label: Facs_LoadPackages
+#| include: true
+#| warning: false
+#| message: false
+
+library(brms)
+library(dplyr)
+library(easystats)
+library(ggplot2)
+library(magrittr)
+library(modelsummary)
+library(tidybayes)
+```
+
+# Visual themes
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
 # Analysis of the percentaje of PDGFR-β+ cells
+
 
 ## Exploratory data visualization
 
@@ -37,13 +93,11 @@ Pdgfrb_Cells <-
 Pdgfrb_Cells
 ```
 
-As expected, we witness that th ipsilateral hemisphere registers the double of PDGFR-β+ cells.  
+As expected, we witness that th ipsilateral hemisphere registers the double of PDGFR-β+ cells.
 
-### Statistical modeling
+## Statistical modeling
 
-
-
-#### Fit the model
+### Fit the model
 
 ```{r}
 #| label: Pdgfrb_Percentage_Modeling
@@ -79,52 +133,51 @@ Pdgfrb_Percentage_Fit1  <-
   add_criterion(Pdgfrb_Percentage_Fit1 , c("loo", "waic", "bayes_R2"))
 ```
 
-#### Model diagnostics
+### Model diagnostics
 
 We check the model fitting using posterior predictive checks
 
 ```{r}
-#| label: fig-Pdgfrb_StrMCAO_Diagnistics
+#| label: fig-Pdgfrb_Percentage_Diagnistics
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Model diagnostics for PDGFR-β/CD31 colocalization (Striatum)
+#| fig-cap: Model diagnostics for the percentage of Td-Tomato+ cells
 #| fig-height: 4
 #| fig-width: 5
 
 set.seed(8807)
 
-Pdgfrb_StrMCAO_Fit2_pp <- 
-  brms::pp_check(Pdgfrb_StrMCAO_Fit2, 
+Pdgfrb_Percentage_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Percentage_Fit1, 
                  ndraws = 100) +
   labs(title = "Posterior predictive checks",
-  subtitle = "Formula: Formula: PDGFR_Parenchymal | PDGFR_Total ~ s(DPI, k = 4)") +
+  subtitle = "Formula: Cells ~ Hemisphere") +
   Plot_theme  
   
-Pdgfrb_StrMCAO_Fit2_pp
+Pdgfrb_Percentage_Fit1_pp
 ```
 
-We observe no significant deviations from the data. We can explore
-further the model using `shinystan`.
+We observe no significant deviations from the data. We can explore further the model using `shinystan`.
 
 ```{r}
-#| label: Pdgfrb_StrMCAO_Shiny
+#| label: Pdgfrb_Percentage_Shiny
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
 #| cache: true
 
-#launch_shinystan(Pdgfrb_StrMCAO_Fit2)
+#launch_shinystan(Pdgfrb_Percentage_Fit1)
 ```
 
-### Model results
+## Model results
 
-#### Visualization of conditional effects
+### Visualization of conditional effects
 
 ```{r}
-#| label: fig-Pdgfrb_StrMCAO_CE
+#| label: fig-Pdgfrb_Percentage_CE
 #| include: true
 #| warning: false
 #| message: false
@@ -135,42 +188,42 @@ further the model using `shinystan`.
 
 set.seed(8807)
 
-# We create the graph for convex hull
-Pdgfrb_StrMCAO_DPI <- 
-  conditional_effects(Pdgfrb_StrMCAO_Fit2)
-
-Pdgfrb_StrMCAO_DPI <- plot(Pdgfrb_StrMCAO_DPI, 
-       plot = FALSE)[[1]]
-
-Pdgfrb_StrMCAO_fig <- Pdgfrb_StrMCAO_DPI  + 
-  scale_y_continuous(name = expression ("(p) parenchymal PDGFR-β")) +
-    scale_x_continuous(name="DPI"                   ,
-                     breaks = c(3, 10, 20, 30),
-                     labels = c("3", "10", "20", "30")) +
+Pdgfrb_Percentage_Contrast <- Pdgfrb_Percentage_Fit1 %>%
+   spread_draws(b_HemisphereIpsi) %>%
+   mutate(Hemisphere_contrast = b_HemisphereIpsi) %>%
+   ggplot(aes(x = Hemisphere_contrast, fill = after_stat(abs(x) < 0.03))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-0.03, 0.03), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (Contra-Ipsi)",
+                     limits = c(-0.1, 0.2),
+                      breaks = seq(-0.1, 0.2, 0.1) ) +
 
   Plot_theme +
-  theme(legend.position = "top", legend.direction = "horizontal")
+  theme (legend.position = c(0.8, 0.8))
 
 ggsave(
-  plot     = Pdgfrb_StrMCAO_fig, 
-  filename = "Plots/Widefield_10x_ROIs_CD31-Pdgfrb_Coloc/Widefield_10x_ROIs_CD31-Pdgfrb_StrMCAO_Fit2.png", 
-  width    = 9, 
-  height   = 9, 
+  plot     = Pdgfrb_Percentage_Contrast, 
+  filename = "Plots/FACS_Pdgfrb/FACS_Pdgfrb_Percentage_Fit1.png", 
+  width    = 8, 
+  height   = 8, 
   units    = "cm")
 
-Pdgfrb_StrMCAO_fig
+Pdgfrb_Percentage_Contrast
 ```
 
-@fig-Pdgfrb_StrMCAO_CE show an increasing probability for parenchymal
-PDGFR-β+ cells with a peak during the second weeks post injury in 0.25.
+@fig-Pdgfrb_Percentage_CE show that the ipsilateral hemisphere (as expected) has more (the double) of PDGFR-β+ cells at 14 DPI.
 
-#### Posterior summary
+### Posterior summary
 
-Next, We plot the posterior summary using the `describe_posterior`
-function:
+Next, We plot the posterior summary using the `describe_posterior` function:
 
 ```{r}
-#| label: Pdgfr_StrMCAO_DescribePosterior_Ipsi5x
+#| label: Pdgfr_Percentage_DescribePosterior
 #| include: true
 #| warning: false
 #| message: false
@@ -178,27 +231,235 @@ function:
 #| cache: true
 
 describe_posterior(
-  Pdgfrb_StrMCAO_Fit2,
+  Pdgfrb_Percentage_Fit1,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
 
-modelsummary(Pdgfrb_StrMCAO_Fit2, 
+modelsummary(Pdgfrb_Percentage_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PDGFR-β+ parenchymal cells following MCAO",
+             title = "PErcentage of PDGFR-β+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Widefield_10x_ROIs_CD31-Pdgfrb_Str_Fit2_Table.html",
+             output = "Tables/html/Facs_Pdgfrb_Fit1_Table.html",
              )
 
-Pdgfrb_StrMCAO_Fit2_Table <- modelsummary(Pdgfrb_StrMCAO_Fit2, 
+Pdgfrb_Percentage_Fit1_Table <- modelsummary(Pdgfrb_Percentage_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Pdgfrb_StrMCAO_Fit2_Table, 
-            filename = "Tables/tex/Widefield_10x_ROIs_CD31-Pdgfrb_Str_Fit2_Table.tex")
+gt::gtsave (Pdgfrb_Percentage_Fit1_Table, 
+            filename = "Tables/tex/Facs_Pdgfrb_Fit1_Table_Table.tex")
 ```
+# Analysis of the percentaje of PDGFR-β+ dead cells
+
+## Exploratory data visualization
+
+```{r}
+#| label: fig-Pdgfrb_Dead_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for the number of PDGFR-β+ dead cells
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Fcas_Pdgfrb_Cells-Dead.csv", header = TRUE)
+Facs_Dataset$Hemisphere <- factor (Facs_Dataset$Hemisphere, levels = c("Contra", "Ipsi"))
+
+Pdgfrb_Dead <- 
+  ggplot(
+    data  = Facs_Dataset, 
+    aes(x = Hemisphere, 
+        y = Dead)) +
+  geom_boxplot() +
+  scale_y_continuous(name= expression("Percentage of PDGFR-β+ dead cells")) +
+  scale_x_discrete(name="Hemisphere",
+                     breaks=c("Contra","Ipsi")) +
+  Plot_theme 
+
+Pdgfrb_Dead
+```
+
+As expected, we witness that th ipsilateral hemisphere registers the double of PDGFR-β+ cells.
+
+# Statistical modeling
+
+## Fit the model
+
+```{r}
+#| label: Pdgfrb_Percentage_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+set.seed(8807)
+
+# Model 1: Hemisphere as a linear predictor
+Pdgfrb_Percentage_Mdl1 <- bf(Cells ~ Hemisphere)
+
+get_prior(Pdgfrb_Percentage_Mdl1, Facs_Dataset, family = student)
+
+# Fit model 1
+Pdgfrb_Percentage_Fit1 <- 
+  brm(
+    data    = Facs_Dataset,
+    family  = student, 
+    formula = Pdgfrb_Percentage_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Facs_Pdgfrb/Facs_Pdgfrb_Cells_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Percentage_Fit1  <- 
+  add_criterion(Pdgfrb_Percentage_Fit1 , c("loo", "waic", "bayes_R2"))
+```
+
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Pdgfrb_Percentage_Diagnistics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for the percentage of Td-Tomato+ cells
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_Percentage_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Percentage_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Cells ~ Hemisphere") +
+  Plot_theme  
+  
+Pdgfrb_Percentage_Fit1_pp
+```
+
+We observe no significant deviations from the data. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfrb_Percentage_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_Percentage_Fit1)
+```
+
+# Model results
+
+## Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfrb_Percentage_CE
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_Percentage_Contrast <- Pdgfrb_Percentage_Fit1 %>%
+   spread_draws(b_HemisphereIpsi) %>%
+   mutate(Hemisphere_contrast = b_HemisphereIpsi) %>%
+   ggplot(aes(x = Hemisphere_contrast, fill = after_stat(abs(x) < 0.03))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-0.03, 0.03), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (Contra-Ipsi)",
+                     limits = c(-0.1, 0.2),
+                      breaks = seq(-0.1, 0.2, 0.1) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Pdgfrb_Percentage_Contrast, 
+  filename = "Plots/FACS_Pdgfrb/FACS_Pdgfrb_Percentage_Fit1.png", 
+  width    = 8, 
+  height   = 8, 
+  units    = "cm")
+
+Pdgfrb_Percentage_Contrast
+```
+
+@fig-Pdgfrb_Percentage_CE show that the ipsilateral hemisphere (as expected) has more (the double) of PDGFR-β+ cells at 14 DPI.
+
+## Posterior summary
+
+Next, We plot the posterior summary using the `describe_posterior` function:
+
+```{r}
+#| label: Pdgfr_Percentage_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Percentage_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Percentage_Fit1, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "PErcentage of PDGFR-β+ cells following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Facs_Pdgfrb_Fit1_Table.html",
+             )
+
+Pdgfrb_Percentage_Fit1_Table <- modelsummary(Pdgfrb_Percentage_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Percentage_Fit1_Table, 
+            filename = "Tables/tex/Facs_Pdgfrb_Fit1_Table_Table.tex")
+```
+
+
+
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+
