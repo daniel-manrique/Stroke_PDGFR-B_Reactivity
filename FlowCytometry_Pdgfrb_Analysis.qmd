@@ -1,10 +1,65 @@
 ---
-title: "Untitled"
-format: html
-editor: source
+title-block-banner: true
+title: "FACS analysis of PDGFR-β+ live/deat cells"
+subtitle: "FACS processing notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - PDGFR-β
+  - FACS
+  - Brain injury
+  - Bayesian modeling 
+  
+license: "CC BY"
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+csl: science.csl
+bibliography: references.bib
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
+# Preview
 
+In this notebook, we do the FACS analysis of PDGFR-β+ cells sorted from
+the ipsilateral and contralateral hemispheres of ischemic
+PDGFR-β-TdTomato mice. Rere to [this](https://github.com/elalilab/Stroke_PDGFR-B_Reactivity/blob/main/FlowCytometry_Pdgfrb_Processing.qmd) notebook to see .fcs files processing. 
+
+**Parent dataset:** We sorted PDGFR-β+ from ischemic PDGFR-β-TdTomato
+animals at 14 DPI. We took coronal \~2 mm-tick sections of the
+ipsilateral hemisphere comprising the injured areas exclusively. We took
+analogous tissue from the contralateral hemisphere as a baseline control
+for the mortality of cells.The raw FACS files (including compensation
+controls) are available at the OSF repository in
+['Datasets/FACS'](https://osf.io/zvnxa/).
+
+**Working dataset:** We use the `Data_Processed/Facs_Pdgfrb/Fcas_Pdgfrb_Cells-Dead.csv` file generated after processing the .fcs files. We perform scientific inference based on the percentage of PDGFR-β+ cells and Death PDGFR-β+ dead cells.
 
 # Load the required packages
 
@@ -20,6 +75,8 @@ library(easystats)
 library(ggplot2)
 library(magrittr)
 library(modelsummary)
+library(patchwork)
+library(poorman)
 library(tidybayes)
 ```
 
@@ -53,7 +110,7 @@ Plot_theme <- theme_classic() +
       legend.text = element_text(colour="black", size=10),
       
       plot.margin = margin(t = 10,  # Top margin
-                             r = 2,  # Right margin
+                             r = 5,  # Right margin
                              b = 10,  # Bottom margin
                              l = 10) # Left margin
       ) 
@@ -182,7 +239,7 @@ We observe no significant deviations from the data. We can explore further the m
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-cap: Posterior distribution for the percentage of PDGFR-β+ cells
 #| fig-height: 4
 #| fig-width: 5
 
@@ -253,7 +310,7 @@ Pdgfrb_Percentage_Fit1_Table <- modelsummary(Pdgfrb_Percentage_Fit1,
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
 gt::gtsave (Pdgfrb_Percentage_Fit1_Table, 
-            filename = "Tables/tex/Facs_Pdgfrb_Fit1_Table_Table.tex")
+            filename = "Tables/tex/Facs_Pdgfrb_Fit1_Table.tex")
 ```
 # Analysis of the percentaje of PDGFR-β+ dead cells
 
@@ -295,7 +352,7 @@ As expected, we witness that th ipsilateral hemisphere registers the double of P
 ## Fit the model
 
 ```{r}
-#| label: Pdgfrb_Percentage_Modeling
+#| label: Pdgfrb_Dead_Modeling
 #| include: true
 #| warning: false
 #| message: false
@@ -304,28 +361,55 @@ As expected, we witness that th ipsilateral hemisphere registers the double of P
 set.seed(8807)
 
 # Model 1: Hemisphere as a linear predictor
-Pdgfrb_Percentage_Mdl1 <- bf(Cells ~ Hemisphere)
+Pdgfrb_Dead_Mdl1 <- bf(Dead ~ Hemisphere)
 
-get_prior(Pdgfrb_Percentage_Mdl1, Facs_Dataset, family = student)
+get_prior(Pdgfrb_Dead_Mdl1, Facs_Dataset, family = student)
 
 # Fit model 1
-Pdgfrb_Percentage_Fit1 <- 
+Pdgfrb_Dead_Fit1 <- 
   brm(
     data    = Facs_Dataset,
     family  = student, 
-    formula = Pdgfrb_Percentage_Mdl1,
+    formula = Pdgfrb_Dead_Mdl1,
     chains  = 4,
     cores   = 4,
     warmup  = 2500, 
     iter    = 5000, 
     seed    = 8807,
     control = list(adapt_delta = 0.99, max_treedepth = 15),
-    file    = "Models/Facs_Pdgfrb/Facs_Pdgfrb_Cells_Fit1.rds",
+    file    = "Models/Facs_Pdgfrb/Facs_Pdgfrb_Dead_Fit1.rds",
     file_refit = "never") 
                      
 # Add loo for model comparison
-Pdgfrb_Percentage_Fit1  <- 
-  add_criterion(Pdgfrb_Percentage_Fit1 , c("loo", "waic", "bayes_R2"))
+Pdgfrb_Dead_Fit1  <- 
+  add_criterion(Pdgfrb_Dead_Fit1 , c("loo", "waic", "bayes_R2"))
+
+
+
+# Model 1: Hemisphere as a linear predictor for dead cells and sigma
+Pdgfrb_Dead_Mdl2 <- bf(Dead ~ Hemisphere,
+                       sigma ~ Hemisphere)
+
+get_prior(Pdgfrb_Dead_Mdl2, Facs_Dataset, family = student)
+
+# Fit model 2
+Pdgfrb_Dead_Fit2 <- 
+  brm(
+    data    = Facs_Dataset,
+    family  = student, 
+    formula = Pdgfrb_Dead_Mdl2,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Facs_Pdgfrb/Facs_Pdgfrb_Dead_Fit2.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Dead_Fit2  <- 
+  add_criterion(Pdgfrb_Dead_Fit2, c("loo", "waic", "bayes_R2"))
 ```
 
 ## Model diagnostics
@@ -333,38 +417,113 @@ Pdgfrb_Percentage_Fit1  <-
 We check the model fitting using posterior predictive checks
 
 ```{r}
-#| label: fig-Pdgfrb_Percentage_Diagnistics
+#| label: fig-Pdgfrb_Dead_Diagnistics
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
 #| fig-cap: Model diagnostics for the percentage of Td-Tomato+ cells
 #| fig-height: 4
-#| fig-width: 5
+#| fig-width: 10
 
 set.seed(8807)
 
-Pdgfrb_Percentage_Fit1_pp <- 
-  brms::pp_check(Pdgfrb_Percentage_Fit1, 
+Pdgfrb_Dead_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Dead_Fit1, 
                  ndraws = 100) +
   labs(title = "Posterior predictive checks",
   subtitle = "Formula: Cells ~ Hemisphere") +
   Plot_theme  
   
-Pdgfrb_Percentage_Fit1_pp
+
+Pdgfrb_Dead_Fit2_pp <- 
+  brms::pp_check(Pdgfrb_Dead_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Cells ~ Hemisphere, sigma ~ Hemisphere") +
+  Plot_theme  
+  
+Pdgfrb_Dead_Fit1_pp | Pdgfrb_Dead_Fit2_pp
 ```
 
-We observe no significant deviations from the data. We can explore further the model using `shinystan`.
+We observe that our model with heteroskedasticity deviate less from the observed data.
 
 ```{r}
-#| label: Pdgfrb_Percentage_Shiny
+#| label: Pdgfrb_Dead_Shiny
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
 #| cache: true
 
-#launch_shinystan(Pdgfrb_Percentage_Fit1)
+#launch_shinystan(Pdgfrb_Dead_Fit1)
+#launch_shinystan(Pdgfrb_Dead_Fit2)
+```
+
+## Model comparison
+
+```{r}
+#| label: Pdgfrb_Dead_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+Pdgfrb_Dead_Comp <- 
+  compare_performance(
+    Pdgfrb_Dead_Fit1, 
+    Pdgfrb_Dead_Fit2, 
+    metrics = "all"
+    )
+Pdgfrb_Dead_Comp
+```
+The output depicts that model 2 is the less penalized and has a stronger explained variance (R2 = 0.51). The preceding offer sufficient grounds to select model 2 (Mdl2) as our best alternative.
+
+We can appreciate the same results using `loo_compare`:
+
+```{r}
+#| label: fig-Pdgfrb_Dead_Compare
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model camparison by WAIC
+#| fig-height: 4
+#| fig-width: 5
+
+
+Pdgfrb_Dead_W <- 
+loo_compare(
+  Pdgfrb_Dead_Fit1, 
+  Pdgfrb_Dead_Fit2, 
+  criterion = "waic")
+
+# Generate WAIC graph
+Pdgfrb_Dead_WAIC <- 
+  Pdgfrb_Dead_W[, 7:8] %>% 
+  data.frame() %>% 
+  rownames_to_column(var = "model_name") %>% 
+  
+ggplot(
+  aes(x    = model_name, 
+      y    = waic, 
+      ymin = waic - se_waic, 
+      ymax = waic + se_waic)
+  ) +
+  geom_pointrange(shape = 21) +
+  scale_x_discrete(
+    breaks=c("Pdgfrb_Dead_Fit1", 
+             "Pdgfrb_Dead_Fit2"),
+    labels=c("Mdl1", 
+             "Mdl2")
+    ) +
+  coord_flip() +
+  labs(x = "", 
+       y = "WAIC (score)",
+       title = "") +
+  Plot_theme
+
+Pdgfrb_Dead_WAIC
 ```
 
 # Model results
@@ -372,53 +531,53 @@ We observe no significant deviations from the data. We can explore further the m
 ## Visualization of conditional effects
 
 ```{r}
-#| label: fig-Pdgfrb_Percentage_CE
+#| label: fig-Pdgfrb_Dead_CE
 #| include: true
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior distribution for PDGFR-β/CD31 colocalization
+#| fig-cap: Posterior distribution for the percentage of PDGFR-β+ dead cells
 #| fig-height: 4
 #| fig-width: 5
 
 set.seed(8807)
 
-Pdgfrb_Percentage_Contrast <- Pdgfrb_Percentage_Fit1 %>%
+Pdgfrb_Dead_Contrast <- Pdgfrb_Dead_Fit2 %>%
    spread_draws(b_HemisphereIpsi) %>%
    mutate(Hemisphere_contrast = b_HemisphereIpsi) %>%
-   ggplot(aes(x = Hemisphere_contrast, fill = after_stat(abs(x) < 0.03))) +
+   ggplot(aes(x = Hemisphere_contrast, fill = after_stat(abs(x) < 0.11))) +
    stat_halfeye() +
-  geom_vline(xintercept = c(-0.03, 0.03), linetype = "dashed") +
+  geom_vline(xintercept = c(-0.11, 0.11), linetype = "dashed") +
   scale_fill_manual(
     name="ROPE", 
     values = c("gray80", "skyblue"),
     labels = c("False", "True")) +
   scale_y_continuous(name = "Probability density") +
   scale_x_continuous(name = "Contrast (Contra-Ipsi)",
-                     limits = c(-0.1, 0.2),
-                      breaks = seq(-0.1, 0.2, 0.1) ) +
+                     limits = c(-0.2, 0.6),
+                      breaks = seq(-0.2, 0.6, 0.2) ) +
 
   Plot_theme +
   theme (legend.position = c(0.8, 0.8))
 
 ggsave(
-  plot     = Pdgfrb_Percentage_Contrast, 
-  filename = "Plots/FACS_Pdgfrb/FACS_Pdgfrb_Percentage_Fit1.png", 
+  plot     = Pdgfrb_Dead_Contrast, 
+  filename = "Plots/FACS_Pdgfrb/FACS_Pdgfrb_Dead_Fit1.png", 
   width    = 8, 
   height   = 8, 
   units    = "cm")
 
-Pdgfrb_Percentage_Contrast
+Pdgfrb_Dead_Contrast
 ```
 
-@fig-Pdgfrb_Percentage_CE show that the ipsilateral hemisphere (as expected) has more (the double) of PDGFR-β+ cells at 14 DPI.
+@fig-Pdgfrb_Dead_CE shows that the ipsilateral hemisphere (as expected) has more PDGFR-β+ dead cells at 14 DPI.
 
 ## Posterior summary
 
 Next, We plot the posterior summary using the `describe_posterior` function:
 
 ```{r}
-#| label: Pdgfr_Percentage_DescribePosterior
+#| label: Pdgfrb_Dead_DescribePosterior
 #| include: true
 #| warning: false
 #| message: false
@@ -426,33 +585,30 @@ Next, We plot the posterior summary using the `describe_posterior` function:
 #| cache: true
 
 describe_posterior(
-  Pdgfrb_Percentage_Fit1,
+  Pdgfrb_Dead_Fit1,
   effects = "all",
   test = c("p_direction", "rope"),
   component = "all",
   centrality = "median")
 
-modelsummary(Pdgfrb_Percentage_Fit1, 
+modelsummary(Pdgfrb_Dead_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PErcentage of PDGFR-β+ cells following MCAO",
+             title = "Percentage of PDGFR-β+ dead cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
-             output = "Tables/html/Facs_Pdgfrb_Fit1_Table.html",
+             output = "Tables/html/Facs_Pdgfrb_Fit1_Dead_Table.html",
              )
 
-Pdgfrb_Percentage_Fit1_Table <- modelsummary(Pdgfrb_Percentage_Fit1, 
+Pdgfrb_Dead_Fit1_Table <- modelsummary(Pdgfrb_Dead_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "gt")
-gt::gtsave (Pdgfrb_Percentage_Fit1_Table, 
-            filename = "Tables/tex/Facs_Pdgfrb_Fit1_Table_Table.tex")
+gt::gtsave (Pdgfrb_Dead_Fit1_Table, 
+            filename = "Tables/tex/Facs_Pdgfrb_Dead_Fit1_Table.tex")
 ```
-
-
-
 
 # References
 

@@ -47,7 +47,7 @@ editor:
 
 # Preview
 
-In this notebook, we do the FACS analysis of PDGFR-β+ cells sorted from
+In this notebook, we process the FACS files of PDGFR-β+ cells sorted from
 the ipsilateral and contralateral hemispheres of ischemic
 PDGFR-β-TdTomato mice.
 
@@ -512,7 +512,7 @@ ggsave(
   height   = 9, 
   units    = "cm")
 
-Facs_Dead_Contra <- ggcyto(gs[[5]],
+Facs_Dead_Contra <- ggcyto(gs[[9]],
        aes(x="Red A 780/60 755 LP-A",
            y= "SSC-A"),
            subset="Pdgfrb")+
@@ -534,7 +534,7 @@ ggsave(
   units    = "cm")
 
 
-Facs_Dead_Ipsi <- ggcyto(gs[[6]],
+Facs_Dead_Ipsi <- ggcyto(gs[[10]],
        aes(x="Red A 780/60 755 LP-A",
            y= "SSC-A"),
            subset="Pdgfrb")+
