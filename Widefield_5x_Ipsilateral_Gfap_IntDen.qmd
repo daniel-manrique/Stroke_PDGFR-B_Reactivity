@@ -907,6 +907,44 @@ Gfap_IntDen_Area_Fig
 
 @fig-GfapIntDen_Hemis predicts that GFAP integrated intensity will be higher at \~30 DPI with an hemispheric area of 15-20 mm\^2. However, the observations depict that at this time point the hemispheric area is below 10 mm\^2. In this way, the model suggest that the astroglial reactivity is constrained by brain shrinkage.
 
+## Posterior summary
+
+The summarize the posterior:
+
+```{r}
+#| label: Gfap_IntDenArea_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Gfap_IntDen_Fit4,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Gfap_IntDen_Fit4, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "GFAP integrated density following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit4_Table.html",
+             )
+
+Gfap_IntDen_Fit4_Table <- modelsummary(Gfap_IntDen_Fit4, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Gfap_IntDen_Fit4_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Gfap_IntDen_Fit4_Table.tex")
+```
+
+
 # References
 
 ::: {#refs}

@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of PDGFR-β reactivity (Integrated density) in the ipsilateral hemisphere"
+title: "Analysis of PDGFRβ reactivity (Integrated density) in the ipsilateral hemisphere"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 
 keywords: 
-  - PDGFR-β
+  - PDGFRβ
   - Scar formation
   - Brain injury
   - MCAO
@@ -48,11 +48,11 @@ bibliography: references.bib
 
 # Preview
 
-This notebook reports the analysis for PDGFR-β expression using the FIJI-derived "Integrated density measurement".
+This notebook reports the analysis for PDGFRβ expression using the FIJI-derived "Integrated density measurement".
 
-**Parent dataset:** PDGFR-β and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
+**Parent dataset:** PDGFRβ and GFAP-stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_Gfap-Pdgfrb.zip`.
 
-**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv`data frame containing the integrated density of PDGFR-β measured in the ipsilateral hemisphere (`Gfap_IntDen`) using a FIJI [script](https://osf.io/mqukx) [@schindelin2012]. We perform scientific inference on this variable as a basis to understand PDGFR-β reactivity in our model of cerebral ischemia. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset. We anticipate that PDGFR-β expression will increase in ischemic regions after the injury onset.
+**Working dataset**: The `Data_Processed/Widefield_5x_Ipsilateral_Gfap-Pdgfrb/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Inten.csv`data frame containing the integrated density of PDGFRβ measured in the ipsilateral hemisphere (`Gfap_IntDen`) using a FIJI [script](https://osf.io/mqukx) [@schindelin2012]. We perform scientific inference on this variable as a basis to understand PDGFRβ reactivity in our model of cerebral ischemia. The current knowledge suggest a close to linear increase in GFAP expression from the injury onset. We anticipate that PDGFRβ expression will increase in ischemic regions after the injury onset.
 
 
 # Install and load required packages
@@ -144,7 +144,7 @@ gt::gt(Pdgfrb_Summary[1:10,])
 
 ```
 
-From this table, we focus on `DPI` (Days post-ischemia) and `Pdgfrb_IntDen` variables.`Pdgfrb_IntDen` is the product of the stained area and the mean intensity as calculated in FIJI using the script available at https://osf.io/mqukx. Additionally, we'll use the `Tissue_Area` variable to fit a model relating PDGFR-β reactivity and hemispheric shrinkage.
+From this table, we focus on `DPI` (Days post-ischemia) and `Pdgfrb_IntDen` variables.`Pdgfrb_IntDen` is the product of the stained area and the mean intensity as calculated in FIJI using the script available at https://osf.io/mqukx. Additionally, we'll use the `Tissue_Area` variable to fit a model relating PDGFRβ reactivity and hemispheric shrinkage.
 
 Next, we visualize the raw data to guide the statistical modeling. We plot the response variable as a density and a scatter plot (per DPI). In the scatter plot, we fit lines for a lineal (black), 2-degree (red), and 3-degree (green) polynomial models.
 
@@ -154,7 +154,7 @@ Next, we visualize the raw data to guide the statistical modeling. We plot the r
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Exploratory data visualization for PDGFR-β expression
+#| fig-cap: Exploratory data visualization for PDGFRβ expression
 #| fig-width: 9
 #| fig-height: 4
 
@@ -172,7 +172,7 @@ Pdgfrb_IntDen_Dens <-
     ) +
   geom_density(size = 1.5) +
   geom_rug(size = 1) +
-  scale_x_continuous(name ="PDGFR-β (IntDen)") +
+  scale_x_continuous(name ="PDGFRβ (IntDen)") +
   scale_y_continuous(name = "Density") +
   Plot_theme
 
@@ -205,7 +205,7 @@ geom_jitter(
   shape = 1, 
   size  = 1.5, 
   color = "black") +
-scale_y_continuous(name = "PDGFR-β (integrated density)") +
+scale_y_continuous(name = "PDGFRβ (integrated density)") +
 scale_x_continuous(
   name   ="Days post-ischemia (DPI) ",
   breaks =c(0, 3,7,14,30)
@@ -217,11 +217,11 @@ Pdgfrb_IntDen_Dens |  Pdgfrb_IntDen_Sctr
 ```
 @fig-Pdgfrb_IntDen_Expl shows a range of \~ 0 - 1500. Without accounting for days-post ischemia (DPI), the response variable exhibits a single peak far from normal distributions. On the other hand, the scatter shows that there are no substantial differences between the fitted lines. Still, non-linear models capture between the deviation at 15 DPI.
 
-# Statistical modeling for PDGFR-β reactivity
+# Statistical modeling for PDGFRβ reactivity
 
 We use the `brms` package [@brms; @burkner2017] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following models:
 
--   **Pdgfrb_IntDen_Mdl1:** We use `DPI` as a linear predictor for PDGFR-β integrated density. The model takes the following notation:
+-   **Pdgfrb_IntDen_Mdl1:** We use `DPI` as a linear predictor for PDGFRβ integrated density. The model takes the following notation:
 
 $$
 IntDen_{i} = \alpha + \beta_{1} DPI_{i} + \epsilon_{i}
@@ -261,7 +261,7 @@ b \sim \mathcal{N}(100, 50) \\
 \end{align}
 $$
 
--   **Pdgfrb_IntDen_Mdl4** Finally, we investigate the correlation between brain shrinkage and PDGFR-β integrated density. We do so by fitting a spline model with interaction using the `t2` function, which denote a tensor product smooth of the predictor variables `DPI` and `Tissue_Area` to model the response variable (`Pdgfr_IntDen`).
+-   **Pdgfrb_IntDen_Mdl4** Finally, we investigate the correlation between brain shrinkage and PDGFRβ integrated density. We do so by fitting a spline model with interaction using the `t2` function, which denote a tensor product smooth of the predictor variables `DPI` and `Tissue_Area` to model the response variable (`Pdgfr_IntDen`).
 
 $$ 
 IntDen = \beta_0 + \sum_{i=1}^{k_1} \sum_{j=1}^{k_2} \beta_{ij} B_{1i}(DPI) B_{2j}(Tissue\_Area) + \epsilon
@@ -270,7 +270,7 @@ Where: - $ \beta_0$ is the intercept. - $B_{1i}(DPI)$ and $B\_{2j}(Tissue_Area)$
 
 This model uses the brms-default priors.
 
-## Fit the models for PDGFR-β integrated density
+## Fit the models for PDGFRβ integrated density
 
 ```{r}
 #| label: PdgfrbIntDen_Modeling_Ipsi5x
@@ -477,7 +477,7 @@ To evaluate sample predictions, we perform the diagnostics for model 3 (Mdl3) us
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Model diagnostics for PDGFR-β expression
+#| fig-cap: Model diagnostics for PDGFRβ expression
 #| fig-height: 4
 #| fig-width: 5
 
@@ -519,7 +519,7 @@ First, we plot the full posterior distributions:
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior for PDGFR-β IntDen
+#| fig-cap: Posterior for PDGFRβ IntDen
 #| fig-width: 5
 #| fig-height: 4
 
@@ -548,18 +548,19 @@ Pdgfrb_Post %>%
   stat_halfeye(aes(fill = after_stat(level)), .width = c(0.50,0.80,0.90)) +
   scale_fill_brewer() +
   scale_y_discrete(name = "DPI") +
-  scale_x_continuous(name = "PDGFR-β (IntDen)",
+                   
+  scale_x_continuous(name = "PDGFRβ (IntDen)",
                      limits = c(0, 1200)) +
   Plot_theme
 ```
-We see a constant increase in PDGFR-β reactivity up yo 30 DPI. Subsequently, we visualize the results using the `conditional_effects` function from `brms` and add graph aesthetics using ggplot.
+We see a constant increase in PDGFRβ reactivity up yo 30 DPI. Subsequently, we visualize the results using the `conditional_effects` function from `brms` and add graph aesthetics using ggplot.
 
 The `conditional_effects` function display the effects of predictors for brms-fitted models. It computes conditional effects of specified predictors while marginalizing over the remaining predictors. Thereby, it allows to visualization of single variable effects to make the data more interpretable. Mathematically, let $y = f(x_1, x_2, \ldots, x_n)$ denote the modeled relationship between the variable $ y $ and the predictor variables $ x_1, x_2, \ldots, x_n $. The `conditional_effects` function calculates the conditional expectations $E[y | x_i]$ for a given $ x_i $, marginalizing over other predictors. Formally, it can be represented in this manner:
 
 $$
  E[y | x_i] = \int f(x_1, x_2, \ldots, x_n) p(x_1, x_2, \ldots, x_{i-1}, x_{i+1}, \ldots, x_n) dx_1 dx_2 \ldots dx_{i-1} dx_{i+1} \ldots dx_n
 $$
-We use this function to graph the effect of DPI in PDGFR-β IntDen and the corresponding sigma:
+We use this function to graph the effect of DPI in PDGFRβ IntDen and the corresponding sigma:
 
 ```{r}
 #| label: fig-PdgfrbIntDen_CondEff
@@ -567,7 +568,7 @@ We use this function to graph the effect of DPI in PDGFR-β IntDen and the corre
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior for PDGFR-𝛽 expression
+#| fig-cap: Posterior for PDGFRβ expression
 #| fig-width: 9
 #| fig-height: 4
 
@@ -614,11 +615,12 @@ Pdgfrb_IntDen_DPI_Fig <-
     position = position_dodge(0.05), 
     color    = "blue") +
   scale_y_continuous(
-    name = "PDGFR-β (IntDen)",
+    name = "PDGFRβ (IntDen)",
     limits = c(0, 1500),
     breaks = seq(0, 1500, 500)
     ) +
-  scale_x_continuous(name="DPI") +
+  scale_x_continuous(name="DPI",
+                     breaks = c(0, 3, 7, 14, 30)) +
   Plot_theme
 
 ggsave(
@@ -649,7 +651,7 @@ Pdgfrb_IntDen_Sigma_fig <-
   geom_line(size  = 1,
             color ="blue",
             position = position_dodge(0.05)) +
-  scale_y_continuous(name= expression("PDGFR-β (log)"[sigma])) +
+  scale_y_continuous(name= expression("PDGFRβ (log)"[sigma])) +
   scale_x_continuous(name="DPI") +
   Plot_theme
           
@@ -662,7 +664,7 @@ ggsave(plot     = Pdgfrb_IntDen_Sigma_fig,
 Pdgfrb_IntDen_DPI_Fig | Pdgfrb_IntDen_Sigma_fig
 ```
 
-@fig-PdgfrbIntDen_CondEff shows the fit for PDGFR-β integrated density and sigma. We can visualize an increasing trend during the first two weeks after injury. In contrast to GFAP reactivity, our model predicts a *plateau* phase for PDGFR-β cells. This implies that PDGFR-β integrated density remains constant despite brain shrinkage. We ponder that these dynamics are featured by an exchange between area and intensity, given that PDGFR-β appear to remain (and likely loss) in regions prone to shrinkage.
+@fig-PdgfrbIntDen_CondEff shows the fit for PDGFRβ integrated density and sigma. We can visualize an increasing trend during the first two weeks after injury. In contrast to GFAP reactivity, our model predicts a *plateau* phase for PDGFRβ cells. This implies that PDGFRβ integrated density remains constant despite brain shrinkage. We ponder that these dynamics are featured by an exchange between area and intensity, given that PDGFRβ appear to remain (and likely loss) in regions prone to shrinkage.
 
 ## Posterior summary
 
@@ -686,7 +688,7 @@ describe_posterior(
 modelsummary(Pdgfrb_IntDen_Fit3, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PDGFR-β integrated density following MCAO",
+             title = "PDGFRβ integrated density following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Table.html",
@@ -750,7 +752,7 @@ gt::gtsave(filename = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_D
 gt::gt(round(Pdgfrb_IntDen_Derivative, digits = 2)) %>%
 gt::gtsave(filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit3_Deriv.tex")
 ```
-The output denote a sustained increase (slope = 36) for PDGFR-β integrated density up to \~ 23 DPI (Change of 841, 95%CI = 831 - 1222). This is followed by a slightly decrease in slope (-4.4) at 30 DPI.
+The output denote a sustained increase (slope = 36) for PDGFRβ integrated density up to \~ 23 DPI (Change of 841, 95%CI = 831 - 1222). This is followed by a slightly decrease in slope (-4.4) at 30 DPI.
 
 ## Visualize derivatives
 
@@ -762,7 +764,7 @@ Finally, we plot the derivatives:
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Derivatives for PDGFR-β expression
+#| fig-cap: Derivatives for PDGFRβ expression
 #| fig-height: 4
 #| fig-width: 5
 
@@ -794,11 +796,11 @@ ggsave(
 Pdgfrb_IntDen_deriv_Fig 
 ```
 
-@fig-Pdgfrb_EstimateSlopes shows that in the chronic phase (after two weeks post-ischemia), there is negligible change in PDGFR-β integrated density.
+@fig-Pdgfrb_EstimateSlopes shows that in the chronic phase (after two weeks post-ischemia), there is negligible change in PDGFRβ integrated density.
 
-# PDGFR-β relation to hemispheric area
+# PDGFRβ relation to hemispheric area
 
-Previously, we fitted a model (Pdgfrb_IntDen \~ t2(DPI,Tissue_Area)) to investigate the relation between PDGFR-β integrated density and hemispheric area,as we did with GFAP.
+Previously, we fitted a model (Pdgfrb_IntDen \~ t2(DPI,Tissue_Area)) to investigate the relation between PDGFRβ integrated density and hemispheric area,as we did with GFAP.
 
 ## Model diagnostics
 
@@ -810,7 +812,7 @@ We run model diagnostics with `pp_check` to verify the predictions. In the graph
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Model diagnostics for PDGFR-β expression / hemispheric area
+#| fig-cap: Model diagnostics for PDGFRβ expression / hemispheric area
 #| fig-height: 4
 #| fig-width: 5
 
@@ -839,7 +841,7 @@ Now, we plot the results using the `conditional_smooths` function from `brms`.
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: PDGFR-β relation to hemispheric area
+#| fig-cap: PDGFRβ relation to hemispheric area
 #| fig-width: 5
 #| fig-height: 4
 
@@ -873,7 +875,44 @@ ggsave(
 Pdgfrb_IntDen_Area_Fig
 ```
 
-@fig-PdgfrbIntDen_Hemis estimates that PDGFR-β reactivity increases with DPI and brain shrinkage. This might imply that brain shrinkage is associated with PDGFR-β expression, an aspect that can be further explored with causal inference in our stroke model.
+@fig-PdgfrbIntDen_Hemis estimates that PDGFRβ reactivity increases with DPI and brain shrinkage. This might imply that brain shrinkage is associated with PDGFRβ expression, an aspect that can be further explored with causal inference in our stroke model.
+
+## Posterior summary
+
+We plot the posterior summary as previously done:
+
+```{r}
+#| label: Pdgfrb_IntDenArea_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_IntDen_Fit4,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_IntDen_Fit4, 
+             shape = term ~ model + statistic,
+             centrali2ty = "mean", 
+             title = "PDGFRβ integrated density following MCAO",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit4_Table.html",
+             )
+
+Pdgfrb_IntDen_Fit4_Table <- modelsummary(Pdgfrb_IntDen_Fit4, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_IntDen_Fit4_Table, filename = "Tables/tex/Widefield_5x_Ipsilateral_Pdgfrb_IntDen_Fit4_Table.tex")
+```
 
 # References
 

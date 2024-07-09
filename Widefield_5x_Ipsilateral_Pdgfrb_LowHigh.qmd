@@ -454,23 +454,14 @@ set.seed(8807)
 
 # We create the graph for convex hull
 Pdgfrb_Prop_DPI <- 
-  conditional_effects(Pdgfrb_Prop_Fit2)
+  conditional_effects(Pdgfrb_Prop_Fit2, points = TRUE)
 
 Pdgfrb_Prop_DPI <- plot(Pdgfrb_Prop_DPI, 
        plot = FALSE)[[1]]
 
 Pdgfrb_Prop_fig <- Pdgfrb_Prop_DPI  + 
-  scale_y_continuous(name = expression ("(p) PDGFR-β"^high)) +
+  scale_y_continuous(name = expression ("(p) PDGFRβ"^high)) +
   scale_x_continuous(name="DPI") +
-  scale_color_manual(
-    values = c("#0048BA", "red"),
-    name="Condition"
-    ) +
-  scale_fill_manual(
-    values = c("#0048BA", "red"),
-    name="Condition"
-    ) +
-
   Plot_theme +
   theme(legend.position = "top", legend.direction = "horizontal")
 

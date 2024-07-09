@@ -25,7 +25,7 @@ format: html
 
 : Model derivatives {#tbl-Shrinkage_Deriv}
 
-**Hemispheric area following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Area \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+**Hemispheric area following MCAO.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Area \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
 :::
 
 ## ------------------------------------------------------------------------
@@ -55,8 +55,28 @@ format: html
 
 : Model derivatives {#tbl-Pdgfrb_IntDen_Deriv}
 
-**PDGFR-β integrated density following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
+**PDGFRβ integrated density following MCAO.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *IntDen \~ s(DPI, K=5), sigma \~ DPI, family = student*. Parameters for sigma are in the $log$ scale. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-23 DPI and 23-30 DPI.
 :::
+
+## ------------------------------------------------------------------------
+
+| **Parameter**          | **Est.** | **2.5 %** | **97.5 %** |
+|------------------------|----------|-----------|------------|
+| b_Intercept            | 620      | 512       | 745        |
+| bs_t2DPITissue_Area_1  | -206     | -471      | 118        |
+| bs_t2DPITissue_Area_2  | -119     | -460      | 133        |
+| bs_t2DPITissue_Area_3  | 85       | -391      | 463        |
+| sds_t2DPITissue_Area_1 | 563      | 18        | 1763       |
+| sds_t2DPITissue_Area_2 | 621      | 17        | 2382       |
+| sds_t2DPITissue_Area_3 | 876      | 34        | 2685       |
+| sigma                  | 268      | 215       | 336        |
+| Num.Obs.               | 49       |           |            |
+| R2                     | 0.63     |           |            |
+| R2 Adj.                | 0.56     |           |            |
+
+
+: **PDGFRβ integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Pdgfrb_IntDen ~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Pdgfrb_t2DPI-Area}
+
 
 ## ------------------------------------------------------------------------
 
@@ -90,6 +110,26 @@ format: html
 
 ## ------------------------------------------------------------------------
 
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|------------------------|----------|-----------|------------|
+| b_Intercept            | 509      | 425       | 605        |
+| bs_t2DPITissue_Area_1  | 229      | 17        | 451        |
+| bs_t2DPITissue_Area_2  | -325     | -532      | -126       |
+| bs_t2DPITissue_Area_3  | -369     | -645      | -108       |
+| sds_t2DPITissue_Area_1 | 360      | 17        | 1078       |
+| sds_t2DPITissue_Area_2 | 350      | 11        | 1288       |
+| sds_t2DPITissue_Area_3 | 411      | 14        | 1405       |
+| sigma                  | 242      | 196       | 301        |
+| Num.Obs.               | 49       |           |            |
+| R2                     | 0.45     |           |            |
+| R2 Adj.                | 0.37     |           |            |
+
+
+: **GFAP integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Gfap_IntDen ~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Gfap_t2DPI-Area}
+
+
+## ------------------------------------------------------------------------
+
 | **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
 |----------------|----------|-----------|------------|
 | b_Intercept    | 1.130    | 1.114     | 1.146      |
@@ -98,7 +138,7 @@ format: html
 | Num.Obs.       | 49       |           |            |
 | R2             | 0.97     |           |            |
 
-: **PDGFR-β\^high likelihood following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ s(DPI, k =5), family = binomial*. {#tbl-Pdgfrb_lowhigh}
+: **PDGFRβ\^high likelihood following MCAO.**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ s(DPI, k =5), family = binomial*. {#tbl-Pdgfrb_lowhigh}
 
 ## ------------------------------------------------------------------------
 
@@ -177,7 +217,7 @@ format: html
 
 : Model for cortex {#tbl-Pdgfrb_Gfap_Ctx}
 
-**PDGFR-β counts in tesselated GFAP regions.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb \~ Region x Gfap, family = hurdle_lognormal()*. b-d) Posterior summary for models by region *Pdgfrb \~ DPI x Gfap, family = hurdle_lognormal()*.
+**PDGFRβ counts in tesselated GFAP regions.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb \~ Region x Gfap, family = hurdle_lognormal()*. b-d) Posterior summary for models by region *Pdgfrb \~ DPI x Gfap, family = hurdle_lognormal()*.
 :::
 
 ## ------------------------------------------------------------------------
@@ -189,7 +229,7 @@ format: html
 | Num.Obs.       | 14       |           |            |
 | R2             | 0.640    |           |            |
 
-: **PDGFR-β\^high likelihood in striatal-only lesions**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ DPI, family = binomial*. {#tbl-Pdgfrb_Str_lowhigh}
+: **PDGFRβ\^high likelihood in striatal-only lesions**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_high \| trials(Pdgfrb_Total) \~ DPI, family = binomial*. {#tbl-Pdgfrb_Str_lowhigh}
 
 ## ------------------------------------------------------------------------
 
@@ -224,7 +264,7 @@ format: html
 
 : Model for cortex {#tbl-Pdgfrb_CD31_Ctx}
 
-: **Parenchymal PDGFR-β likelihood following MCAO**. a-C) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial models *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* for perilesion, sriatum and cortex, respectively.
+: **Parenchymal PDGFRβ likelihood following MCAO**. a-C) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial models *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* for perilesion, sriatum and cortex, respectively.
 :::
 
 ## ------------------------------------------------------------------------
@@ -252,7 +292,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.          | 38       |           |            |
 | R2                | 0.653    |           |            |
 
-: **Parenchymal PDGFR-β likelihood in striatal-only lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Parenchymal}
+: **Parenchymal PDGFRβ likelihood in striatal-only lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Pdgfrb_Parenchymal \| trials(Pdgfrb_Total) \~ DPI, family = binomial* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Parenchymal}
 
 ## ------------------------------------------------------------------------
 
@@ -269,7 +309,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.                | 38       |           |            |
 | R2                      | 0.065    |           |            |
 
-: **Number of PDGFR-β+ cells in striatal-only and cortico-striatal lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb_Total \~ DPI x Lesion, sigma \~ DPI x Lesion, family = student* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Total}
+: **Number of PDGFRβ+ cells in striatal-only and cortico-striatal lesions**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb_Total \~ DPI x Lesion, sigma \~ DPI x Lesion, family = student* in striatal-only lesions. {#tbl-Pdgfrb_CD31_Striatal_Total}
 
 ## ------------------------------------------------------------------------
 
@@ -286,7 +326,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.        | 60       |           |            |
 | R2              | 0.154    |           |            |
 
-: **Number of parechymal PDGFR-β+ cells in sham and MCAO mice**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Parenchymal \~ DPI x Condition, family = student* in sham and MCAO mice. {#tbl-Pdgfrb_CD31_ShamMCAO}
+: **Number of parechymal PDGFRβ+ cells in sham and MCAO mice**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Parenchymal \~ DPI x Condition, family = student* in sham and MCAO mice. {#tbl-Pdgfrb_CD31_ShamMCAO}
 
 ## ------------------------------------------------------------------------
 
@@ -309,7 +349,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 
 : Model derivatives {#tbl-Ki67_Pdgfrb_deriv}
 
-**PDGFR-β+ cells proliferation in the ischemic hemispheric following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Percentage_Pdgfrb \~ s(DPI_Cont, k = 5), family = lognormal*. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-3 DPI and 3-30 DPI.
+**PDGFRβ+ cells proliferation in the ischemic hemispheric following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Percentage_Pdgfrb \~ s(DPI_Cont, k = 5), family = lognormal*. b) Model derivatives (`estimate_smooth`) showing linear changes from 0-3 DPI and 3-30 DPI.
 :::
 
 ## ------------------------------------------------------------------------
@@ -327,7 +367,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.            | 59    |       |        |
 | R2                  | 0.391 |       |        |
 
-: Model for total PDGFR-β/Ki67+ cells {#tbl-Ki67_Pdgfrb_Total}
+: Model for total PDGFRβ/Ki67+ cells {#tbl-Ki67_Pdgfrb_Total}
 
 | Parameters          | Est.  | 2.5 %  | 97.5 % |
 |---------------------|-------|--------|--------|
@@ -340,9 +380,9 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.            | 31    |        |        |
 | R2                  | 0.813 |        |        |
 
-: Model for vascular PDGFR-β/Ki67+ cells {#tbl-Ki67_Pdgfrb_Vascular}
+: Model for vascular PDGFRβ/Ki67+ cells {#tbl-Ki67_Pdgfrb_Vascular}
 
-**PDGFR-β+ cells proliferation in defined ROIs following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Cells \~ DPI x Region, family = negbinomial* showing the total amount of colocalized cells. b) Shows the same estimates for the model *Vascular \| trials(Total) \~ DPI x Region, family = binomial* showing the proportion of vascular PDGFR-β+ cells relative to the total number of PDGFR-β.
+**PDGFRβ+ cells proliferation in defined ROIs following MCAO**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Cells \~ DPI x Region, family = negbinomial* showing the total amount of colocalized cells. b) Shows the same estimates for the model *Vascular \| trials(Total) \~ DPI x Region, family = binomial* showing the proportion of vascular PDGFRβ+ cells relative to the total number of PDGFRβ.
 :::
 
 ## ------------------------------------------------------------------------
@@ -359,7 +399,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.         | 143      |           |            |
 | R2               | 0.698    |           |            |
 
-: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Area \~ DPI_cont x Region, family = student*. {#tbl-Pdgfrb_Haralick_Area}
+: **PDGFRβ stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Area \~ DPI_cont x Region, family = student*. {#tbl-Pdgfrb_Haralick_Area}
 
 ## ------------------------------------------------------------------------
 
@@ -375,7 +415,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | b_muCortex_IDM         | 2.92     | 1.13      | 4.83       |
 | Num.Obs.               | 146      |           |            |
 
-: **PDGFR-β stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region \~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
+: **PDGFRβ stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region \~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
 
 ## ------------------------------------------------------------------------
 
@@ -444,7 +484,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 
 : Bottleneck distance - 1D homology {#tbl-Pdgfrb_TDA_Bottleneck_1D}
 
-: **Topological assessment of PDGFR-β+ cells following injury:** Wasserstein (a-b) and Bottleneck (c-d) distances for 0 and 1 dimension homology. We boostraped the estimates (1000 replications) to show the median Betti curve distance with 95% credible intervals (2.5% - 97.5%).
+: **Topological assessment of PDGFRβ+ cells following injury:** Wasserstein (a-b) and Bottleneck (c-d) distances for 0 and 1 dimension homology. We boostraped the estimates (1000 replications) to show the median Betti curve distance with 95% credible intervals (2.5% - 97.5%).
 :::
 
 ## ------------------------------------------------------------------------
@@ -511,7 +551,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.           | 64       |           |            |
 | R2                 | 0.595    |           |            |
 
-: **KLF4/PDGFR-β colocalization in defined ROIs:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Coloc \| trials(Klf4) \~ DPI x Region, family = binomial*. {#tbl-KLF4_Pdgfrb_Coloc}
+: **KLF4/PDGFRβ colocalization in defined ROIs:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Coloc \| trials(Klf4) \~ DPI x Region, family = binomial*. {#tbl-KLF4_Pdgfrb_Coloc}
 
 ## ------------------------------------------------------------------------
 
@@ -536,7 +576,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.       | 18       |           |            |
 | R2             | 0.04     |           |            |
 
-: **Hemispheric ratio in PDGFR-β\^KLF4-KO mice.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Shrinkage \~ Genotype, family = student*. {#tbl-KLF4_KO_Shrinkage}
+: **Hemispheric ratio in PDGFRβ\^KLF4-KO mice.** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Shrinkage \~ Genotype, family = student*. {#tbl-KLF4_KO_Shrinkage}
 
 ## ------------------------------------------------------------------------
 
@@ -548,7 +588,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.       | 18       |           |            |
 | R2             | 0.26     |           |            |
 
-: **GFAP integrated density in PDGFR-β\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Gfap \~ Genotype, family = student*. {#tbl-KLF4_KO_GfapIntDen}
+: **GFAP integrated density in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Gfap \~ Genotype, family = student*. {#tbl-KLF4_KO_GfapIntDen}
 
 ## ------------------------------------------------------------------------
 
@@ -560,7 +600,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.       | 18       |           |            |
 | R2             | 0.43     |           |            |
 
-: **PDGFR-β integrated density in PDGFR-β\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb \~ Genotype, family = student*. {#tbl-KLF4_KO_PdgfrbIntDen}
+: **PDGFRβ integrated density in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Pdgfrb \~ Genotype, family = student*. {#tbl-KLF4_KO_PdgfrbIntDen}
 
 ## ------------------------------------------------------------------------
 
@@ -589,7 +629,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 
 : Model conditioning on ipsilateral area {#tbl-PdgfrbIntDEn_KO_IpsiArea}
 
-**PDGFR-β integrated density in PDGFR-β\^KLF4-KO mice with additional predictors.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the models a) *Pdgfrb \~ Genotype x Shrinkage, family = student* and b) *Pdgfrb \~ Genotype x Ipsilateral_Scaled, family student*.
+**PDGFRβ integrated density in PDGFRβ\^KLF4-KO mice with additional predictors.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the models a) *Pdgfrb \~ Genotype x Shrinkage, family = student* and b) *Pdgfrb \~ Genotype x Ipsilateral_Scaled, family student*.
 :::
 
 ## ------------------------------------------------------------------------
@@ -603,7 +643,7 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.             | 47       |           |            |
 | R2                   | 0.30     |           |            |
 
-: **Number of PDGFR-β+ nuclei in PDGFR-β\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Counts ~ Genotype + (1 | MouseID), family = negbinomial*. The values are presented in the log scale. {#tbl-Pdgfrb_KO_FishCounts} 
+: **Number of PDGFRβ+ nuclei in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Counts \~ Genotype + (1 \| MouseID), family = negbinomial*. The values are presented in the log scale. {#tbl-Pdgfrb_KO_FishCounts}
 
 ## ------------------------------------------------------------------------
 
@@ -618,4 +658,4 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | Num.Obs.             | 5588     |           |            |
 | R2                   | 0.81     |           |            |
 
-: **PDGFR-β+ labeling intesity in PDGFR-β\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Intensity ~ Area x Genotype + (1 | MouseID), family = student*. {#tbl-Pdgfrb_KO_Fish_Counts_AreaInt} 
+: **PDGFRβ+ labeling intesity in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Intensity \~ Area x Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_KO_Fish_Counts_AreaInt}

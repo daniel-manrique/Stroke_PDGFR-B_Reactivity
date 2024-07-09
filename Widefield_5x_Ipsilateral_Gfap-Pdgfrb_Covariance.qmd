@@ -125,7 +125,7 @@ First, we load the point patterns:
 #| results: false
 
 
-PointPatterns <- readRDS("PointPatterns/Widefield_5x_Ipsilateral_Pdgfrb-Gfap_PPP.rds")
+PointPatterns <- readRDS("PointPatterns/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_PPP.rds")
 
 # We assign the animal ID to row names
 PointPatterns <- `row.names<-.hyperframe`(PointPatterns, PointPatterns$ID)
@@ -275,7 +275,7 @@ We explicitly utilize `do.CI = FALSE` to pool the estimates by DPI later.
 #| warning: false
 #| message: false
 
-# For Pdgfrb-β^high^
+# For PDGFRβ^high^
 
 ## For 3D
 Pdgfrb_Rhohat_3D_High <- with(PointPatterns_3D, spatstat.explore::rhohat.ppp(Pdgfrb_High, Gfap_Density, do.CI = FALSE))
@@ -294,7 +294,7 @@ Pdgfrb_Rhohat_30D_High  <- with(PointPatterns_30D, spatstat.explore::rhohat.ppp(
 Pdgfrb_Rhohat_30D_High  <- pool(Pdgfrb_Rhohat_30D_High)
 
 
-# For Pdgfrb-β^low^
+# For PDGFRβ^low^
 
 ## For 3D
 #Pdgfrb_Rhohat_3D_Low  <- with(PointPatterns_3D, spatstat.explore::rhohat.ppp(Pdgfrb_Low, Gfap_Density, do.CI = FALSE))
@@ -324,7 +324,7 @@ Next, we save the pooled rhohat plots.
 #| warning: false
 #| message: false
 
-# For Pdgfrb-β^high^
+# For PDGFRβ^high^
 
 png("Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Covariance/Widefield_5x_Ipsilateral_Pdgfrb_Rhohat_3D_High.png", width = 600, height = 400)
 par(mar=c(7,9,2,2))
@@ -351,10 +351,10 @@ axis(2, at = seq(0, 35, 10),
      cex.axis=2.5, 
      padj = 0.5, 
      lwd.ticks = 5, las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 2, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^high), 
+title(ylab = expression("(p)PDGFRβ"^high), 
       mgp = c(4.5, 1, 0), 
       cex.lab = 3) 
 
@@ -386,10 +386,10 @@ axis(2, at = seq(0, 180, 40),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 1, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^high), 
+title(ylab = expression("(p)PDGFRβ"^high), 
       mgp = c(5, 1, 0), 
       cex.lab = 3) 
 
@@ -422,10 +422,10 @@ axis(2, at = seq(0, 350, 70),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 2, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^high), 
+title(ylab = expression("(p)PDGFRβ"^high), 
       mgp = c(5, 1, 0), 
       cex.lab = 3) 
 
@@ -457,17 +457,17 @@ axis(2, at = seq(0, 300, 60),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 2, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^high),
+title(ylab = expression("(p)PDGFRβ"^high),
       mgp = c(5, 1, 0), 
       cex.lab = 3) 
 
 dev.off()
 
 
-# For Pdgfrb-β^Low^
+# For PDGFRβ^Low^
 
 png("Plots/Widefield_5x_Ipsilateral_Gfap-Pdgfrb_Covariance/Widefield_5x_Ipsilateral_Pdgfrb_Rhohat_7D_Low.png", width = 600, height = 400)
 par(mar=c(7,10,2,2))
@@ -495,10 +495,10 @@ axis(2, at = seq(0, 50, 10),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 1, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^Low), 
+title(ylab = expression("(p)PDGFRβ"^Low), 
       mgp = c(5, 1, 0),
       cex.lab = 3) 
 
@@ -531,10 +531,10 @@ axis(2, at = seq(0, 50, 10),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 2, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^Low), 
+title(ylab = expression("(p)PDGFRβ"^Low), 
       mgp = c(5, 1, 0), 
       cex.lab = 3) 
 
@@ -567,10 +567,10 @@ axis(2, at = seq(0, 50, 10),
      padj = 0.5, 
      lwd.ticks = 5, 
      las = 2)
-title(xlab = "GFAP (intensity)", 
+title(xlab = "GFAP (spatial intensity)", 
       mgp = c(4.5, 2, 0), 
       cex.lab = 3)   
-title(ylab = expression("(p)Pdgfrb-β"^Low), 
+title(ylab = expression("(p)PDGFRβ"^Low), 
       mgp = c(5, 1, 0), 
       cex.lab = 3) 
 
@@ -605,14 +605,14 @@ Here, we regress `Pdgfr_High` on nested GFAP density within DPI.The parameter α
 
 set.seed(8807)
 
-# For Pdgfrb-β^high^
+# For PDGFRβ^high^
 Pdgfrb_Gfap_High_Mdl1 <- mppm(Pdgfrb_High ~ DPI/Gfap_Density, data = PointPatterns_Sub)
 
 # We extract the coefficients
 Pdgfrb_Gfap_High_Coeff <- coef (Pdgfrb_Gfap_High_Mdl1)
 Pdgfrb_Gfap_High_CI <- confint (Pdgfrb_Gfap_High_Mdl1)
 
-# For Pdgfrb-β^low^
+# For PDGFRβ^low^
 Pdgfrb_Gfap_Low_Mdl1 <- mppm(Pdgfrb_Low ~ DPI/Gfap_Density, data = PointPatterns_Sub)
 
 # We extract the coefficients
