@@ -133,7 +133,7 @@ Plot_theme <- theme_classic() +
 
 set.seed(8807)
 
-Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Fcas_Pdgfrb_Cells-Dead.csv", header = TRUE)
+Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Facs_Pdgfrb_Cells-Dead.csv", header = TRUE)
 Facs_Dataset$Hemisphere <- factor (Facs_Dataset$Hemisphere, levels = c("Contra", "Ipsi"))
 
 Pdgfrb_Cells <- 
@@ -328,7 +328,7 @@ gt::gtsave (Pdgfrb_Percentage_Fit1_Table,
 
 set.seed(8807)
 
-Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Fcas_Pdgfrb_Cells-Dead.csv", header = TRUE)
+Facs_Dataset <- read.csv("Data_Processed/Facs_Pdgfrb/Facs_Pdgfrb_Cells-Dead.csv", header = TRUE)
 Facs_Dataset$Hemisphere <- factor (Facs_Dataset$Hemisphere, levels = c("Contra", "Ipsi"))
 
 Pdgfrb_Dead <- 

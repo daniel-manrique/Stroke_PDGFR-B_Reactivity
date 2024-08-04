@@ -80,12 +80,12 @@ The tools for flow cytometry analysis are from
 if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-BiocManager::install("flowCore")
-BiocManager::install("flowWorkspace")
-BiocManager::install("openCyto")
-BiocManager::install("flowAI")
-BiocManager::install("ggcyto")
-BiocManager::install("CytoML")
+#BiocManager::install("flowCore")
+#BiocManager::install("flowWorkspace")
+#BiocManager::install("openCyto")
+#BiocManager::install("flowAI")
+#BiocManager::install("ggcyto")
+#BiocManager::install("CytoML")
 
 
 #install.packages(c("dplyr", "brms", "kableExtra", "tidyverse", "patchwork"))
@@ -366,7 +366,7 @@ Facs_Pdgfrb_Unstained <- ggcyto(gs[[11]],aes(
   geom_stats(adjust = 0.8)+
   ggcyto_par_set(limits = "instrument") +
   ggtitle("") +
-  scale_x_continuous(name = "Td-Tomato") +
+  scale_x_continuous(name = "TdTomato") +
   Plot_theme +
   theme(legend.position = "none")
 
@@ -387,7 +387,7 @@ Facs_Pdgfrb_Contra<- ggcyto(gs[[5]],aes(
   geom_stats(adjust = 0.8)+
   ggcyto_par_set(limits = "instrument") +
   ggtitle("") +
-  scale_x_continuous(name = "Td-Tomato") +
+  scale_x_continuous(name = "TdTomato") +
   Plot_theme+
   theme(legend.position = "none")
 
@@ -409,7 +409,7 @@ Facs_Pdgfrb_Ipsi <- ggcyto(gs[[6]],aes(
   geom_stats(adjust = 0.8)+
   ggcyto_par_set(limits = "instrument") +
   ggtitle("") +
-  scale_x_continuous(name = "Td-Tomato") +
+  scale_x_continuous(name = "TdTomato") +
   Plot_theme+
   theme(legend.position = "none")
 
@@ -459,7 +459,7 @@ Facs_Pdgfrb <- ggcyto(gs,
   geom_stats(adjust = 0.8)+
   geom_density2d(colour = "black") +
   ggtitle("Parent population: singlets") +
-  scale_x_continuous(name = "Td-Tomato") +
+  scale_x_continuous(name = "TdTomato") +
   ggcyto_par_set(limits = "instrument")+
   facet_wrap(~ name, ncol = 3) +
   Plot_theme +
