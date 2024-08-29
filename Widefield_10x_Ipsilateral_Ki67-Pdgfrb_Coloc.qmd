@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Ki67/PDGFR-β colocalization in the ipsilateral hemisphere"
+title: "Analysis of Ki67/PDGFRβ colocalization in the ipsilateral hemisphere"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
   - Ki67
-  - PDGFR-β
+  - PDGFRβ
   - Brain injury
   - Cell proliferation
   - Bayesian modeling 
@@ -48,9 +48,9 @@ bibliography: references.bib
 
 # Preview
 
-This notebook reports the analysis of Ki67 and PDGFR-β colocalization in the ipsilateral hemisphere following cerebral ischemia.
+This notebook reports the analysis of Ki67 and PDGFRβ colocalization in the ipsilateral hemisphere following cerebral ischemia.
 
-**Parent dataset:** Ki67 and PDGFR-β stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Ki67-Pdgfrb.zip`.
+**Parent dataset:** Ki67 and PDGFRβ stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Ki67-Pdgfrb.zip`.
 
 **Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb/Image.csv`data frame contains the cell detection and colocalization analysis performed on CellProfiler [@stirling2021]. The CellProfiler pipeline is available at (https://osf.io/wdzk7).
 
@@ -162,7 +162,7 @@ DPI_mapping <- c("0D" = "0", "3D" = "3", "7D" = "7", "14D" = "14", "30D" = "30")
 Ki67_Data$DPI_Cont <- as.numeric(DPI_mapping[as.character(Ki67_Data$DPI)])
 ```
 
-Finally, we generate new columns to calculate the percentage of colocalized Ki67-PDGFR-β cells relative to the total of PDGFR-β cells (`Percentage_Pdgfrb`) and to the total of Ki67 (`Percentage_Ki67`)
+Finally, we generate new columns to calculate the percentage of colocalized Ki67-PDGFRβ cells relative to the total of PDGFRβ cells (`Percentage_Pdgfrb`) and to the total of Ki67 (`Percentage_Ki67`)
 
 ```{r}
 #| label: Ki67-Pdgfrb_Handle 
@@ -219,7 +219,7 @@ geom_jitter(
   shape = 1, 
   size  = 1.5, 
   color = "black") +
-  scale_y_continuous(name= expression("% of PDGFR-β/Ki67+ cells")) +
+  scale_y_continuous(name= expression("% of PDGFRβ/Ki67+ cells")) +
   scale_x_continuous(name="DPI",
                      breaks=c(0, 3, 7,14,30)) +
   Plot_theme
@@ -233,7 +233,7 @@ The graphs reveal an upsurge in the colocalization of the two markers at 3 DPI. 
 
 We'll fir a statistical model using a log-normal distribution in the `brms` package [@bürkner2018; @brms]. We fit the following models:
 
--   **Ki67_Pdgfrb_Mdl1:** We employ `DPI_Cont` as a predictor for the linear predictor for `Percentage_Pdgfrb`, the percentage of Ki67/PDGFR-β+ cells given the total number of PDGFR-β:
+-   **Ki67_Pdgfrb_Mdl1:** We employ `DPI_Cont` as a predictor for the linear predictor for `Percentage_Pdgfrb`, the percentage of Ki67/PDGFRβ+ cells given the total number of PDGFRβ:
 
 $$
 Coloc_{i} = f_{s(DPI)}(DPI_{i}) + \epsilon_{i}
@@ -256,7 +256,7 @@ IntDen_{i} = f_{s(DPI)}(DPI_{i})   \\
 sigma_{i} = f_{s(DPI)}(DPI_{i})  
 $$
 
-This model uses the same priors for model 1. The election of this weakly informative priors is based on previous research [@Chandran2021a] suggesting that up to 50% of PDGFR-β+ cells proliferate in the subsequent days following ischemia.
+This model uses the same priors for model 1. The election of this weakly informative priors is based on previous research [@Chandran2021a] suggesting that up to 50% of PDGFRβ+ cells proliferate in the subsequent days following ischemia.
 
 ## Fit the models
 
@@ -449,7 +449,7 @@ There are no significant deviations from the data. We can explore further the mo
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Conditional effects for the percentage of ki67/PDGFR-β
+#| fig-cap: Conditional effects for the percentage of ki67/PDGFRβ
 #| fig-height: 5
 #| fig-width: 5
 
@@ -492,7 +492,7 @@ Ki67_Pdgfrb_Fig <-
     position = position_dodge(0.05), 
     color    = "blue") +
   
-  scale_y_continuous(name= expression("% of PDGFR-β/Ki67"),
+  scale_y_continuous(name= expression("% of PDGFRβ/Ki67"),
                      limits = c(0, 15)) +
   scale_x_continuous(name="DPI",
                      breaks = c(0, 3, 7, 14, 30)) +
@@ -508,7 +508,7 @@ Ki67_Pdgfrb_Fig <-
  Ki67_Pdgfrb_Fig
 ```
 
-@fig-Ki67_Coloc_CE shows an increasing trend in the colocalization of Ki67/PDGFR-β peaking during the first week post-ischemia.
+@fig-Ki67_Coloc_CE shows an increasing trend in the colocalization of Ki67/PDGFRβ peaking during the first week post-ischemia.
 
 ## Posterior summary
 
@@ -532,7 +532,7 @@ describe_posterior(
 modelsummary(Ki67_Pdgfrb_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "Ki67/PDGFR-β+ cells following MCAO",
+             title = "Ki67/PDGFRβ+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_10x_Ki67-Pdgfrb_Fit1_Table.html",
@@ -584,7 +584,7 @@ gt::gtsave(filename = "Tables/html/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_De
 gt::gt(round(Ki67_Pdgfrb_Derivative, digits = 2)) %>%
 gt::gtsave(filename = "Tables/tex/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Fit2_Deriv.tex")
 ```
-We see a sustained increase (slope = 2.06) for the colocalization of Ki67/PDGFR-β up to 3 DPI (Change of 6.87). This is followed by a decrease in slope (-0.23) up to 30 DPI (change of -6.10).
+We see a sustained increase (slope = 2.06) for the colocalization of Ki67/PDGFRβ up to 3 DPI (Change of 6.87). This is followed by a decrease in slope (-0.23) up to 30 DPI (change of -6.10).
 
 ## Visualize derivatives
 
@@ -596,7 +596,7 @@ We can plot the derivative:
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Effect size od DPI for the percentage of ki67/PDGFR-β
+#| fig-cap: Effect size od DPI for the percentage of ki67/PDGFRβ
 #| fig-height: 5
 #| fig-width: 5
 

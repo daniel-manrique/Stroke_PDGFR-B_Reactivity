@@ -22,7 +22,7 @@ keywords:
 license: "CC BY"
 
 format:
-   pdf: 
+   typst: 
     toc: true
     number-sections: true
     colorlinks: true
@@ -48,7 +48,7 @@ bibliography: references.bib
 
 This notebook reports the analysis of KLF4 expression in the ipsilateral hemisphere following cerebral ischemia.
 
-**Parent dataset:** KLF4 and PDGFR-β(Td-tomato from transgenic animals) stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Klf4-Pdgfrb.zip`.
+**Parent dataset:** KLF4 and PDGFRβ(Td-tomato from transgenic animals) stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Klf4-Pdgfrb.zip`.
 
 **Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_Klf4/Klf4_Cells.csv`and `Data_Raw/Widefield_10x_Ipsilateral_Klf4/Image.csv`data frames containing the raw output from CellProfiller [@stirling2021]. The CellProfiler pipeline used to perform the KLF4+ cell detection is available at https://osf.io/e5y86.
 

@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
   - Ki67
-  - PDGFR-β
+  - PDGFRβ
   - Brain injury
   - Cell proliferation
   - Bayesian modeling 
@@ -50,9 +50,9 @@ bibliography: references.bib
 
 This notebook performs the point pattern analysis for Ki67 in the ipsilateral hemisphere following cerebral ischemia.
 
-**Parent dataset:** Ki67 and PDGFR-β stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Ki67-Pdgfrb(a).zip` and `Widefield_10x_Ipsilateral_Ki67-Pdgfrb(a).zip` Given the weight of the files we must compile two different .zip files.
+**Parent dataset:** Ki67 and PDGFRβ stained ischemic hemispheres imaged at 10x (with stitching). Samples are grouped at 0 (Sham), 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_Ipsilateral_Ki67-Pdgfrb(a).zip` and `Widefield_10x_Ipsilateral_Ki67-Pdgfrb(a).zip` Given the weight of the files we must compile two different .zip files.
 
-**Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Ki67_Filtered.csv` and `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Pdgfrb_Filtered.csv` and `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Pdgfrb_Ki67_Colocalized.csv`data frames contains the coordinates of PDGFR-β and Ki67+ cells obtained with CellProfiler [@stirling2021]. The CellProfiler pipeline is available at (https://osf.io/wdzk7).
+**Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Ki67_Filtered.csv` and `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Pdgfrb_Filtered.csv` and `Data_Raw/Widefield_10x_Ipsilateral_Ki67-Pdgfrb_Coloc/Pdgfrb_Ki67_Colocalized.csv`data frames contains the coordinates of PDGFRβ and Ki67+ cells obtained with CellProfiler [@stirling2021]. The CellProfiler pipeline is available at (https://osf.io/wdzk7).
 
 # Install and load required packages
 
@@ -341,17 +341,17 @@ plot(PointPatterns$Coloc$`113`, add = TRUE, pch = 16, cex= 0.4, col = "red")
 
 # Modeling point pattern process
 
-Now, we use the `mppm` function from `spatstat` [@spatstat]to fit a **log-linear model** for replicated point patterns. This model allow us to quantify Ki67 allocation changes conditional on the spatial intensity (density) of PDGFR-β in the ischemic hemisphere. We the PDGFR-β spatial intensity as predictor. The model specification is as follows:
+Now, we use the `mppm` function from `spatstat` [@spatstat]to fit a **log-linear model** for replicated point patterns. This model allow us to quantify Ki67 allocation changes conditional on the spatial intensity (density) of PDGFRβ in the ischemic hemisphere. We the PDGFRβ spatial intensity as predictor. The model specification is as follows:
 
 $$
 Ki67_i(x) \sim \text{Poisson}(\lambda(x, \text{DPI}_i)) 
 $$
 
-where $i$ indexes the point pattern (corresponding to a unique DPI), and $x$ represents the spatial intensity of PDGFR-β. The intensity function $\lambda(x, \text{DPI}_i)$ is modeled as:
+where $i$ indexes the point pattern (corresponding to a unique DPI), and $x$ represents the spatial intensity of PDGFRβ. The intensity function $\lambda(x, \text{DPI}_i)$ is modeled as:
 
 $$
 \log(\lambda(x, \text{DPI}_i)) = \beta_0 + \beta_1 x + u_{0i} + u_{1i}x
-$$ Where $\beta_0$ and $\beta_1$ are fixed effects, representing the baseline log intensity of Ki67 expression and the effect of the PDGFR-β spatial intensity, respectively.$u_{0i}$ and $u_{1i}$ are random effects for the intercept and slope, varying by DPI, to capture the variability in Ki67 expression its spatial variation across different injury stages.
+$$ Where $\beta_0$ and $\beta_1$ are fixed effects, representing the baseline log intensity of Ki67 expression and the effect of the PDGFRβ spatial intensity, respectively.$u_{0i}$ and $u_{1i}$ are random effects for the intercept and slope, varying by DPI, to capture the variability in Ki67 expression its spatial variation across different injury stages.
 
 ## Fit the mppm model
 
@@ -370,9 +370,9 @@ Ki67_mppm <- mppm(Ki67 ~ Pdgfrb_Density, random = ~ Pdgfrb_Density | DPI, data =
 summary(Ki67_mppm)
 ```
 
-The results of this Poisson regression are presented in the log scale. Here, we see the Intercept (8.7), the baseline of Ki67 log-spatial intensity at 0 DPI.The slope (7.2) indicates that the spatial intensity of Ki67 increases with PDGFR-β spatial intensity. Now, the random effects account for variations that occur at different injury stages. We see that 3D is -1.45, indicating a lower baseline intensity for Ki67 at this stage, while at 14D we see a higher baseline intensity (0.80). The slopes in the random intercepts indicate the adjusted rate change with PDGFR-β spatial intensity. At 0D, a negative adjustment (-2.12) denotes that the decrease in Ki67 intensity is less pronounced or even reversed at this stage. On the other hand, the negative adjustment at 14D (-5.16) means the decrease is more pronounced.
+The results of this Poisson regression are presented in the log scale. Here, we see the Intercept (8.7), the baseline of Ki67 log-spatial intensity at 0 DPI.The slope (7.2) indicates that the spatial intensity of Ki67 increases with PDGFRβ spatial intensity. Now, the random effects account for variations that occur at different injury stages. We see that 3D is -1.45, indicating a lower baseline intensity for Ki67 at this stage, while at 14D we see a higher baseline intensity (0.80). The slopes in the random intercepts indicate the adjusted rate change with PDGFRβ spatial intensity. At 0D, a negative adjustment (-2.12) denotes that the decrease in Ki67 intensity is less pronounced or even reversed at this stage. On the other hand, the negative adjustment at 14D (-5.16) means the decrease is more pronounced.
 
-Overall, these results indicate that Ki67 is expressed in regions populated by (reactive) PDGFR-β cells, specially at 3 and 7 DPI. We generate a representative visualization using `rhohat` to visualize this trend.
+Overall, these results indicate that Ki67 is expressed in regions populated by (reactive) PDGFRβ cells, specially at 3 and 7 DPI. We generate a representative visualization using `rhohat` to visualize this trend.
 
 First, we subset the point patterns
 
@@ -386,7 +386,7 @@ PointPatterns_7D <- subset(PointPatterns, DPI=="7D", select = 1:8)
 PointPatterns_30D <- subset(PointPatterns, DPI=="30D", select = 1:8) 
 ```
 
-Now, we calculate the relative distribution of Ki67 conditional of the spatial intensity of PDGFR-β+ cells.
+Now, we calculate the relative distribution of Ki67 conditional of the spatial intensity of PDGFRβ+ cells.
 
 ```{r}
 #| label: Ki67_Rhohat
@@ -436,7 +436,7 @@ axis(1, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k
 
 axis(2, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k", "18k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
 
-title(xlab = "PDGFR-β (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(xlab = "PDGFRβ (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
 title(ylab = "p(Ki67)", mgp = c(5, 1, 0), cex.lab = 3) 
 
 dev.off()
@@ -462,7 +462,7 @@ axis(1, at = seq(0, 30000, 5000), labels = c("0",  "5k", "10k", "15k", "20k", "2
 
 axis(2, at = seq(0, 18000, 3000), labels = c("0",  "3k", "6k", "9k", "12k", "15k", "18k"), cex.axis=2.5, padj = 0.5, lwd.ticks = 5)
 
-title(xlab = "PDGFR-β (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
+title(xlab = "PDGFRβ (intensity)", mgp = c(4.5, 1, 0), cex.lab = 3)   
 title(ylab = "p(Ki67)", mgp = c(5, 1, 0), cex.lab = 3) 
 
 dev.off()

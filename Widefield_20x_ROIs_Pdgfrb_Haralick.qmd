@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Haralick features from PDGFR-β in defined ROIs"
+title: "Analysis of Haralick features from PDGFRβ in defined ROIs"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -47,9 +47,9 @@ bibliography: references.bib
 
 # Preview
 
-This notebook reports the analysis of the area and Haralick features for PDGFR-β in defined ROIs of the ipsilateral hemisphere.
+This notebook reports the analysis of the area and Haralick features for PDGFRβ in defined ROIs of the ipsilateral hemisphere.
 
-**Parent dataset:** PDGFR-β (td-tomato) Z-plane ROIs imaged at 20x. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_20x_ROIs_Pdgfrb.zip`.
+**Parent dataset:** PDGFRβ (td-tomato) Z-plane ROIs imaged at 20x. Images were mas intensity projected to obtain a single plane image. The images are grouped at 0, 3, 7, 14, and 30 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_20x_ROIs_Pdgfrb.zip`.
 
 **Working dataset**: This notebook works with two different datasets. First, the `Data_Raw/Widefield_20x_ROIs_Pdgfrb_Cells/CellProfiler/Image.csv`containing the quantification of the area covered by the detected cells after processing using CellProfiler [@stirling2021]. The pipeline is available at https://osf.io/qmyk4.
 
@@ -129,7 +129,7 @@ Plot_theme <- theme_classic() +
       ) 
 ```
 
-# Analysis PDGFR-β+ covered area
+# Analysis PDGFRβ+ covered area
 
 ## Load and handle the datasets
 
@@ -199,7 +199,7 @@ Next, we perform exploratory data visualization.
 
 ### Exploratory data visualization
 
-We visualize the number of parenchymal PDGFR-β+ cells in the injured cortex.
+We visualize the number of parenchymal PDGFRβ+ cells in the injured cortex.
 
 ```{r}
 #| label: fig-Pdgfrb_Exploratory
@@ -207,7 +207,7 @@ We visualize the number of parenchymal PDGFR-β+ cells in the injured cortex.
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Exploratory data visualization for PDGFR-β area
+#| fig-cap: Exploratory data visualization for PDGFRβ area
 #| fig-width: 12
 #| fig-height: 5
 
@@ -237,7 +237,7 @@ geom_jitter(
   shape = 1, 
   size  = 1.5, 
   color = "black") +
-  scale_y_continuous(name= expression("Number of parenchymal PDGFR-β cells")) +
+  scale_y_continuous(name= expression("Number of parenchymal PDGFRβ cells")) +
   scale_x_continuous(name="Days post-ischemia (DPI) ",
                      breaks=c(0, 3, 7,14,30)) +
   Plot_theme +
@@ -248,11 +248,11 @@ Pdgfrb_Area_EDV
 
 @fig-Pdgfrb_Exploratory shows the distribution of area per DPI and regions. As expected, the cortical regions present the most prominent increase in area. The differences in the fit show little variation for linear and non linear models.Given that our objective is to capture the main differences in the trends between regions we will develop a linear model.
 
-# Statistical modeling for PDGFR-β area
+# Statistical modeling for PDGFRβ area
 
 We use the `brms` package [@brms; @burkner2017] to run Bayesian modeling. We employ weakly informative priors in all the cases to optimize the Markov chain Monte Carlo (MCMC) and the exploration of the parameter space. We fit the following model with a student_t distribution:
 
--   **Pdgfrb_Area_Mdl1:** We use `DPI` and Region as a linear predictors for PDGFR-β Area. The model takes the following notation:
+-   **Pdgfrb_Area_Mdl1:** We use `DPI` and Region as a linear predictors for PDGFRβ Area. The model takes the following notation:
 
 $$
 Area = \beta_{0} + \beta_{1} * DPI + \beta_{2} * Region + \beta_{3} * DPI * Region + \epsilon_{i}
@@ -268,7 +268,7 @@ $$
 \end{align}
 $$
 
-## Fit the models for PDGFR-β area
+## Fit the models for PDGFRβ area
 
 ```{r}
 #| label: Pdgfrb_Area_Fit
@@ -320,7 +320,7 @@ To evaluate sample predictions, we perform the diagnostics for the fitted model 
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Model diagnostics for PDGFR-β area
+#| fig-cap: Model diagnostics for PDGFRβ area
 #| fig-height: 4
 #| fig-width: 5
 
@@ -364,7 +364,7 @@ We visualize the results using the `conditional_effects` function form `brms`.
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior for PDGFR-β area
+#| fig-cap: Posterior for PDGFRβ area
 #| fig-width: 6
 #| fig-height: 4
 
@@ -379,7 +379,7 @@ Pdgfrb_Area_DPI <- plot(Pdgfrb_Area_DPI,
        plot = FALSE)[[3]]
 
 Pdgfrb_Area_fig <- Pdgfrb_Area_DPI  + 
-  scale_y_continuous(name = expression ("PDGFR-β area (pixels)")) +
+  scale_y_continuous(name = expression ("PDGFRβ area (pixels)")) +
   scale_x_continuous(name="DPI"                   ,
                      breaks = c(0, 3, 7, 14, 30),
                      labels = c("0", "3", "7", "14", "30")) +
@@ -417,7 +417,7 @@ ggsave(
 Pdgfrb_Area_fig
 ```
 
-@fig-Pdgfrb_Area_CondEff shows the fit for PDGFR-β area. We can visualize an increasing trend, specially for cortex.
+@fig-Pdgfrb_Area_CondEff shows the fit for PDGFRβ area. We can visualize an increasing trend, specially for cortex.
 
 ## Posterior summary
 
@@ -441,7 +441,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Area_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "PDGFR-β are in defined ROIs following MCAO",
+             title = "PDGFRβ are in defined ROIs following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_20x_ROIs_Pdgfrb_Area_Fit1_Table.html",
@@ -459,7 +459,7 @@ gt::gtsave (Pdgfrb_Area_Fit1_Table,
 
 With this summary we can visualize estimates and the uncertainty for each parameter. Specifically, we can observe a difference of 14.7 (CI95% 12.6 - 16.6) for the slope of cortex, denoting a marked difference compared to perilesion and striatum.
 
-# Analysis of Haralick features for PDGFR-β (Texture analysis)
+# Analysis of Haralick features for PDGFRβ (Texture analysis)
 
 ## Load the dataset
 
@@ -793,7 +793,7 @@ We check the model fitting with `pp_checks`
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Posterior predictive checks for PDGFR-β+ morphology
+#| fig-cap: Posterior predictive checks for PDGFRβ+ morphology
 #| fig-height: 4
 #| fig-width: 5
 
@@ -837,7 +837,7 @@ We plot the model using `conditional_effects` from the `brm`s package.
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Posterior predictive checks for PDGFR-β+ Haralick features
+#| fig-cap: Posterior predictive checks for PDGFRβ+ Haralick features
 #| fig-height: 5
 #| fig-width: 12
 

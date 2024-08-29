@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Ki67/PDGFR-β colocalization in defined ROIs of the ipsilateral hemisphere"
+title: "Analysis of Ki67/PDGFRβ colocalization in defined ROIs of the ipsilateral hemisphere"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
   - Ki67
-  - PDGFR-β
+  - PDGFRβ
   - Brain injury
   - Cell proliferation
   - Bayesian modeling 
@@ -48,9 +48,9 @@ bibliography: references.bib
 
 # Preview
 
-This notebook reports the analysis of Ki67/PDGFR-β colocalization in defined ROIs of the ipsilateral hemisphere following cerebral ischemia.
+This notebook reports the analysis of Ki67/PDGFRβ colocalization in defined ROIs of the ipsilateral hemisphere following cerebral ischemia.
 
-**Parent dataset:** Ki67, PDGFR-β, and CD31 stained ischemic hemispheres imaged at 20x using confocal microscopy. Samples are grouped at 0 (Sham), 3, and 7 days post-ischemia (DPI). The raw images and pre-processing scripts to generate the analyzed Z-projected images are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Confocal_20x_ROIs_Ki67-Pdgfrb-CD31.zip`.
+**Parent dataset:** Ki67, PDGFRβ, and CD31 stained ischemic hemispheres imaged at 20x using confocal microscopy. Samples are grouped at 0 (Sham), 3, and 7 days post-ischemia (DPI). The raw images and pre-processing scripts to generate the analyzed Z-projected images are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Confocal_20x_ROIs_Ki67-Pdgfrb-CD31.zip`.
 
 **Working dataset**: The `Data_Raw/Confocal_20x_ROIs_Ki67-Pdgfrb-CD31/Image.csv`data frame contains the cell detection and colocalization analysis performed on CellProfiler [@stirling2021]. The CellProfiler pipeline is available at https://osf.io/79wzq/.
 
@@ -165,12 +165,12 @@ write.csv(Ki67_Data, "Data_Processed/Confocal_20x_ROIs_Ki67-Pdgfrb-CD31/Confocal
 gt::gt(Ki67_Data[1:10,])
 ```
 
-The dataset available at 10.5281/zenodo.10553084 includes images at 0D (sham animals) that were used to train the Pixel classification in ilastik [@berg2019]. There are not Ki67/PDGFR-β colocalized cells at 0 DPI. Also, includes images at 14D and 30D that were taken just for visualization and reference but will not be included in the analysis. 
+The dataset available at 10.5281/zenodo.10553084 includes images at 0D (sham animals) that were used to train the Pixel classification in ilastik [@berg2019]. There are not Ki67/PDGFRβ colocalized cells at 0 DPI. Also, includes images at 14D and 30D that were taken just for visualization and reference but will not be included in the analysis. 
 
 
 # Exploratory data visualization
 
-We perform the exploratory visualization for the dataset. We'll focus on the total colocalization of Ki67/PDGFR-β and the colocalization in vascular PDGFR-β cells.
+We perform the exploratory visualization for the dataset. We'll focus on the total colocalization of Ki67/PDGFRβ and the colocalization in vascular PDGFRβ cells.
 
 ```{r}
 #| label: fig-Ki67_Coloc_Exploratory
@@ -208,7 +208,7 @@ geom_jitter(
   size  = 1.5, 
   aes(color = Region)) +
   
-  scale_y_continuous(name= expression("Total PDGFR-β/Ki67+ cells")) +
+  scale_y_continuous(name= expression("Total PDGFRβ/Ki67+ cells")) +
   scale_x_continuous(name="DPI",
                      breaks=c(0, 3, 7)) +
   Plot_theme
@@ -239,16 +239,16 @@ geom_jitter(
   shape = 1, 
   size  = 1.5, 
   aes(color = Region)) +
-  scale_y_continuous(name= expression("Vascular PDGFR-β/Ki67+ cells")) +
+  scale_y_continuous(name= expression("Vascular PDGFRβ/Ki67+ cells")) +
   scale_x_continuous(name="DPI",
                      breaks=c(0, 3, 7)) +
   Plot_theme
 
 Ki67_Coloc_Sctr | Ki67_Coloc_Sctr
 ```
-From the graphs above, we can envisage that most Ki67/PDGFR-β are of perivascular nature. As we only have two time points, we will model them as categorical variables. 
+From the graphs above, we can envisage that most Ki67/PDGFRβ are of perivascular nature. As we only have two time points, we will model them as categorical variables. 
 
-Given that our objective is to find out the proportion of perivascular PDGFR-β colocalizing with Ki67, we'll facilitate the modeling by calculating a ratio between `Vascular_Ki67_Pdgfrb` / `Total_Ki67_Pdgfrb`. This will ensure that when the `Total_Ki67_Pdgfrb` is 0, the value for `Vascular_Ki67_Pdgfrb` is also 0. 
+Given that our objective is to find out the proportion of perivascular PDGFRβ colocalizing with Ki67, we'll facilitate the modeling by calculating a ratio between `Vascular_Ki67_Pdgfrb` / `Total_Ki67_Pdgfrb`. This will ensure that when the `Total_Ki67_Pdgfrb` is 0, the value for `Vascular_Ki67_Pdgfrb` is also 0. 
 
 ```{r}
 #| label: Ki67_Ratio
@@ -262,9 +262,9 @@ Ki67_Data$Ratio_Total_Vascular[is.nan(Ki67_Data$Ratio_Total_Vascular)] <- 0
 
 # Statistical modeling
 
-## Total Ki67/PDGFR-β 
+## Total Ki67/PDGFRβ 
 
-First, we'll model the total number of Ki67/PDGFR-β colocalized cells as a support to interpret a second model investigation the proportion of perivascular PDGFR-β+ cells colocalized with Ki67. In this case, we use a negative binomial distribution for count data accounting for overdispersion. The model takes the following notation:
+First, we'll model the total number of Ki67/PDGFRβ colocalized cells as a support to interpret a second model investigating the proportion of perivascular PDGFRβ+ cells colocalized with Ki67. In this case, we use a negative binomial distribution for count data accounting for overdispersion. The model takes the following notation:
 
 $$
 Total\_Ki67\_Pdgfrb \sim NegBinomial(\mu, k) \\
@@ -304,21 +304,21 @@ Ki67_Fit1 <-
   add_criterion(Ki67_Fit1, c("loo", "waic", "bayes_R2"))
 ```
 
-## Perivascular PDGFR-β/Ki67
+## Perivascular PDGFRβ/Ki67
 
-Now, we model `Vascular_Ki67_Pdgfrb` relative to `Total_Ki67_Pdgfrb` with DPI and Region as predictors for analyzing the proportion of PDGFR-β colocalizing with Ki67. We use a binomial distribution noted as:
+Now, we model `Vascular_Ki67_Pdgfrb` relative to `Total_Ki67_Pdgfrb` with DPI and Region as predictors for analyzing the proportion of PDGFRβ colocalizing with Ki67. We use a binomial distribution noted as:
 
 $$
 Vascular\_Ki67\_Pdgfrb | trials(Total\_Ki67\_Pdgfrb) \sim Binomial(n, p)
 $$
 
-where $n$ represents the number of total trials (Ki67/PDGFR-β colocalized cells) and $p$ is the probability of observing perivascular PDGFR-β/Ki67 cells. The model takes the following notation:
+where $n$ represents the number of total trials (Ki67/PDGFRβ colocalized cells) and $p$ is the probability of observing perivascular PDGFRβ/Ki67 cells. The model takes the following notation:
 $$
 \log\left(\frac{p}{1 - p}\right) = \beta_0 + \beta_1 \cdot DPI + \beta_2 \cdot Region + \beta_3 \cdot (DPI \times Region)
 $$
 The model uses the default `brms` flat priors.
 
-To facilitate the regression and its interpretation, we exclude the cases wich do not have any PDGFR-β/Ki67 colocalization.
+To facilitate the regression and its interpretation, we exclude the cases wich do not have any PDGFRβ/Ki67 colocalization.
 
 ```{r}
 #| label: Ki67_Coloc_Excl
@@ -416,14 +416,14 @@ We plot the models results using the `conditional_effects` function from `brms`.
 
 ## Visualization of conditional effects
 
-We plot the conditional effects for our first model depicting the total number of Ki67/PDGFR-β 
+We plot the conditional effects for our first model depicting the total number of Ki67/PDGFRβ 
 
 ```{r}
 #| label: fig-Ki67_Pdgfrb_CE1
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Conditional effects for the number of ki67/PDGFR-β
+#| fig-cap: Conditional effects for the number of ki67/PDGFRβ
 #| fig-height: 5
 #| fig-width: 5
 
@@ -443,7 +443,7 @@ Ki67_Pdgfrb_pred <-
     ndraws = 100)
 
 Ki67_Pdgfrb_fig <- Ki67_Pdgfrb_DPI + 
-  scale_y_continuous(name = expression ("PDGFR-β/Ki67+ cells")) +
+  scale_y_continuous(name = expression ("PDGFRβ/Ki67+ cells")) +
   scale_x_discrete(name="DPI") +
   
   geom_point(data=Ki67_Data, 
@@ -479,14 +479,14 @@ Ki67_Pdgfrb_fig <- Ki67_Pdgfrb_DPI +
 Ki67_Pdgfrb_fig
 ```
 
-@fig-Ki67_Pdgfrb_CE1 shows an increasing trend in the colocalization of Ki67/PDGFR-β for striatum and cortex. Specifically, the cortex experience an increasing trend in the colocalization at 7 DPI. However, the number of colocalized cells is small compared to the total number of Ki67 or PDGFR-β. Next, we generate the graph for the second model:
+@fig-Ki67_Pdgfrb_CE1 shows an increasing trend in the colocalization of Ki67/PDGFRβ for striatum and cortex. Specifically, the cortex experience an increasing trend in the colocalization at 7 DPI. However, the number of colocalized cells is small compared to the total number of Ki67 or PDGFRβ. Next, we generate the graph for the second model:
 
 ```{r}
 #| label: fig-Ki67_Pdgfrb_CE2
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Conditional effects for the proportion of vascular ki67/PDGFR-β
+#| fig-cap: Conditional effects for the proportion of vascular ki67/PDGFRβ
 #| fig-height: 5
 #| fig-width: 5
 
@@ -506,7 +506,7 @@ Ki67_Pdgfrb_Vascular_pred2 <-
     ndraws = 100)
 
 Ki67_Pdgfrb_Vascular_fig <- Ki67_Pdgfrb_Vascular + 
-  scale_y_continuous(name = expression ("Vas. PDGFR-β/Ki67+ cells")) +
+  scale_y_continuous(name = expression ("Vas. PDGFRβ/Ki67+ cells")) +
   scale_x_discrete(name="DPI") +
   
   scale_color_manual(
@@ -553,7 +553,7 @@ describe_posterior(
 modelsummary(Ki67_Fit1, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "Ki67/PDGFR-β+ cells following MCAO",
+             title = "Ki67/PDGFRβ+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Confocal_20x_ROIs_Ki67-Pdgfrb_Fit1_Table.html",
@@ -579,7 +579,7 @@ describe_posterior(
 modelsummary(Ki67_Fit2, 
              shape = term ~ model + statistic,
              centrali2ty = "mean", 
-             title = "Vascular Ki67/PDGFR-β+ cells following MCAO",
+             title = "Vascular Ki67/PDGFRβ+ cells following MCAO",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Confocal_20x_ROIs_Ki67-Pdgfrb_Fit2_Table.html",
@@ -596,7 +596,7 @@ gt::gtsave (Ki67_Fit2_Table,
 
 
 ```
-The tables show the regression estimates. For the first model, estimating the total number of Ki67/PDGFR-β colocalized cells, the output is shown in the log scale. For the second model, estimating the proportion of parenchymal PDGFR-β/Ki67+ cells, the output is sown on the log odds scale.  
+The tables show the regression estimates. For the first model, estimating the total number of Ki67/PDGFRβ colocalized cells, the output is shown in the log scale. For the second model, estimating the proportion of parenchymal PDGFRβ/Ki67+ cells, the output is sown on the log odds scale.  
 
 
 # References

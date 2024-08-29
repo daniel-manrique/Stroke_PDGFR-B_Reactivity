@@ -1,0 +1,326 @@
+---
+title: "Data handling for Widefield PDGFR-β, NeuN and GFAP-stained barain sections (whole brain) from KLF4-KO mice"
+subtitle: "Data analysis notebook"
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+
+keywords: 
+  - KLF4
+  - Brain injury
+  - MCAO
+
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+In this notebook, we handle .tsv files to obtain summary tables for the number of cells in different brain regions. 
+
+**Parent dataset:** PDGFR-β, NeuN, and GFAP-stained ischemic brains imaged at 5x (with stitching). Samples belong to KLK4-KO mice and corresponding controls 25 days post-ischemia (DPI).
+
+**Working dataset**: .tsv files exported with [QuPath](https://qupath.github.io/) [@bankhead2017]. We performed unbiased detection and quantification of PDGFR-β, NeuN and GFAP-positive cells in whole **whole brain sections**. QuPath generates `_annotations.tsv` files summarizing the information by image. These files are located in the `Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/QuPath_Whole_5x` folder within the working directory.
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session. 
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#library(devtools)
+#install.packages(c("dpylr", "tidyr", "readr", "data.table"))
+
+library(data.table)
+library(dplyr)
+library(readr)
+library(tidyr)
+```
+
+# Processing of image **annotations**
+
+The following chunk handles the `_annotations.tsv` files of each image to obtain a single .csv file. We perform different procedure for NeuN given that this marker has some additional columns derived from QuPath Classifiers.
+
+## For NeuN
+
+```{r}
+#| label: NeuN_whole_5x_Annotations
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+append_annotations <- function(base_path, brain_name, results_path) {
+  
+  NeuN_csv_path <- paste0(results_path, "/Widefield_5x_Whole_EarlyKO_NeuN.csv")
+  Annotations_Path <- paste0(base_path, "/", brain_name, "/NeuN/")
+  process_annotation(results_path = NeuN_csv_path, Annotations_Path)
+}
+
+process_annotation <- function(results_path, path) {
+  
+  Annotations <- list.files(path = path, pattern = "annotations.tsv", full.names = TRUE) %>% 
+    lapply(read_tsv) %>%                              
+    bind_rows
+  
+  Annotations <- as.data.frame(Annotations)
+  names(Annotations) <- NULL
+  
+  write.table(Annotations, results_path, append = TRUE, sep=",")
+}
+
+
+basePath <- "Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/QuPath_Whole_5x"
+resultsPath <- "Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/"
+
+NeuN_csv_path <- paste0(resultsPath, "/Widefield_5x_Whole_EarlyKO_NeuN.csv")
+
+Annotations_Header <- c("Image",	
+                        "Name",	
+                        "Class",	
+                        "Parent",	
+                        "ROI",	
+                        "Centroid X ?m",	
+                        "Centroid Y ?m",	
+                        "ID",	
+                        "Parent ID",	
+                        "Side",	
+                        "Num Detections",	
+                        "Num Necrosis", 
+                        "Num Positive", 
+                        "Positive %", 
+                        "Num Positive per mm^2", 
+                        "Area ?m^2",	
+                        "Perimeter ?m")
+
+df_header <- data.frame(matrix(ncol = 17, nrow = 0))
+names(df_header) <- Annotations_Header
+
+write.csv(df_header, NeuN_csv_path)
+
+brains <- list.dirs(basePath, full.names = FALSE, recursive = FALSE)
+
+for (brain in brains){
+  append_annotations(basePath, brain, resultsPath)
+}
+
+```
+## For PDGFR-β and GFAP
+
+```{r}
+#| label: NeuN_whole_5x_Annotations
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+
+append_annotations <- function(base_path, brain_name, results_path) {
+  
+  Pdgfrb_csv_path <- paste0(results_path, "/Widefield_5x_Whole_EarlyKO_Pdgfrb.csv")
+  Annotations_Path <- paste0(base_path, "/", brain_name, "/Pdgfrb/")
+  process_annotation(results_path = Pdgfr_csv_path, Annotations_Path)
+  
+  Gfap_csv_path <- paste0(results_path, "/Widefield_5x_Whole_EarlyKO_Gfap.csv")
+  Annotations_Path <- paste0(base_path, "/", brain_name, "/Gfap/")
+  process_annotation(results_path = Gfap_csv_path, Annotations_Path)
+  
+}
+
+process_annotation <- function(results_path, path) {
+  
+  Annotations <- list.files(path = path, pattern = "annotations.tsv", full.names = TRUE) %>% 
+    lapply(read_tsv) %>%                              
+    bind_rows
+  
+  Annotations <- as.data.frame(Annotations)
+  names(Annotations) <- NULL
+  
+  write.table(Annotations, results_path, append = TRUE, sep=",")
+}
+
+
+basePath <- "Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/QuPath_Whole_5x"
+resultsPath <- "Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/"
+
+Pdgfrb_csv_path <- paste0(resultsPath, "/Widefield_5x_Whole_EarlyKO_Pdgfrb.csv")
+Gfap_csv_path <- paste0(resultsPath, "/Widefield_5x_Whole_EarlyKO_Gfap.csv")
+
+Annotations_Header <- c("Image",	"Name",	"Class",	"Parent",	"ROI",	"Centroid X ?m",	"Centroid Y ?m",	"ID",	"Parent ID",	"Side",	"Num Detections",	"Area ?m^2",	"Perimeter ?m")
+
+df_header <- data.frame(matrix(ncol = 13, nrow = 0))
+names(df_header) <- Annotations_Header
+
+write.csv(df_header, Pdgfrb_csv_path)
+write.csv(df_header, Gfap_csv_path)
+
+brains <- list.dirs(basePath, full.names = FALSE, recursive = FALSE)
+
+for (brain in brains){
+  append_annotations(basePath, brain, resultsPath)
+}
+
+```
+
+# Load Annotations and generate new columns
+
+Next, we load the generated .csv files and handle them for data cleaning and organization. We carry out the same procedure for PDGFR-β, NeuN and GFAP.
+
+## For NeuN
+
+```{r}
+#| label: NeuN_WideTable
+#| include: true
+#| warning: false
+#| message: false
+
+# Load file from QuPath
+NeuN_Raw <- read.csv(file = 'Data_Raw/Widefield_5x_Whole_EarlyKO_Pdgfrb-NeuN-Gfap/Widefield_5x_Whole_EarlyKO_NeuN.csv', header = TRUE)
+
+# Subset the relevant columns
+NeuN <- subset(NeuN_Raw, select = c(Image, Class, Num.Positive))
+
+# Extract metadata information from image name
+NeuN <- cbind(NeuN  , do.call(rbind , strsplit(NeuN$Image , "[_\\.]"))[,3:6])
+colnames(NeuN) <- c( colnames(NeuN[1:3]), paste0("Name" , 1:4))
+NeuN <- cbind(NeuN[c(-2,-3)] , NeuN[c(2,3)])
+
+# Rename columns
+colnames(NeuN) <- c("Image", "MouseId", "Group", "Condition", "Section", "Region", "Cells")
+
+NeuN <- subset(NeuN, select = -c(Image))
+
+NeuN <- reshape2::dcast(NeuN, MouseId + Group + Condition ~ Section + Region, value.var="Cells")
+
+# Change group names
+NeuN$Group <- gsub("Ctr25", "Klf4+/+", NeuN$Group)
+NeuN$Group <- gsub("KO25", "Klf4-/-", NeuN$Group)
+
+
+### Calculate per sections
+setDT(NeuN)[, S1_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S1_Left")]
+setDT(NeuN)[, S1_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S1_Right")]
+NeuN$S1_diff <- NeuN$S1_Left_Sum / NeuN$S1_Right_Sum
+
+setDT(NeuN)[, S2_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S2_Left")]
+setDT(NeuN)[, S2_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S2_Right")]
+NeuN$S2_diff <- NeuN$S2_Left_Sum / NeuN$S2_Right_Sum
+
+setDT(NeuN)[, S3_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S3_Left")]
+setDT(NeuN)[, S3_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S3_Right")]
+NeuN$S3_diff <- NeuN$S3_Left_Sum / NeuN$S3_Right_Sum
+
+setDT(NeuN)[, S4_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S4_Left")]
+setDT(NeuN)[, S4_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S4_Right")]
+NeuN$S4_diff <- NeuN$S4_Left_Sum / NeuN$S4_Right_Sum
+
+setDT(NeuN)[, S5_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S5_Left")]
+setDT(NeuN)[, S5_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S5_Right")]
+NeuN$S5_diff <- NeuN$S5_Left_Sum / NeuN$S5_Right_Sum
+
+setDT(NeuN)[, S6_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S6_Left")]
+setDT(NeuN)[, S6_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S6_Right")]
+NeuN$S6_diff <- NeuN$S6_Left_Sum / NeuN$S6_Right_Sum
+
+setDT(NeuN)[, S7_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S7_Left")]
+setDT(NeuN)[, S7_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S7_Right")]
+NeuN$S7_diff <- NeuN$S7_Left_Sum / NeuN$S7_Right_Sum
+
+setDT(NeuN)[, S8_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S8_Left")]
+setDT(NeuN)[, S8_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S8_Right")]
+NeuN$S8_diff <- NeuN$S8_Left_Sum / NeuN$S8_Right_Sum
+
+setDT(NeuN)[, S9_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S9_Left")]
+setDT(NeuN)[, S9_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S9_Right")]
+NeuN$S9_diff <- NeuN$S9_Left_Sum / NeuN$S9_Right_Sum
+
+setDT(NeuN)[, S10_Left_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S10_Left")]
+setDT(NeuN)[, S10_Right_Sum := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("S10_Right")]
+NeuN$S10_diff <- NeuN$S10_Left_Sum / NeuN$S10_Right_Sum
+
+
+### Calculate per regions
+
+setDT(NeuN)[, Sum_Left_CTX := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Left: CTX")]
+setDT(NeuN)[, Sum_Right_CTX := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Right: CTX")]
+NeuN$CTX_diff <- NeuN$Sum_Left_CTX / NeuN$Sum_Right_CTX
+
+setDT(NeuN)[, Sum_Left_CNU := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Left: CNU")]
+setDT(NeuN)[, Sum_Right_CNU := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Right: CNU")]
+NeuN$CNU_diff <- NeuN$Sum_Left_CNU / NeuN$Sum_Right_CNU
+
+setDT(NeuN)[, Sum_Left_Fiber := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Left: fiber tracts")]
+setDT(NeuN)[, Sum_Right_Fiber := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Right: fiber tracts")]
+NeuN$Fiber_diff <- NeuN$Sum_Left_Fiber / NeuN$Sum_Right_Fiber
+
+setDT(NeuN)[, Sum_Left_IB := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Left: IB")]
+setDT(NeuN)[, Sum_Right_IB := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Right: IB")]
+NeuN$IB_diff <- NeuN$Sum_Left_IB / NeuN$Sum_Right_IB
+
+setDT(NeuN)[, Sum_Left_MB := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Left: MB")]
+setDT(NeuN)[, Sum_Right_MB := rowSums(.SD, na.rm = TRUE), .SDcols = patterns("Right: MB")]
+NeuN$MB_diff <- NeuN$Sum_Left_MB / NeuN$Sum_Right_MB
+
+```
+
+With the preceding, we obtain the `NeuN` table containing cell counts per region in a wide format. For our porpuses, we transform further that table to make it tidy (long format). 
+
+
+```{r}
+#| label: NeuN_LongTable
+#| include: true
+#| warning: false
+#| message: false
+
+# Subset and generate summary by hemisphere
+NeuN_Regions <- subset(NeuN, select = c(MouseId, Condition, Group, Genotype, Tamox, CTX_diff, CNU_diff, Fiber_diff, IB_diff, MB_diff))
+
+is.na(NeuN_Regions)<-sapply(NeuN_Regions, is.infinite)
+NeuN_Regions[is.na(NeuN_Regions)]<-1
+
+# Add column for hemispheric differences
+NeuN_Regions$Hemis_diff <- rowMeans(NeuN_Regions[,c(6:10)], na.rm = TRUE)
+
+# Write file
+write.csv(NeuN_Regions,'Results/NeuN_Regions.csv')
+
+
+NeuN_Regions$Condition <- factor(NeuN_Regions$Condition, 
+                                 levels = c("Sham", "MCAO"))
+
+NeuN_Regions$Group <- factor(NeuN_Regions$Group, 
+                             levels = c("Wildtype", "Klf4-Flox", "Klf4+/+", "Klf4-/-"))
+
+```
+
+
