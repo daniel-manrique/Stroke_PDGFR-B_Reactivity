@@ -1,0 +1,617 @@
+---
+title-block-banner: true
+title: "Analysis of Gfap and PDGFR-B reactivity in the ipsilateral hemisphere of KLF4-KO (animals)"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - GFAP
+  - PDGFR-β
+  - Brain injury
+  - Brain shrinkage
+  - Cell proliferation
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+In this notebook, we perform the analysis of PDGFR-B and GFAP in the brain of KLF4 deficient mice.
+
+**Parent dataset:** PDGFR-β, NeuN, and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFR-β/KLF4KO) and WT (Wild type controls). Sham animals were included as control. KLF4 was depleted using itraperitoneal injection 4 days before experimental cerebral ischemia. Mice were sacrificed 25 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
+
+**Working dataset**: We use the `Data_Raw/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFR-β (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "GGally", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "spatstat", "tidybayes", "tidyverse", "viridis"))
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(GGally)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(spatstat)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+
+# Visual themes
+
+We create a visual theme to use in our plots.
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Load the data sets
+
+We load the dataset and handle it the subset the columns of interest.
+
+```{r}
+#| label: Area-Intensity_Load 
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+# We load the dataset for area and intensity measurements
+Area_Intensity <- read.csv(file = "Data_Raw/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap/Image.csv", header = TRUE)
+
+```
+
+Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFR-β labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
+
+```{r}
+#| label: Area-Intensity_Handle 
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+
+## We subset the relevant columns (cell number)
+Area_Intensity <- subset(Area_Intensity, select = c("FileName_Gfap", "Intensity_MeanIntensity_Pdgfrb_Masked", "Intensity_MeanIntensity_Gfap_Masked",  "Intensity_TotalArea_Pdgfrb_Masked", "Intensity_TotalArea_Gfap_Masked"))
+
+## And extract metadata from the image name
+Area_Intensity  <- cbind(Area_Intensity, do.call(rbind , strsplit(Area_Intensity$FileName_Gfap, "[_\\.]"))[,3:5])
+
+Area_Intensity <- subset(Area_Intensity, select = -c(FileName_Gfap))
+
+## We Rename the relevant columns 
+colnames(Area_Intensity) <- c("Pdgfrb_Intensity", "Gfap_Intensity", "Pdgfrb_Area", "Gfap_Area", "MouseID", "Genotype", "Condition")
+
+## We set the factors
+Area_Intensity$DPI <- factor(Area_Intensity$Condition, levels = c("Sham", "MCAO"))
+Area_Intensity$Genotype <- factor(Area_Intensity$Genotype, levels = c("Ctr25", "KO25"))
+
+
+# We create column to related the area-intensity measurements
+Area_Intensity$Pdgfrb_IntDen <- (Area_Intensity$Pdgfrb_Area / Area_Intensity$Pdgfrb_Intensity) / 10000
+Area_Intensity$Gfap_IntDen <- (Area_Intensity$Gfap_Area / Area_Intensity$Gfap_Intensity) / 10000
+
+write.csv(Area_Intensity, "Data_Processed/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap.csv", row.names = FALSE)
+
+gt::gt(Area_Intensity[1:10,])
+```
+
+# Analysis of PDGFR-β 
+
+## Exploratory data visualization
+
+We plot the variable of interest using boxplots
+
+```{r}
+#| label: fig-Pdgfrb_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Exploratory data visualization for brain Pdgfrb expression 
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_box <- 
+  ggplot(
+    data  = Area_Intensity, 
+    aes(x = Condition, 
+        y = Pdgfrb_IntDen,
+        color = Genotype)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter(width = 0.2) +
+  scale_y_continuous(name= expression("Ratio Ipsilateral/Contralateral")) +
+  scale_x_discrete(name="Genotype",
+                     breaks=c("Sham", "MCAO")) +
+  Plot_theme
+
+Pdgfrb_box
+```
+
+
+We see that cerebral ischemia increases PDGFR-B expression. However, we do not have clear signs that deficiency of KLF4 has an effect on its expression. 
+We exclude sham animals for further processing.
+
+```{r}
+Area_Intensity_Clean <- Area_Intensity[Area_Intensity$Condition != "Sham",]
+```
+
+## Statistical modeling
+
+We fit the following model using `brms`:
+
+-   **Pdgfrb_Fit1:** We fit a student family model to explore the relationship between Shrinkage and Genotype. The model takes the following notation:
+
+$$
+Pdgfrb_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
+$$
+
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on PDGFR-B expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFR-β-TdTomato animals, the model uses the default `brms` priors. 
+
+
+### Fit the model
+
+
+```{r}
+#| label: Pdgfrb_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: Genotype as predictor for Pdgfrb_IntDen
+Pdgfrb_Mdl1 <- bf(Pdgfrb_IntDen ~ Genotype)
+
+get_prior(Pdgfrb_Mdl1 , data = Area_Intensity_Clean, family = student)
+
+# Fit model 1
+Pdgfrb_Fit1 <- 
+  brm(
+    data    = Area_Intensity_Clean,
+    family  = student, 
+    formula = Pdgfrb_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Pdgfrb_Fit1 <- 
+  add_criterion(Pdgfrb_Fit1, c("loo", "waic", "bayes_R2"))
+```
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Pdgfrb_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 10
+ 
+set.seed(8807)
+
+Pdgfrb_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Pdgfrb_IntDen ~ Genotype") +
+  Plot_theme  
+
+Pdgfrb_Fit1_pp 
+```
+
+We observe no major deviations from the data in both cases. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Pdgfrb_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Pdgfrb_Fit1)
+```
+
+## Model results
+
+### Visualization of conditional effects
+
+```{r}
+#| label: fig-Pdgfrb_CE 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for PDGFR-B expression.
+#| fig-height: 5
+#| fig-width: 10
+
+set.seed(8807)
+
+# We plot the contrast between WT and KO
+
+Pdgfrb_Contrast <- Pdgfrb_Fit1 %>%
+   spread_draws(b_GenotypeKO25) %>%
+   mutate(Genotype_contrast = b_GenotypeKO25) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 75))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-75, 75), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-150, 200),
+                      breaks = seq(-150, 200, 80) ) +
+
+  Plot_theme +
+  theme (legend.position = c(0.8, 0.8))
+
+ggsave(
+  plot     = Pdgfrb_Contrast, 
+  filename = "Plots/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap/Widefield_5x_Ipsilateral_Pdgfrb_Fit1.png", 
+  width    = 8, 
+  height   = 8, 
+  units    = "cm")
+
+Pdgfrb_Contrast
+```
+
+@fig-Pdgfrb_CE shows that we have no evidence that KLF4 impacts PDGFR-B expression.
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function. We to this specifically for our 14 DPI animals. 
+
+```{r}
+#| label: Pdgfrb_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "PDGFR-B expression in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Pdgfrb_Fit1_Table.html",
+             )
+
+Shrinkage_Fit1_Table <- modelsummary(Pdgfrb_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Shrinkage_Fit1_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Pdgfrb_Fit1_Table.tex")
+```
+# Analysis of GFAP 
+
+## Exploratory data visualization
+
+We plot the variable of interest using boxplots
+
+```{r}
+#| label: fig-Gfap_Exploratory
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Exploratory data visualization for brain Gfap expression 
+#| fig-height: 5
+#| fig-width: 5
+
+set.seed(8807)
+
+Gfap_box <- 
+  ggplot(
+    data  = Area_Intensity, 
+    aes(x = Condition, 
+        y = Gfap_IntDen,
+        color = Genotype)) +
+  geom_boxplot(outliers = FALSE) +
+  geom_jitter(width = 0.2) +
+  scale_y_continuous(name= expression("Ratio Ipsilateral/Contralateral")) +
+  scale_x_discrete(name="Genotype",
+                     breaks=c("Sham", "MCAO")) +
+  Plot_theme
+
+Gfap_box
+```
+
+
+We see that Sham animals contain staining artifacts. In our hands, the use of the GFAP antibody does not label perivascular cells in the healthy brain. 
+
+## Statistical modeling
+
+We fit the following model using `brms`:
+
+-   **Gfap_Fit1:** We fit a student family model to explore the relationship between Shrinkage and Genotype. The model takes the following notation:
+
+$$
+Gfap_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
+$$
+
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on GFAP expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFR-β-TdTomato animals, the model uses the default `brms` priors. 
+
+
+### Fit the model
+
+
+```{r}
+#| label: Gfap_Modeling
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: Genotype as predictor for Gfap_IntDen
+Gfap_Mdl1 <- bf(Gfap_IntDen ~ Genotype)
+
+get_prior(Gfap_Mdl1 , data = Area_Intensity_Clean, family = student)
+
+# Fit model 1
+Gfap_Fit1 <- 
+  brm(
+    data    = Area_Intensity_Clean,
+    family  = student, 
+    formula = Gfap_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap/Widefield_5x_Ipsilateral_EarlyKO_Gfap_Fit1.rds",
+    file_refit = "never") 
+                     
+# Add loo for model comparison
+Gfap_Fit1 <- 
+  add_criterion(Gfap_Fit1, c("loo", "waic", "bayes_R2"))
+```
+## Model diagnostics
+
+We check the model fitting using posterior predictive checks
+
+```{r}
+#| label: fig-Gfap_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| cache: true
+#| fig-cap: Model dianostics using pp_checks
+#| fig-height: 5
+#| fig-width: 10
+ 
+set.seed(8807)
+
+Gfap_Fit1_pp <- 
+  brms::pp_check(Gfap_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Gfap_IntDen ~ Genotype") +
+  Plot_theme  
+
+Gfap_Fit1_pp 
+```
+
+We observe no major deviations from the data in both cases. We can explore further the model using `shinystan`.
+
+```{r}
+#| label: Gfap_Shiny
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+#launch_shinystan(Gfap_Fit1)
+```
+
+## Model results
+
+### Visualization of conditional effects
+
+```{r}
+#| label: fig-Gfap_CE 
+#| include: true
+#| warning: false
+#| message: false
+#| fig-cap: Conditional effects for GFAP expression.
+#| fig-height: 5
+#| fig-width: 10
+
+set.seed(8807)
+
+# We plot the contrast between WT and KO
+
+Gfap_Contrast <- Gfap_Fit1 %>%
+   spread_draws(b_GenotypeKO25) %>%
+   mutate(Genotype_contrast = b_GenotypeKO25) %>%
+   ggplot(aes(x = Genotype_contrast, fill = after_stat(abs(x) < 144))) +
+   stat_halfeye() +
+  geom_vline(xintercept = c(-144, 144), linetype = "dashed") +
+  scale_fill_manual(
+    name="ROPE", 
+    values = c("gray80", "skyblue"),
+    labels = c("False", "True")) +
+  scale_y_continuous(name = "Probability density") +
+  scale_x_continuous(name = "Contrast (KO-WT)",
+                     limits = c(-250, 250),
+                      breaks = seq(-250, 250, 100) ) +
+
+  Plot_theme +
+  theme (
+    legend.position = c(0.8, 0.8),
+    axis.text.x = element_text(colour = "black", 
+                               size = 16, 
+                               angle = 45, 
+                               hjust = 1)
+         
+         )
+
+ggsave(
+  plot     = Gfap_Contrast, 
+  filename = "Plots/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap/Widefield_5x_Ipsilateral_Gfap_Fit1.png", 
+  width    = 8, 
+  height   = 8, 
+  units    = "cm")
+
+Gfap_Contrast
+```
+
+@fig-Gfap_CE shows that we have no evidence that KLF4 impacts GFAP expression.
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function. We to this specifically for our 14 DPI animals. 
+
+```{r}
+#| label: Gfap_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Gfap_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "GFAP expression in PDGFR-β-KLF4-KO mice",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Gfap_Fit1_Table.html",
+             )
+
+Shrinkage_Fit1_Table <- modelsummary(Gfap_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Shrinkage_Fit1_Table, 
+            filename = "Tables/tex/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Gfap_Fit1_Table.tex")
+```
+
+# References
+
+::: {#refs}
+:::
+
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,728 @@
+---
+title-block-banner: true
+title: "Analysis of PDGFR-β mRNA (FISH) in KLF4-Flox and PDGFR-β-Cre mice (Control experiment)"
+subtitle: "Data analysis notebook"
+date: today
+date-format: full
+author: 
+  - name: "Daniel Manrique-Castano"
+    orcid: 0000-0002-1912-1764
+    degrees:
+      - PhD
+    affiliation: 
+      - name: Univerisity Laval 
+        department: Psychiatry and Neuroscience
+        group: Laboratory of neurovascular interactions 
+note: "GitHub: https://daniel-manrique.github.io/"
+keywords: 
+  - PDGFR-β
+  - Flourescence in situ hybridization (FISH)
+  - Brain injury
+  - Bayesian modeling 
+   
+license: "CC BY"
+
+format:
+   pdf: 
+    toc: true
+    number-sections: true
+    colorlinks: true
+   html:
+    code-fold: true
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    number-sections: true
+    theme: spacelab
+
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+    
+csl: science.csl
+bibliography: references.bib
+---
+
+# Preview
+
+This notebook reports the analysis of PDGFR-β expression (by FISH) in KLF4-Flox and PDGFR-β-Cre mice. This is a control experiment to determine if PDGFR-β-Cre mice affects the staining intensity of PDGFR-β mRNA. Sham WT PDGFR-B td-Tomato mice were added as control.  
+
+**Parent dataset:** PDGFR-β(FISH) stained ROIs (10x magnification) in the helthy cortex. Animals are not subjected to cerebral ischemia. 
+
+**Working dataset**: The `Data_Raw/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Objects.csv` and `Data_Raw/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Image.csv` dataframes containing the raw output from CellProfiller [@stirling2021]. The CellProfiler pipeline is available at https://osf.io/yndua.
+
+We perform scientific inference based on the number of cells, intensity and area. 
+
+# Install and load required packages
+
+Install and load all required packages. Please uncomment (delete #) the line code if installation is required. Load the installed libraries each time you start a new R session.
+
+```{r}
+#| label: Install_Packages
+#| include: true
+#| warning: false
+#| message: false
+
+#install.packages("devtools")
+#library(devtools)
+
+#install.packages(c("bayesplot", "bayestestR", "brms","dplyr", "easystats", "ggplot","gtsummary", "modelbased", "modelr", "modelsummary", "patchwork", "poorman","plyr", "reshape2", "scales", "tidybayes", "tidyverse", "viridis"))
+
+
+library(bayesplot)
+library(bayestestR)
+library(brms)
+library(dplyr)
+library(easystats)
+library(emmeans)
+library(ggplot2)
+library(gtsummary)
+library(modelbased)
+library(modelr)
+library(modelsummary)
+library(patchwork)
+library(poorman)
+library(plyr)
+library(reshape2)
+library(scales)
+library(tidybayes)
+library(tidyverse)
+library(viridis)
+```
+# Visual themes
+
+We create a visual theme to use in our plots (ggplots).
+
+```{r}
+#| label: Plot_Theme
+#| include: true
+#| warning: false
+#| message: false
+  
+Plot_theme <- theme_classic() +
+  theme(
+      plot.title = element_text(size=18, hjust = 0.5, face="bold"),
+      plot.subtitle = element_text(size = 10, color = "black"),
+      plot.caption = element_text(size = 12, color = "black"),
+      axis.line = element_line(colour = "black", size = 1.5, linetype = "solid"),
+      axis.ticks.length=unit(7,"pt"),
+     
+      axis.title.x = element_text(colour = "black", size = 16),
+      axis.text.x = element_text(colour = "black", size = 16, angle = 0, hjust = 0.5),
+      axis.ticks.x = element_line(colour = "black", size = 1),
+      
+      axis.title.y = element_text(colour = "black", size = 16),
+      axis.text.y = element_text(colour = "black", size = 16),
+      axis.ticks.y = element_line(colour = "black", size = 1),
+      
+      legend.position="right",
+      legend.direction="vertical",
+      legend.title = element_text(colour="black", face="bold", size=12),
+      legend.text = element_text(colour="black", size=10),
+      
+      plot.margin = margin(t = 10,  # Top margin
+                             r = 2,  # Right margin
+                             b = 10,  # Bottom margin
+                             l = 10) # Left margin
+      ) 
+```
+
+# Analysis of the number of PDGFR-β cells
+
+## Load and handle the datasets
+
+We load the `Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_Image.csv` datasets containing raw cell counts from cellProfiler.
+
+```{r}
+#| label: tbl-Pdgfrb_Counts_Table
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+# We load the dataset in case is not present in the R environment
+Pdgfrb_df <- read.csv(file = "Data_Raw/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Image.csv", header = TRUE)
+
+gt::gt(Pdgfrb_df[1:10,])
+```
+
+We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images and the `Count_Pdgfrb_Objects` indicating the number of PDGFR-β+ cells. Next, we subset the data frame to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: Pdgfrb_Counts_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Pdgfrb_Counts <- subset(Pdgfrb_df, select = c("FileName_Pdgfrb_Raw", "Count_Pdgfrb_Objects"))
+
+## And extract metadata from the image name
+Pdgfrb_Counts  <- cbind(Pdgfrb_Counts, do.call(rbind , strsplit(Pdgfrb_Counts$FileName_Pdgfrb_Raw, "[_\\.]"))[,1:2])
+
+Pdgfrb_Counts <- subset(Pdgfrb_Counts, select = -c(FileName_Pdgfrb_Raw))
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_Counts) <- c("Counts", "MouseID", "Genotype")
+
+## We set the factors
+
+Pdgfrb_Counts$Genotype <- factor(Pdgfrb_Counts$Genotype, levels = c("TdTomato", "Cre", "Flox"))
+
+write.csv(Pdgfrb_Counts, "Data_Processed/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Image.csv", row.names = FALSE)
+
+```
+
+With the data handled, we perform exploratory data visualization.
+
+## Exploratory data visualization
+
+We plot the data to see its distribution and have a first hint for modeling strategies.
+
+```{r}
+#| label: fig-Pdgfb_Counts_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for the number of PDGFR-β+ cells
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Boxplot
+##################
+
+Pdgfrb_Counts_box <- 
+  ggplot(
+    data  = Pdgfrb_Counts, 
+    aes(x = Genotype, 
+        y = Counts)
+    ) +
+  geom_boxplot() +
+
+scale_y_continuous(name = "Number of PDGFR-β+ cells") +
+scale_x_discrete(
+  name   ="Days post-ischemia (DPI) ",
+  breaks = c("TdTomato", "Flox", "Cre")
+  ) +
+Plot_theme
+
+#Plot the result
+Pdgfrb_Counts_box
+```
+
+@fig-Pdgfb_Counts_Expl shows that PDGFRβ+ cre mice exhibit less cells that the other two genotypes. 
+
+## Statistical modeling for the number of PDGFR-β+ cells
+
+Given that we took three different photos per animal, we'll fit a multilevel model to capture the both the population-level effects of Genotype and the group variability due to individual differences among the mice. We fit the following model:
+
+ - **Pdgfrb_Counts_Mdl1:** Considers `Genotype` as a predictor and `MouseID` as random effects. The model takes the following notation:
+ 
+ $$
+ Counts_i = \beta_0 + \beta_1 \times Genotype_i + u_{MouseID[i]} + \epsilon_i
+ $$
+Where $β0$ is the intercept, $𝛽1$, represents the effect of Genotype on Counts. $𝑢MouseID$ is the group-level effect associated with the $𝑖$i-th mouse, and $𝜖$ denotes the residual error terms.
+ .
+By including (1 | MouseID), we accounts for the fact that observations from the same mouse are likely to be more similar to each other than to observations from different mice
+
+### Fit the models
+
+We employ `brms` to fit the model.
+
+```{r}
+#| label: Pdgfrb_Counts_Fit1
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1: Genotype as a linear predictor
+###########################################
+
+Pdgfrb_Counts_Mdl1 <- bf(Counts ~ Genotype + (1 | MouseID))
+
+get_prior(Pdgfrb_Counts_Mdl1, Pdgfrb_Counts, family = student)
+
+# Fit model 1
+Pdgfrb_Counts_Fit1 <- 
+  brm(
+    family  = student,
+    data    = Pdgfrb_Counts,
+    formula = Pdgfrb_Counts_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Counts_Fit1.rds",
+    file_refit = "never")
+```
+
+### Model diagnostics
+
+To evaluate sample predictions, we perform the model diagnostics using the `pp_check` (posterior predictive checks) function from `brms`. In the graph, 𝘺 shows the data and y\~ the simulated data.
+
+```{r}
+#| label: fig-Pdgfrb_Counts_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for the number of PDGFR-β+ cells
+#| fig-height: 4
+#| fig-width: 5
+
+set.seed(8807)
+
+Pdgfrb_Counts_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_Counts_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Counts ~ Genotype + (1 | MouseID)") +
+  Plot_theme  
+  
+Pdgfrb_Counts_Fit1_pp
+```
+
+We see that our model captures the trend of the observations.
+
+## Model results
+
+### Visualizaing the posterior
+
+After validating the model, we plot the full posterior distributions for the population and group (Mouse) level effects.:
+
+```{r}
+#| label: fig-Pdgfrb_Counts_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for the number of of PDGFR-β+ cells
+#| fig-width: 10
+#| fig-height: 4
+
+# For population-Level effects:
+
+set.seed(8807)
+
+Pdgfrb_Count_Draws <- Pdgfrb_Counts %>%
+  group_by(Genotype, MouseID) %>% 
+  add_predicted_draws(Pdgfrb_Counts_Fit1, re_formula = NA) 
+
+# Plotting
+Pdgfrb_Count_fig <- ggplot(Pdgfrb_Count_Draws, aes(x = Genotype, y = .prediction)) +
+  stat_halfeye() + # Visualize the posterior predictive distribution
+  geom_jitter(data = Pdgfrb_Counts, aes(x = Genotype, y = Counts),
+              width = 0.15, alpha = 0.6, size = 2) + # Actual measurements
+  labs(x = "Genotype") + 
+  scale_y_continuous(name = "Number of PDGFRβ+ cells",
+                     limits = c(50, 250),
+                      breaks = seq(50, 250, 50) ) +
+  scale_x_discrete(labels = c("KLF4-Flox/PDGFRβ-Cre", "PDGFRβ-Cre", "KLF4-Flox"))+
+  Plot_theme +
+  coord_flip()
+
+ggsave(
+  plot     = Pdgfrb_Count_fig, 
+  filename = "Plots/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Pdgfrb_Counts.png", 
+  width    = 15, 
+  height   = 9, 
+  units    = "cm")
+
+
+Pdgfrb_Count_fig 
+```
+
+@fig-Pdgfrb_Counts_Posterior shows the full posterior distribution for population and group (MouseID) level effects. We see that WT and KO mice does not differ meaningfully in the number of PDGFRβ cells. 
+
+
+### Posterior summary
+
+Next, we plot the posterior summary using the `describe_posterior` function from `bayestestR` package [@bayestestR; @makowski2019].
+
+```{r}
+#| label: Klf4_Int_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_Counts_Fit1,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_Counts_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "Number of PDGFRβ+ nuclei in defined ROIs",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Counts_Fit1_Table.html",
+             )
+
+Pdgfrb_Counts_Fit1_Table <- modelsummary(Pdgfrb_Counts_Fit1, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_Counts_Fit1_Table, filename = "Tables/tex/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Counts_Fit1_Table.tex")
+```
+The table displays the regression coefficients o the log scale.
+
+# Analysis of PDGFRβ area and intensity
+
+## Load and handle the dataset 
+
+Now, we handle the `Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Objects.csv` to analyze the area and intensity of the PDGFR-B+ cells
+
+```{r}
+#| label: Pdgfrb_AreaInt_Load
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+Pdgfrb_AreaInt_df <- read.csv("Data_Raw/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_Pdgfrb_Objects.csv", header = TRUE)
+
+gt::gt(Pdgfrb_AreaInt_df[1:10,])
+```
+We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images, the `AreaShape_Area` and `Intensity_IntegratedIntensity_Pdgfrb_Raw` indicating the area and intensity per cell, respectively. We also add `Location_Center_X` and `Location_Center_X` to get the cell's coordinates. Next, we subset the data frame to select the columns of interest and give them meaningful names.
+
+```{r}
+#| label: Pdgfrb_Counts_Handle
+#| include: true
+#| warning: false
+#| message: false
+#| tbl-cap: "Data set"
+
+## We subset the relevant columns (cell number)
+Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt_df, select = c("FileName_Pdgfrb_Raw", "AreaShape_Area", "Intensity_IntegratedIntensity_Pdgfrb_Raw", "Location_Center_X", "Location_Center_Y"))
+
+## And extract metadata from the image name
+Pdgfrb_AreaInt  <- cbind(Pdgfrb_AreaInt, do.call(rbind , strsplit(Pdgfrb_AreaInt$FileName_Pdgfrb_Raw, "[_\\.]"))[,1:2])
+
+Pdgfrb_AreaInt <- subset(Pdgfrb_AreaInt, select = -c(FileName_Pdgfrb_Raw))
+
+## We Rename the relevant columns 
+colnames(Pdgfrb_AreaInt) <- c("Area", "Intensity","x-coord", "y-coord", "MouseID", "Genotype")
+
+## We set the factors
+Pdgfrb_AreaInt$Genotype <- factor(Pdgfrb_AreaInt$Genotype, levels = c("TdTomato", "Cre", "Flox"))
+
+write.csv(Pdgfrb_AreaInt, "Data_Processed/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_AreaInt.csv", row.names = FALSE)
+
+```
+
+## Exploratory data visualization
+
+Next, we visualize the raw data to guide the statistical modeling. 
+
+```{r}
+#| label: fig-Pdgfrb_AreaInt_Expl
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Exploratory data visualization for PDGFR-B area and intensity
+#| fig-width: 9
+#| fig-height: 4
+
+set.seed(8807)
+
+# Box plot for area
+##################
+
+Pdgfrb_Area_Box <- 
+  ggplot(
+    data  = Pdgfrb_AreaInt, 
+    aes(x = Genotype, 
+        y = Area)
+    ) +
+  geom_boxplot()+
+
+Plot_theme
+
+# Box plot for intensity
+##################
+
+Pdgfrb_Intensity_Box <- 
+  ggplot(
+    data  = Pdgfrb_AreaInt, 
+    aes(x = Genotype, 
+        y = Intensity)
+    ) +
+  geom_boxplot()+
+
+Plot_theme
+
+#Plot the result
+Pdgfrb_Area_Box + Pdgfrb_Intensity_Box
+
+
+Pdgfrb_Intensity_scr <- 
+  ggplot(
+    data  = Pdgfrb_AreaInt, 
+    aes(x = Area, 
+        y = Intensity,
+        color = Genotype)
+    ) +
+  geom_point()
+
+Pdgfrb_Intensity_scr 
+```
+
+@fig-Pdgfrb_AreaInt_Expl shows that Cre mice exhibit less area and intensity.
+
+## Statistical modeling for PDGFRβ area/intensity
+
+To analyze the changes in PDGFRβ expression considering area and intensity, we utilized a mixed-effects model (family = student) with the interactions of Area and Genotype as predictors.The model specification is as follows:
+
+$$
+Intensity_i = \beta_0 + \beta_1 \times Area_i + \beta_2 \times Genotype_i + \beta_3 \times (Area_i \times Genotype_i) + \epsilon_i
+$$
+Here, $\beta_0$ is the intercept (area and Genotype at reference levels); $\beta_1$ is the effect of area on intensity; $\beta_2$ is the effect of Genotype on Intensity; $\beta_3$ represents the interaction effect between Area and Genotype; $\epsilon_i$ is the error term.   
+
+### Fit the model
+
+```{r}
+#| label: Pdgfrb_AreaInt_Model
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 1
+
+Pdgfrb_AreaInt_Mdl1 <- bf(Intensity ~ Area * Genotype + (1 | MouseID))
+
+get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaInt, family = student)
+
+# Fit model 1
+Pdgfrb_AreaInt_Fit1 <- 
+  brm(
+    family  = student,
+    data    = Pdgfrb_AreaInt,
+    formula = Pdgfrb_AreaInt_Mdl1,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_AreaInt_Fit1.rds",
+    file_refit = "never")
+```
+
+## Model diagnostics
+
+Next, we perform model diagnostics:
+
+```{r}
+#| label: fig-Pdgfrb_Diagnostics
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-B expression in individual cells
+#| fig-height: 5
+#| fig-width: 10
+
+set.seed(8807)
+
+Pdgfrb_AreaInt_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_AreaInt_Fit1, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Intensity ~ Area * Genotype") +
+  scale_x_continuous(limits=c(0, 20)) +
+  Plot_theme  
+
+Pdgfrb_AreaInt_Fit1_pp 
+```
+
+We see that this model does not align with the observed data. Therefore, we fit an additional model with scaled predictors.
+
+## Fit the new model
+
+```{r}
+#| label: Pdgfrb_AreaInt_Model_2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+# Model 2
+
+Pdgfrb_AreaInt_Scaled <- data.frame(scale(Pdgfrb_AreaInt[,c("Intensity","Area")], scale=T, center=T), MouseID=Pdgfrb_AreaInt$MouseID, Genotype = Pdgfrb_AreaInt$Genotype)
+
+
+Pdgfrb_AreaInt_Mdl2 <- bf(Intensity ~ Area * Genotype + (1 | MouseID))
+
+get_prior(Pdgfrb_AreaInt_Mdl1, Pdgfrb_AreaInt_Scaled, family = student)
+
+Pdgfrb_AreaInt_Prior <- 
+  c(prior(normal(0,5), class = b),
+    prior(normal(0,5), class = Intercept, lb= 0))
+
+# Fit model 2
+Pdgfrb_AreaInt_Fit2 <- 
+  brm(
+    family  = student,
+    data    = Pdgfrb_AreaInt_Scaled,
+    formula = Pdgfrb_AreaInt_Mdl2,
+    prior   = Pdgfrb_AreaInt_Prior,
+    chains  = 4,
+    cores   = 4,
+    warmup  = 2500, 
+    iter    = 5000, 
+    seed    = 8807,
+    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    file    = "Models/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_AreaInt_Fit2.rds",
+    file_refit = "never")
+```
+
+### Model diagnostics
+
+```{r}
+#| label: fig-Pdgfrb_Diagnostics2
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Model diagnostics for PDGFR-B expression in individual cells
+#| fig-height: 5
+#| fig-width: 10
+
+set.seed(8807)
+
+Pdgfrb_AreaInt_Fit1_pp <- 
+  brms::pp_check(Pdgfrb_AreaInt_Fit2, 
+                 ndraws = 100) +
+  labs(title = "Posterior predictive checks",
+  subtitle = "Formula: Intensity ~ Area * Genotype + (1 | MouseID)") +
+  scale_x_continuous(limits=c(0, 20)) +
+  Plot_theme  
+
+Pdgfrb_AreaInt_Fit1_pp 
+```
+
+In this case, we see that the model captures the trend of the data:
+
+## Model results
+
+After model diagnostics, we plot the full posterior distributions:
+
+### Visualizing the results
+
+```{r}
+#| label: fig-Pdgfrb_AreaInt_Posterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| fig-cap: Posterior distribution for PDGFR-B expression
+#| fig-width: 5
+#| fig-height: 4
+
+set.seed(8807)
+
+Pdgfrb_AreaInt_DPI <- 
+  conditional_effects(Pdgfrb_AreaInt_Fit2)
+
+Pdgfrb_AreaInt_DPI <- plot(Pdgfrb_AreaInt_DPI, 
+       plot = FALSE, points = TRUE, point_args = list(size =0.1))[[3]]
+
+Pdgfrb_AreaInt_fig <- Pdgfrb_AreaInt_DPI + 
+  scale_y_continuous(name = expression ("PDGFRβ intensity"),
+                     limits = c(0, 5)) +
+  scale_x_continuous(name="Nuclei area",
+                     limits = c(0, 4)) +
+  
+  scale_color_manual(name = "",
+                       values = c("#4DB6D0", "#D9717D", "#28e358"),
+                       labels = c("KLF4-Flox/PDGFRβ-Cre", "PDGFRβ-Cre", "KLF4-Flox")) +
+ scale_fill_manual(name = "",
+                     values = c("#4DB6D0", "#D9717D", "#28e358"),
+   labels = c("KLF4-Flox/PDGFRβ-Cre", "PDGFRβ-Cre", "KLF4-Flox")) +
+  
+  Plot_theme +
+  theme(legend.position = "top",
+        legend.direction = "horizontal")
+
+  ggsave(
+  plot     = Pdgfrb_AreaInt_fig, 
+  filename = "Plots/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_IntArea.png",   
+  width    = 13, 
+  height   = 9, 
+  units    = "cm")
+
+Pdgfrb_AreaInt_fig 
+```
+
+@fig-Pdgfrb_AreaInt_Posterior shows the posterior distribution of PDGFRB expression by cell, accounting for the nuclei size.
+
+
+### Posterior summary
+
+Next, we plot the posterior summary:
+```{r}
+#| label: Pdgfrb_AreaInt_DescribePosterior
+#| include: true
+#| warning: false
+#| message: false
+#| results: false
+#| cache: true
+
+describe_posterior(
+  Pdgfrb_AreaInt_Fit2,
+  effects = "all",
+  test = c("p_direction", "rope"),
+  component = "all",
+  centrality = "median")
+
+modelsummary(Pdgfrb_AreaInt_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             title = "PDGFRβ+ labeling intensity in defined cortical ROIs",
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "Tables/html/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_AreaInt_Fit1_Table.html",
+             )
+
+Pdgfrb_AreaInt_Fit2_Table <- modelsummary(Pdgfrb_AreaInt_Fit2, 
+             shape = term ~ model + statistic,
+             centrality = "mean", 
+             statistic = "conf.int",
+             gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
+             output = "gt")
+gt::gtsave (Pdgfrb_AreaInt_Fit2_Table, filename = "Tables/tex/Widefield_10x_ROIs_Flox-Cre_Fish_Pdgfrb_AreaInt_Fit1_Table.tex")
+```
+
+The table displays the regression coefficients without a baseline (intercept value).It also shows he coefficients for individual animals included as group-level effects.
+
+# References
+
+::: {#refs}
+:::
+
+```{r}
+sessionInfo()
+```
+

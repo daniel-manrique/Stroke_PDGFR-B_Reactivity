@@ -74,9 +74,7 @@ format: html
 | R2                     | 0.63     |           |            |
 | R2 Adj.                | 0.56     |           |            |
 
-
-: **PDGFRβ integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Pdgfrb_IntDen ~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Pdgfrb_t2DPI-Area}
-
+: **PDGFRβ integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Pdgfrb_IntDen \~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Pdgfrb_t2DPI-Area}
 
 ## ------------------------------------------------------------------------
 
@@ -124,9 +122,7 @@ format: html
 | R2                     | 0.45     |           |            |
 | R2 Adj.                | 0.37     |           |            |
 
-
-: **GFAP integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Gfap_IntDen ~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Gfap_t2DPI-Area}
-
+: **GFAP integrated density following MCAO (conditioning on hemispheric area).** a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the non-linear (splines) model *Gfap_IntDen \~ t2(DPI,Tissue_Area), family = Gaussian*. {#tbl-Gfap_t2DPI-Area}
 
 ## ------------------------------------------------------------------------
 
@@ -269,17 +265,29 @@ format: html
 
 ## ------------------------------------------------------------------------
 
-LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE MUERTE CELULAR EN FLO CYTOMETRY.
+::: {#tbl-panel_FACS_Pdgfrb layout-ncol="2"}
+| Parameter        | Est.  | 2.5 % | 97.5 % |
+|------------------|-------|-------|--------|
+| b_Intercept      | 0.062 | 0.034 | 0.091  |
+| b_HemisphereIpsi | 0.074 | 0.033 | 0.114  |
+| sigma            | 0.030 | 0.017 | 0.054  |
+| Num.Obs.         | 10    |       |        |
+| R2               | 0.72  |       |        |
 
-| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
-|----------------|----------|-----------|------------|
-| b_Intercept    | 1.130    | 1.114     | 1.146      |
-| bs_sDPI_1      | 25.6     | 23.9      | 27.3       |
-| sds_sDPI_1     | 9.5      | 5.1       | 18.4       |
-| Num.Obs.       | 49       |           |            |
-| R2             | 0.97     |           |            |
+: Model for the number of PDGFRβ+ cells {#tbl-Facs_Pdgfrb}
 
-: FALTA la LEYENDA {#tbl-Pdgfrb_Death_Flow}
+| **Parameter**    | **Est.** | **2.5 %** | **97.5 %** |
+|------------------|----------|-----------|------------|
+| b_Intercept      | 0.106    | 0.004     | 0.209      |
+| b_HemisphereIpsi | 0.137    | -0.006    | 0.299      |
+| sigma            | 0.108    | 0.044     | 0.208      |
+| Num.Obs.         | 10       |           |            |
+| R2               | 0.33     |           |            |
+
+: Model for the number of PDGFRβ+ Dead cells {#tbl-Facs_Pdgfrb_Dead}
+
+: **FACS-sorted PDGFRβ+ cells derived from contralateral and ipsilateral hemispheres**. a-b) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the linear models *Cells \~ Hemisphere, family = student* estimating the percentage of total PDGFRβ+ cells (a) and dead PDGFRβ+ cells (b).
+:::
 
 ## ------------------------------------------------------------------------
 
@@ -329,6 +337,8 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 : **Number of parechymal PDGFRβ+ cells in sham and MCAO mice**. Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Parenchymal \~ DPI x Condition, family = student* in sham and MCAO mice. {#tbl-Pdgfrb_CD31_ShamMCAO}
 
 ## ------------------------------------------------------------------------
+
+
 
 ::: {#tbl-panel_Ki67_Psgfrb layout-ncol="2"}
 | **Parameters**  | **Est.** | **2.5 %** | **97.5 %** |
@@ -387,6 +397,22 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 
 ## ------------------------------------------------------------------------
 
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|------------------------|----------|-----------|------------|
+| b_muStriatum_Intercept | 0.49     | -0.011    | 1.04       |
+| b_muCortex_Intercept   | 0.25     | -0.29     | 0.82       |
+| b_muStriatum_entropy   | 2.54     | 0.54      | 4.68       |
+| b_muStriatum_contrast  | -0.79    | -1.92     | 0.27       |
+| b_muStriatum_IDM       | 1.43     | -0.13     | 3.09       |
+| b_muCortex_entropy     | 5.26     | 3.21      | 7.55       |
+| b_muCortex_contrast    | -1.12    | -2.22     | -0.03      |
+| b_muCortex_IDM         | 2.92     | 1.13      | 4.83       |
+| Num.Obs.               | 146      |           |            |
+
+: **Haralick features of PDGFRβ+ cells**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region \~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
+
+## ------------------------------------------------------------------------
+
 | **Parameters**   | **Est.** | **2.5 %** | **97.5 %** |
 |------------------|----------|-----------|------------|
 | b_Intercept      | 143      | 123       | 164        |
@@ -400,22 +426,6 @@ LA TABLA DE ABAJO ES SOLO REFERENCIA PARA LA NUMERACIÓN, AQUÍ IRÁ LA TABLA DE
 | R2               | 0.698    |           |            |
 
 : **PDGFRβ stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the binomial model *Area \~ DPI_cont x Region, family = student*. {#tbl-Pdgfrb_Haralick_Area}
-
-## ------------------------------------------------------------------------
-
-| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
-|------------------------|----------|-----------|------------|
-| b_muStriatum_Intercept | 0.49     | -0.011    | 1.04       |
-| b_muCortex_Intercept   | 0.25     | -0.29     | 0.82       |
-| b_muStriatum_entropy   | 2.54     | 0.54      | 4.68       |
-| b_muStriatum_contrast  | -0.79    | -1.92     | 0.27       |
-| b_muStriatum_IDM       | 1.43     | -0.13     | 3.09       |
-| b_muCortex_entropy     | 5.26     | 3.21      | 7.55       |
-| b_muCortex_contrast    | -1.12    | -2.22     | -0.03      |
-| b_muCortex_IDM         | 2.92     | 1.13      | 4.83       |
-| Num.Obs.               | 146      |           |            |
-
-: **PDGFRβ stained area in defined ROIs**. a) Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the logistic model *Region \~ entropy + contrast + IDM, family = categorical*. {#tbl-Pdgfrb_HaralickFeatures}
 
 ## ------------------------------------------------------------------------
 
