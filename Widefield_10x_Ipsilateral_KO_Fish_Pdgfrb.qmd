@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of PDGFR-β mRNA (FISH) in the injured brain following cerebral ischemia"
+title: "Analysis of PDGFRβ mRNA (FISH) in the injured brain following cerebral ischemia"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -15,7 +15,7 @@ author:
         group: Laboratory of neurovascular interactions 
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
-  - PDGFR-β
+  - PDGFRβ
   - Flourescence in situ hybridization (FISH)
   - Brain injury
   - Bayesian modeling 
@@ -47,9 +47,9 @@ bibliography: references.bib
 
 # Preview
 
-This notebook reports the analysis of PDGFR-β expression (by FISH) in the injured brain following cerebral ischemia. Previous results using PDGFR-β(Td-tomato from transgenic animals) suggest that KLF4 depletion reduces PDGFR-β expression. To confirm those results we evaluated PDGFR-β at mRNA levels. 
+This notebook reports the analysis of PDGFRβ expression (by FISH) in the injured brain following cerebral ischemia. Previous results using PDGFRβ(Td-tomato from transgenic animals) suggest that KLF4 depletion reduces PDGFRβ expression. To confirm those results we evaluated PDGFRβ at mRNA levels. 
 
-**Parent dataset:** PDGFR-β(FISH) stained ischemic hemispheres imaged at 10x (with stitching). We took regions of interest (ROIs) from three different areas in the injure cortex/striatum to quantify PDGFR-β expression. Samples are grouped at 0 (Sham), and 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_KO_Fish_Pdgfrb.zip`. Please note that we excluded mice `KL31` because of an inefficient staining (the section dried during the staining procedure).
+**Parent dataset:** PDGFRβ(FISH) stained ischemic hemispheres imaged at 10x (with stitching). We took regions of interest (ROIs) from three different areas in the injure cortex/striatum to quantify PDGFRβ expression. Samples are grouped at 0 (Sham), and 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_10x_ROIs_KO_Fish_Pdgfrb.zip`. Please note that we excluded mice `KL31` because of an inefficient staining (the section dried during the staining procedure).
 
 **Working dataset**: The `Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefield_10x_ROIs_KO_Fish_Pdgfrb_Pdgfrb_Objects.csv dataframes containing the raw output from CellProfiller [@stirling2021]. The CellProfiler pipeline is available at https://osf.io/yndua.
 
@@ -130,7 +130,7 @@ Plot_theme <- theme_classic() +
       ) 
 ```
 
-# Analysis of the number of PDGFR-β cells
+# Analysis of the number of PDGFRβ cells
 
 ## Load and handle the datasets
 
@@ -149,7 +149,7 @@ Pdgfrb_df <- read.csv(file = "Data_Raw/Widefield_10x_ROIs_KO_Fish_Pdgfrb/Widefie
 gt::gt(Pdgfrb_df[1:10,])
 ```
 
-We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images and the `Count_Pdgfrb_Objects` indicating the number of PDGFR-β+ cells. Next, we subset the data frame to select the columns of interest and give them meaningful names.
+We are interested in the `FileName_Pdgfrb_Raw`column containing the identification data for the images and the `Count_Pdgfrb_Objects` indicating the number of PDGFRβ+ cells. Next, we subset the data frame to select the columns of interest and give them meaningful names.
 
 ```{r}
 #| label: Pdgfrb_Counts_Handle
@@ -190,7 +190,7 @@ We plot the data to see its distribution and have a first hint for modeling stra
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Exploratory data visualization for the number of PDGFR-β+ cells
+#| fig-cap: Exploratory data visualization for the number of PDGFRβ+ cells
 #| fig-width: 9
 #| fig-height: 4
 
@@ -208,7 +208,7 @@ Pdgfrb_Counts_box <-
     ) +
   geom_boxplot() +
 
-scale_y_continuous(name = "Number of PDGFR-β+ cells") +
+scale_y_continuous(name = "Number of PDGFRβ+ cells") +
 scale_x_discrete(
   name   ="Days post-ischemia (DPI) ",
   breaks = c("0D", "14D")
@@ -219,9 +219,9 @@ Plot_theme
 Pdgfrb_Counts_box
 ```
 
-@fig-Pdgfb_Counts_Expl shows that cerebral ischemia comprises an increase in the number of PDGFR-β cells. The plots at 14D show a tiny difference between the means of the two genotypes.
+@fig-Pdgfb_Counts_Expl shows that cerebral ischemia comprises an increase in the number of PDGFRβ cells. The plots at 14D show a tiny difference between the means of the two genotypes.
 
-## Statistical modeling for the number of PDGFR-β+ cells
+## Statistical modeling for the number of PDGFRβ+ cells
 
 Given that we took three different photos per animal, we'll fit a multilevel model to capture the both the population-level effects of Genotype and the group variability due to individual differences among the mice. We fit the following model:
 
@@ -280,7 +280,7 @@ To evaluate sample predictions, we perform the model diagnostics using the `pp_c
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Model diagnostics for the number of PDGFR-β+ cells
+#| fig-cap: Model diagnostics for the number of PDGFRβ+ cells
 #| fig-height: 4
 #| fig-width: 5
 
@@ -310,7 +310,7 @@ After validating the model, we plot the full posterior distributions for the pop
 #| warning: false
 #| message: false
 #| results: false
-#| fig-cap: Posterior distribution for the number of of PDGFR-β+ cells
+#| fig-cap: Posterior distribution for the number of of PDGFRβ+ cells
 #| fig-width: 10
 #| fig-height: 4
 
@@ -328,7 +328,7 @@ Pdgfrb_Count_fig <- ggplot(Pdgfrb_Count_Draws, aes(x = Genotype, y = .prediction
   geom_jitter(data = Pdgfrb_Counts_14D, aes(x = Genotype, y = Counts),
               width = 0.15, alpha = 0.6, size = 2) + # Actual measurements
   labs(x = "Genotype") + 
-  scale_y_continuous(name = "Number of PDGFR-β+ cells",
+  scale_y_continuous(name = "Number of PDGFRβ+ cells",
                      limits = c(0, 400),
                       breaks = seq(0, 400, 100) ) +
   Plot_theme +
@@ -524,7 +524,7 @@ Pdgfrb_Intensity_scr
 
 ## Statistical modeling for PDGFR-B area/intensity
 
-To analyze the changes in PDGFR-β expression considering area and intensity, we utilized a mixed-effects model (family = student) with the interactions of Area and Genotype as predictors. We use MouseID as random term as previously specified. The model specification is as follows:
+To analyze the changes in PDGFRβ expression considering area and intensity, we utilized a mixed-effects model (family = student) with the interactions of Area and Genotype as predictors. We use MouseID as random term as previously specified. The model specification is as follows:
 
 $$
 Intensity_i = \beta_0 + \beta_1 \times Area_i + \beta_2 \times Genotype_i + \beta_3 \times (Area_i \times Genotype_i) + u_{MouseID[i]} + \epsilon_i
@@ -706,16 +706,16 @@ Pdgfrb_AreaInt_DPI <- plot(Pdgfrb_AreaInt_DPI,
        plot = FALSE, points = TRUE, point_args = list(size =0.1))[[3]]
 
 Pdgfrb_AreaInt_fig <- Pdgfrb_AreaInt_DPI + 
-  scale_y_continuous(name = expression ("PDGFR-β intensity"),
+  scale_y_continuous(name = expression ("PDGFRβ intensity"),
                      limits = c(0, 10)) +
   scale_x_continuous(name="Nuclei area") +
   
   scale_color_manual(name = "",
                        values = c("#4DB6D0", "#D9717D"),
-                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+                       labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
  scale_fill_manual(name = "",
                      values = c("#4DB6D0", "#D9717D"),
-   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+   labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
   
   Plot_theme +
   theme(legend.position = "top",

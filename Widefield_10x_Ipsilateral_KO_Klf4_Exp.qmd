@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of KLF4 expression in the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+title: "Analysis of KLF4 expression in the ipsilateral hemisphere of PDGFRβ^KLF4-KO mice"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -46,9 +46,9 @@ bibliography: references.bib
 
 # Preview
 
-Here, we analyze KLF4 expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+Here, we analyze KLF4 expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFRβ+ cells. The brains were harvested at 14 DPI. 
 
-**Parent dataset:** KLF4, PDGFR-β and CD31 stained ischemic hemispheres imaged at 10x (with stitching). Samples were taken 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.11188656) under the names `Widefield_10x_Ipsilateral_KO_Klf4-Pdgfrb-CD31(a).zip` and `Widefield_10x_Ipsilateral_KO_Klf4-Pdgfrb-CD31(b).zip`
+**Parent dataset:** KLF4, PDGFRβ and CD31 stained ischemic hemispheres imaged at 10x (with stitching). Samples were taken 14 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.11188656) under the names `Widefield_10x_Ipsilateral_KO_Klf4-Pdgfrb-CD31(a).zip` and `Widefield_10x_Ipsilateral_KO_Klf4-Pdgfrb-CD31(b).zip`
 
 **Working dataset**: The `Data_Raw/Widefield_10x_Ipsilateral_KO_Klf4/` folder containing the raw output from CellProfiller [@stirling2021]. The CellProfiller pipeline used to perform the KLF4+ cell detection is available at OSF (https://osf.io/c8jga).
 

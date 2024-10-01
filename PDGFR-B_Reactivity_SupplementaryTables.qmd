@@ -338,8 +338,6 @@ format: html
 
 ## ------------------------------------------------------------------------
 
-
-
 ::: {#tbl-panel_Ki67_Psgfrb layout-ncol="2"}
 | **Parameters**  | **Est.** | **2.5 %** | **97.5 %** |
 |-----------------|----------|-----------|------------|
@@ -574,7 +572,7 @@ format: html
 | Num.Obs.           | 19       |           |            |
 | R2                 | 0.03     |           |            |
 
-: **Spatial intensity of KLF4+ nuclei following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity \~ Genotype, sigma \~ Genotype, family = student*. {#tbl-KLF4_KO_Ipsilateral}
+: **Spatial intensity of KLF4+ nuclei in KLF4-KO mice following injury:** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity \~ Genotype, sigma \~ Genotype, family = student*. {#tbl-KLF4_KO_Ipsilateral}
 
 ## ------------------------------------------------------------------------
 
@@ -642,6 +640,36 @@ format: html
 **PDGFRβ integrated density in PDGFRβ\^KLF4-KO mice with additional predictors.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the models a) *Pdgfrb \~ Genotype x Shrinkage, family = student* and b) *Pdgfrb \~ Genotype x Ipsilateral_Scaled, family student*.
 :::
 
+
+## ------------------------------------------------------------------------
+
+::: {#tbl-panel_KO_shrinkage layout-ncol="2"}
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|--------------|----------|-----------|------------|
+| b_Intercept  | 72.3     | 27.8      | 122.6      |
+| b_GenotypeKO | 18.3     | -41.0     | 74.4       |
+| sigma        | 75.1     | 48.0      | 103.9      |
+| Num.Obs.     | 34       |           |            |
+| R2           | 0.019    |           |            |
+
+
+: Model for PDGFRβ IntDen {#tbl-PdgfrbIntDEn_EarlyKO_Shrinkage}
+
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|--------------|----------|-----------|------------|
+| b_Intercept  | 446.6    | 366.9     | 526.0      |
+| b_GenotypeKO | -54.0    | -162.4    | 58.1       |
+| sigma        | 144.3    | 94.1      | 196.9      |
+| Num.Obs.     | 34       |           |            |
+| R2           | 0.031    |           |            |
+
+
+: Model for GFAP IntDen {#tbl-GfapIntDEn_EarlyKO_IpsiArea}
+
+**PDGFRβ and GFAP integrated density in PDGFRβ\^KLF4-KO mice (intraperitoneal injection previous to ischemia).** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the models a) *Pdgfrb \~ Genotype, family = student* and b) *Gfap \~ Genotype, family student*.
+:::
+
+
 ## ------------------------------------------------------------------------
 
 | **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
@@ -668,4 +696,40 @@ format: html
 | Num.Obs.             | 5588     |           |            |
 | R2                   | 0.81     |           |            |
 
-: **PDGFRβ+ labeling intesity in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Intensity \~ Area x Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_KO_Fish_Counts_AreaInt}
+: **PDGFRβ+ labeling intensity in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model a) *Intensity \~ Area x Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_KO_Fish_Counts_AreaInt}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------|----------|-----------|------------|
+| b_Intercept          | 167      | 146       | 188        |
+| b_GenotypeCre        | -51      | -78       | -24        |
+| b_GenotypeFlox       | -2.5     | -33       | 27         |
+| sd_MouseID_Intercept | 10       | 0.4       | 25         |
+| sigma                | 10       | 1.1       | 26         |
+| Num.Obs.             | 10       |           |            |
+| R2                   | 0.883    |           |            |
+| R2 Marg.             | 0.820    |           |            |
+
+
+: **Number of PDGFRβ+ nuclei in PDGFRβ\^Cre and KLF4\^Flox mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Cells \~ Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_EarlyKO_Fish_Counts}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**       | **Est.** | **2.5 %** | **97.5 %** |
+|----------------------|----------|-----------|------------|
+| b_Intercept          | 0.2      | 0.09      | 0.4        |
+| b_Area               | 1.00     | 0.98      | 1.01       |
+| b_GenotypeCre        | -0.61    | -0.91     | -0.32      |
+| b_GenotypeFlox       | -0.20    | -0.54     | 0.11       |
+| b_Area_GenotypeCre   | -0.34    | -0.37     | -0.31      |
+| b_Area_GenotypeFlox  | -0.14    | -0.16     | -0.12      |
+| sd_MouseID_Intercept | 0.19     | 0.10      | 0.36       |
+| sigma                | 0.12     | 0.11      | 0.13       |
+| Num.Obs.             | 1460     |           |            |
+| R2                   | 0.97     |           |            |
+| R2 Marg.             | 0.952    |           |            |
+| ICC                  | 0.2      |           |            |
+
+
+: **PDGFRβ+ labeling intensity in PDGFRβ\^Cre and KLF4\^Flox mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity \~ Area x Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_EarlyKO_Fish_Intensity}

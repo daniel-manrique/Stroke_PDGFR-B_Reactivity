@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
   - GFAP
-  - PDGFR-β
+  - PDGFRβ
   - Brain injury
   - Brain shrinkage
   - Cell proliferation
@@ -51,9 +51,9 @@ bibliography: references.bib
 
 In this notebook, we perform the analysis of the structural changes in KLF4 brain and related glial/fibrotic scar markers in the ipsilateral hemisphere following cerebral ischemia.
 
-**Parent dataset:** PDGFR-β and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFR-β/KLF4KO) and WT (Wild type controls). The mice were sacrificed 14 days post-ischemia (DPI) and four WT brains with no ischemia were added as a base control for measurement errors. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_KO:Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
+**Parent dataset:** PDGFRβ and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFRβ/KLF4KO) and WT (Wild type controls). The mice were sacrificed 14 days post-ischemia (DPI) and four WT brains with no ischemia were added as a base control for measurement errors. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_KO:Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
 
-**Working dataset**: This notebook uses two datasets. First, the `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Shrinkage.csv` file containing measurements of the ipsilateral and contralateral hemispheres performed by the researchers in FIJI. Second, the `Data_Raw/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFR-β (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
+**Working dataset**: This notebook uses two datasets. First, the `Data_Processed/Widefield_5x_Ipsilateral_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_Shrinkage.csv` file containing measurements of the ipsilateral and contralateral hemispheres performed by the researchers in FIJI. Second, the `Data_Raw/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFRβ (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
 
 # Install and load required packages
 
@@ -148,7 +148,7 @@ Area_Intensity <- read.csv(file = "Data_Raw/Widefield_5x_Ipsilateral_KO_Pdgfrb-N
 
 ```
 
-Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFR-β labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
+Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFRβ labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
 
 ```{r}
 #| label: Area-Intensity_Handle 
@@ -255,7 +255,7 @@ $$
 Shrinkage_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
 $$
 
-Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFR-β-TdTomato animals at 14 DPI, the model uses the following prior:
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFRβ-TdTomato animals at 14 DPI, the model uses the following prior:
 
 $$
 \begin{align}
@@ -502,7 +502,7 @@ describe_posterior(
 modelsummary(Shrinkage_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "Hemisferic Shrinkage in PDGFR-β-KLF4-KO mice",
+             title = "Hemisferic Shrinkage in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Shrinkage_Fit1_Table.html",
@@ -518,9 +518,9 @@ gt::gtsave (Shrinkage_Fit1_Table,
             filename = "Tables/tex/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Shrinkage_Fit1_Table.tex")
 ```
 
-# Analysis of PDGFR-β and GFAP reactivity 
+# Analysis of PDGFRβ and GFAP reactivity 
 
-Next, we analyze the integrated density of PDGFR-β and GFAP staining to visualize astroglial scar formation.  
+Next, we analyze the integrated density of PDGFRβ and GFAP staining to visualize astroglial scar formation.  
 
 ## Statistical model
 
@@ -532,7 +532,7 @@ $$
 Pdgfrb_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
 $$
 
-Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFR-β-TdTomato animals at 14 DPI, the model uses the default `brms` priors. 
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on Shrinkage; and $\epsilon_i$ is the error term. Given our previous results for  animals for PDGFRβ-TdTomato animals at 14 DPI, the model uses the default `brms` priors. 
 
 For GFAP expression, we fit an analogous model.
 
@@ -640,7 +640,7 @@ Se see no major deviations from the observed data.
 #| include: true
 #| warning: false
 #| message: false
-#| fig-cap: Conditional effects for PDGFR-β and GFAP
+#| fig-cap: Conditional effects for PDGFRβ and GFAP
 #| fig-height: 5
 #| fig-width: 10
 
@@ -724,7 +724,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             title = "Hemisferic Pdgfrb in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit1_Table.html",
@@ -751,7 +751,7 @@ describe_posterior(
 modelsummary(Gfap_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "Hemisferic Gfap in PDGFR-β-KLF4-KO mice",
+             title = "Hemisferic Gfap in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Gfap_Fit1_Table.html",
@@ -768,23 +768,23 @@ gt::gtsave (Gfap_Fit1_Table,
 ```
 # Two additional models
 
-Finally, to control for possible covariates, specifically for PDGFR-β integrated density, we perform regressions conditioning on Shrinkage and the Ipsilateral area. To have more meaningful results, we scale the variable for the ipsilateral area. 
+Finally, to control for possible covariates, specifically for PDGFRβ integrated density, we perform regressions conditioning on Shrinkage and the Ipsilateral area. To have more meaningful results, we scale the variable for the ipsilateral area. 
 
 ## Statistical modeling
 
 We fit the following models:
 
-- **Pdgfrb_Fit2:** We condition the integrated density of PDGFR-β on the interaction between Genotype and Shrinkage. By incorporating the interaction term, this model allows us to explore how the relationship between `Genotype` and `Pdgfrb_IntDen` varies across different levels of `Shrinkage`. The model is formulated as follows
+- **Pdgfrb_Fit2:** We condition the integrated density of PDGFRβ on the interaction between Genotype and Shrinkage. By incorporating the interaction term, this model allows us to explore how the relationship between `Genotype` and `Pdgfrb_IntDen` varies across different levels of `Shrinkage`. The model is formulated as follows
 
 $$
 Pdgfrb\_IntDen_i = \beta_0 + \beta_1 \times Genotype_i + \beta_2 \times Shrinkage_i + \beta_3 \times (Genotype_i \times Shrinkage_i) + \epsilon_i
 $$
-Where $\beta_0$ is the baseline integrated density of PDGFR-β at baseline values. $\beta_1$ represents the effect of Genotype on Pdgfrb_IntDen. $\beta_2$ indicates the effect of Shrinkage on Pdgfrb_IntDen, and $\beta_3$
+Where $\beta_0$ is the baseline integrated density of PDGFRβ at baseline values. $\beta_1$ represents the effect of Genotype on Pdgfrb_IntDen. $\beta_2$ indicates the effect of Shrinkage on Pdgfrb_IntDen, and $\beta_3$
 captures the interaction effect between Genotype and Shrinkage on Pdgfrb_IntDen. Finally, $\epsilon_i$ is the error term.
 
 The model uses the default `brms` priors.
 
-- **Pdgfrb_Fit3:** We condition the integrated density of PDGFR-β on the interaction between Genotype and the ipsilateral area.The model assumes the same formulation as the previous model.
+- **Pdgfrb_Fit3:** We condition the integrated density of PDGFRβ on the interaction between Genotype and the ipsilateral area.The model assumes the same formulation as the previous model.
 
 ### Fit the models
 ```{r}
@@ -901,16 +901,16 @@ Pdgfrb_Fit2_fig <- Pdgfrb_Fit2_CE +
   
 
   
-  scale_y_continuous(name = "PDGFR-β (IntDen)") +
+  scale_y_continuous(name = "PDGFRβ (IntDen)") +
   scale_x_continuous(name= expression ("Shrinkage (ratio)"),
                      breaks = seq(0.6, 1, 0.1)) +
   
   scale_color_manual(name = "",
                        values = c("#4DB6D0", "#D9717D"),
-                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+                       labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
  scale_fill_manual(name = "",
                      values = c("#4DB6D0", "#D9717D"),
-   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+   labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
   
   Plot_theme +
   theme(
@@ -936,15 +936,15 @@ Pdgfrb_Fit3_CE <- plot(Pdgfrb_Fit3_CE,
        plot = FALSE, points = TRUE)[[3]]
 
 Pdgfrb_Fit3_fig <- Pdgfrb_Fit3_CE + 
-  scale_y_continuous(name = "PDGFR-β (IntDen)") +
+  scale_y_continuous(name = "PDGFRβ (IntDen)") +
   scale_x_continuous(name= expression ("Ipsilateral area (scaled)"))+
                      
   scale_color_manual(name = "",
                        values = c("#4DB6D0", "#D9717D"),
-                       labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+                       labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
  scale_fill_manual(name = "",
                      values = c("#4DB6D0", "#D9717D"),
-   labels = c("Wildtype", expression ("PDGFR-β"^KLF4_KO))) +
+   labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
   
   Plot_theme +
   theme(
@@ -987,7 +987,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Fit2, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             title = "Hemisferic Pdgfrb in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit2_Table.html",
@@ -1014,7 +1014,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Fit3, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "Hemisferic Pdgfrb in PDGFR-β-KLF4-KO mice",
+             title = "Hemisferic Pdgfrb in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_KO_Pdgfrb-NeuN-Gfap_Pdgfrb_Fit3_Table.html",

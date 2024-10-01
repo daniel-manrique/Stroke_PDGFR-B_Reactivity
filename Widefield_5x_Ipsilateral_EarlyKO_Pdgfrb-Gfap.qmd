@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Gfap and PDGFR-B reactivity in the ipsilateral hemisphere of KLF4-KO (animals)"
+title: "Analysis of Gfap and PDGFRβ reactivity in the ipsilateral hemisphere of KLF4-KO (animals)"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -16,7 +16,7 @@ author:
 note: "GitHub: https://daniel-manrique.github.io/"
 keywords: 
   - GFAP
-  - PDGFR-β
+  - PDGFRβ
   - Brain injury
   - Brain shrinkage
   - Cell proliferation
@@ -51,9 +51,9 @@ bibliography: references.bib
 
 In this notebook, we perform the analysis of PDGFR-B and GFAP in the brain of KLF4 deficient mice.
 
-**Parent dataset:** PDGFR-β, NeuN, and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFR-β/KLF4KO) and WT (Wild type controls). Sham animals were included as control. KLF4 was depleted using itraperitoneal injection 4 days before experimental cerebral ischemia. Mice were sacrificed 25 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
+**Parent dataset:** PDGFRβ, NeuN, and GFAP stained ischemic hemispheres imaged at 5x (with stitching). Samples are grouped as KO (PDGFRβ/KLF4KO) and WT (Wild type controls). Sham animals were included as control. KLF4 was depleted using itraperitoneal injection 4 days before experimental cerebral ischemia. Mice were sacrificed 25 days post-ischemia (DPI). The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap.zip`. Please note that the NeuN channel was not analyzed in the current notebook. 
 
-**Working dataset**: We use the `Data_Raw/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFR-β (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
+**Working dataset**: We use the `Data_Raw/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-NeuN-Gfap/Image.csv`data frame contains the measurements for area and intensity conducted on CellProfiler [@stirling2021]. We performed pixel classification in Ilastik [@berg2019] for PDGFRβ (https://osf.io/yqwuj) and GFAP (https://osf.io/hytpc). The CellProfiler pipeline is also available at (https://osf.io/ks5yg).
 
 # Install and load required packages
 
@@ -145,7 +145,7 @@ Area_Intensity <- read.csv(file = "Data_Raw/Widefield_5x_Ipsilateral_EarlyKO_Pdg
 
 ```
 
-Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFR-β labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
+Now, we handle the data frames to obtain the variables of interest in a single data frame. From `Area_Intensity`, we are interested in `FileName_Gfap` to obtain the image metadata `Intensity_MeanIntensity_Gfap_Masked` to get the mean intensity of the Gfap labeling, `Intensity_MeanIntensity_Pdgfrb_Masked` to obtain the mean intensity of the PDGFRβ labeling, and `Intensity_TotalArea_Gfap_Masked` and `Intensity_TotalArea_Pdgfrb_Masked` to get the labeled area. 
 
 ```{r}
 #| label: Area-Intensity_Handle 
@@ -179,7 +179,7 @@ write.csv(Area_Intensity, "Data_Processed/Widefield_5x_Ipsilateral_EarlyKO_Pdgfr
 gt::gt(Area_Intensity[1:10,])
 ```
 
-# Analysis of PDGFR-β 
+# Analysis of PDGFRβ 
 
 ## Exploratory data visualization
 
@@ -230,7 +230,7 @@ $$
 Pdgfrb_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
 $$
 
-Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on PDGFR-B expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFR-β-TdTomato animals, the model uses the default `brms` priors. 
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on PDGFR-B expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFRβ-TdTomato animals, the model uses the default `brms` priors. 
 
 
 ### Fit the model
@@ -376,7 +376,7 @@ describe_posterior(
 modelsummary(Pdgfrb_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "PDGFR-B expression in PDGFR-β-KLF4-KO mice",
+             title = "PDGFR-B expression in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Pdgfrb_Fit1_Table.html",
@@ -437,7 +437,7 @@ $$
 Gfap_i = \beta_0 + \beta_1 \times Genotype_i + \epsilon_i
 $$
 
-Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on GFAP expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFR-β-TdTomato animals, the model uses the default `brms` priors. 
+Where: $\beta_0$ is the intercept—baseline value for WT; $\beta_1$ is the effect size of KLF4-KO on GFAP expression; and $\epsilon_i$ is the error term. Given our previous results for PDGFRβ-TdTomato animals, the model uses the default `brms` priors. 
 
 
 ### Fit the model
@@ -590,7 +590,7 @@ describe_posterior(
 modelsummary(Gfap_Fit1, 
              shape = term ~ model + statistic,
              centrality = "mean", 
-             title = "GFAP expression in PDGFR-β-KLF4-KO mice",
+             title = "GFAP expression in PDGFRβ-KLF4-KO mice",
              statistic = "conf.int",
              gof_omit = 'ELPD|ELDP s.e|LOOIC|LOOIC s.e|WAIC|RMSE',
              output = "Tables/html/Widefield_5x_Ipsilateral_EarlyKO_Pdgfrb-Gfap_Gfap_Fit1_Table.html",
