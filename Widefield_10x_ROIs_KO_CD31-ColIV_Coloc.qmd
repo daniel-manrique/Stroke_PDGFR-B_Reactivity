@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of CD31 and ColIV expression in the cortex of PDGFR-β^KLF4-KO mice"
+title: "Analysis of CD31 and ColIV expression in the cortex of PDGFRβ^KLF4-KO mice"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full

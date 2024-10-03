@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Collagen-IV expression in the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+title: "Analysis of Collagen-IV expression in the ipsilateral hemisphere of PDGFRβ^KLF4-KO mice"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -47,7 +47,7 @@ bibliography: references.bib
 
 # Preview
 
-Here, we analyze Collagen-IV (ColIV) expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFR-β+ cells. The brains were harvested at 14 DPI. 
+Here, we analyze Collagen-IV (ColIV) expression in the ipsilateral hemisphere of KLF4-KO animals following cerebral ischemia.The experimental group was treated with tamoxifen between 4-7 DPI to deplete KLF4 specifically in PDGFRβ+ cells. The brains were harvested at 14 DPI. 
 
 **Parent dataset:** CD31, ColIV, and IBA1 stained brains were imaged at 5x (with stitching). We harvested brains from WT and KLF4-KO animals at 14 days post-ischemia (DPI) and added sham WT brains to measure baseline values. The raw images and pre-processing scripts (if applicable) are available at the Zenodo repository (10.5281/zenodo.10553084) under the name `Widefield_5x_Ipsilateral_KO_CD31-ColIV-Iba1.zip`.
 
@@ -206,7 +206,7 @@ With the data handled, we proceed to exploratory data visualization.
 
 # Exploratory data visualization
 
-In the first place, we generate a scatter plot to check the relation ship between Intensity and area and verify if they are higly correlated. 
+In the first place, we generate a scatter plot to check the relation ship between Intensity and area and verify if they are highly correlated. 
 
 ```{r}
 #| label: fig-ColIV_Int_Expl
