@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Picosirius staining (Collagens) in defined ROIs of the ipsilateral hemisphere of PDGFR-β^KLF4-KO mice"
+title: "Analysis of Picosirius staining (Collagens) in defined ROIs of the ipsilateral hemisphere of PDGFRβ^KLF4-KO mice"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
@@ -385,16 +385,20 @@ Pico_Area_CE_Fig <-
   scale_x_discrete(name = "Region",
                    labels = c("Striatum", "Cortex")) +
   scale_y_continuous(name = "Picosirius stained area") +
-  scale_color_manual(values = rev(cols)) +
+  scale_color_manual(values = rev(cols),
+                     labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
+  scale_fill_manual(values = rev(cols),
+                     labels = c("Wildtype", expression ("PDGFRβ"^KLF4_KO))) +
+  
   theme_classic() +
   Plot_theme +
-  theme(legend.position = c(0.2, 0.9),
-        legend.direction = "vertical")
+  theme(legend.position = "top",
+        legend.direction = "horizontal")
 
 ggsave(
   plot     = Pico_Area_CE_Fig, 
   filename = "Plots/Widefield_20x_ROIs_Picosirius/Widefield_20x_ROIs_Picosirius_Pico_Area.png", 
-  width    = 9, 
+  width    = 11, 
   height   = 9, 
   units    = "cm")
 

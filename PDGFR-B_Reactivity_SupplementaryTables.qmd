@@ -733,3 +733,54 @@ format: html
 
 
 : **PDGFRβ+ labeling intensity in PDGFRβ\^Cre and KLF4\^Flox mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the multilevel model *Intensity \~ Area x Genotype + (1 \| MouseID), family = student*. {#tbl-Pdgfrb_EarlyKO_Fish_Intensity}
+
+## ------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 283      | 193       | 374        |
+| b_GenotypeKO   | 9.9      | -111      | 136        |
+| sigma          | 120      | 79        | 176        |
+| Num.Obs.       | 18       |           |            |
+| R2             | 0.025    |           |            |
+
+: **Colagen-IV labeling intensity in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Intensity \~ Genotype, family = student*. {#tbl-Pdgfrb_KO_ColIV_Intensity}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**     | **Est.** | **2.5 %** | **97.5 %** |
+|--------------------|----------|-----------|------------|
+| b_Intercept        | 3677     | 3399      | 3954       |
+| b_sigma_Intercept  | 5.8      | 5.2       | 6.5        |
+| b_GenotypeKO       | 272      | -472      | 999        |
+| b_sigma_GenotypeKO | 1.05     | 0.23      | 1.86       |
+| Num.Obs.           | 18       |           |            |
+| R2                 | 0.044    |           |            |
+
+: **CD31 area in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Area \~ Genotype, sigma ~ Genotype, family = student*. {#tbl-Pdgfrb_KO_CD31_Area}
+
+## ------------------------------------------------------------------------
+
+| **Parameters** | **Est.** | **2.5 %** | **97.5 %** |
+|----------------|----------|-----------|------------|
+| b_Intercept    | 2843     | 2010      | 3688       |
+| b_GenotypeKO   | 699      | -466      | 1825       |
+| sigma          | 1155     | 788       | 1687       |
+| Num.Obs.       | 18       |           |            |
+| R2             | 0.093    |           |            |
+
+: **ColIV area in PDGFRβ\^KLF4-KO mice.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Area \~ Genotype, family = student*. {#tbl-Pdgfrb_KO_ColIV_Area}
+
+## ------------------------------------------------------------------------
+
+| **Parameters**         | **Est.** | **2.5 %** | **97.5 %** |
+|------------------------|----------|-----------|------------|
+| b_Intercept            | 3757     | 2168      | 5352       |
+| b_RegionCtx            | 670      | 24        | 1904       |
+| b_GenotypeKO           | 442      | 12        | 1409       |
+| b_RegionCtx_GenotypeKO | 511      | 14        | 1573       |
+| sigma                  | 3974     | 3062      | 5150       |
+| Num.Obs.               | 36       |           |            |
+| R2                     | 0.024    |           |            |
+
+: **ColIV area in PDGFRβ\^KLF4-KO mice using picosirius staining.** Posterior summary with parameter estimates (Est.) and 95% credible intervals (2.5% - 97.5%) for the model *Area \~ Genotype, family = student*. {#tbl-Pdgfrb_KO_ColIV_Picosirius-Area}
