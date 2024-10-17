@@ -2,9 +2,11 @@
 
 This repository was organised by Daniel Manrique-Castano, former postdoctoral fellow and current research data curation officer at the Digital Research Alliance of Canada.
 
-**Website:** https://daniel-manrique.github.io/ \n
-**GitHub:** https://github.com/daniel-manrique \n
-**Contact:** dmanriquecastano .at gmail.com \n
+**Website:** https://daniel-manrique.github.io/ 
+
+**GitHub:** https://github.com/daniel-manrique 
+
+**Contact:** dmanriquecastano .at gmail.com 
 
 This repository hosts **Quarto** and **Python** notebooks (data handling and statistical models) associated with the research article "XXX". Raw/processed data and outputs are available in our **Open Science Framework (OSF) repository** (https:doi.org/10.17605/OSF.IO/74MQN).
 
@@ -12,11 +14,15 @@ This repository hosts **Quarto** and **Python** notebooks (data handling and sta
 
 Naming conventions for notebooks (taking as example *Confocal_20x_ROIs_Ki67-Pdgfrb_Coloc.qmd*)
 
-Confocal: Imaging type (available strings = Confocal, Widefield). \n
-20x: Objective magnification (Available strings = 5x, 10x, 20x, 40x). \n
-ROIs: Region of interest (Available strings = ROIs [regions of interest], Whole [whole brain], Ipsilateral [ischemic hemisphere]). \n
-Ki67-Pdgfrb: Marker stained/analysed (available strings = multiple, depending on experiment). \n
-Coloc: Analysis performed in notebook (available strings = multiple, depending on each experiment). \n
+Confocal: Imaging type (available strings = Confocal, Widefield). 
+
+20x: Objective magnification (Available strings = 5x, 10x, 20x, 40x). 
+
+ROIs: Region of interest (Available strings = ROIs [regions of interest], Whole [whole brain], Ipsilateral [ischemic hemisphere]). 
+
+Ki67-Pdgfrb: Marker stained/analysed (available strings = multiple, depending on experiment). 
+
+Coloc: Analysis performed in notebook (available strings = multiple, depending on each experiment). 
 
 
 ### Confocal imaging analysis
