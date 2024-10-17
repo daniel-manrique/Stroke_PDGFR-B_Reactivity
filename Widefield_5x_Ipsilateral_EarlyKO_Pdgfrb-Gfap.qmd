@@ -1,6 +1,6 @@
 ---
 title-block-banner: true
-title: "Analysis of Gfap and PDGFRβ reactivity in the ipsilateral hemisphere of KLF4-KO (animals)"
+title: "Analysis of Gfap and PDGFRβ reactivity in the ipsilateral hemisphere of KLF4-KO animals"
 subtitle: "Data analysis notebook"
 date: today
 date-format: full
